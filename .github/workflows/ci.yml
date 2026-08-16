@@ -67,7 +67,8 @@ jobs:
             (exec 3<>/dev/tcp/mysql/3306 && echo "tcp mysql:3306 OK") 2>&1 || echo "tcp mysql:3306 FAILED"
             (exec 3<>/dev/tcp/127.0.0.1/3306 && echo "tcp 127.0.0.1:3306 OK") 2>&1 || echo "tcp 127.0.0.1:3306 FAILED"
           } > /tmp/diag.out 2>&1
-          CONTENT=$(tr '\n' ';' < /tmp/diag.out | tr '"' "'" | cut -c1-3500)
+          # 输出前 2 个关键段（mysql 主机名 / localhost / dns / tcp）
+          CONTENT=$(grep -E "^(DSN|SELECT 1|tz|charset|CONN FAIL|=== try|FAILED|OK|getent|tcp)" /tmp/diag.out | tr '\n' ';' | tr '"' "'" | cut -c1-1500)
           echo "::error title=MySQLDiag,file=ci.yml::$CONTENT"
 
       - name: pytest + coverage
