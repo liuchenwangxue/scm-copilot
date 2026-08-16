@@ -50,10 +50,37 @@ jobs:
       - name: mypy
         run: mypy --explicit-package-bases --namespace-packages backend
 
+      - name: Debug MySQL (diagnose)
+        run: |
+          python - <<'EOF'
+          import asyncio
+          from sqlalchemy import text
+          from sqlalchemy.ext.asyncio import create_async_engine
+
+          async def main():
+              engine = create_async_engine(
+                  "mysql+asyncmy://root:root123@mysql:3306/scm_platform?charset=utf8mb4"
+              )
+              try:
+                  async with engine.connect() as conn:
+                      print("SELECT 1 =", await conn.scalar(text("SELECT 1")))
+                      print("NOW() =", await conn.scalar(text("SELECT NOW()")))
+                      print("tz_offset =", await conn.scalar(
+                          text("SELECT TIMESTAMPDIFF(HOUR, UTC_TIMESTAMP(), NOW())")))
+                      print("charset =", await conn.scalar(text("SELECT @@character_set_server")))
+              except Exception as e:  # noqa: BLE001
+                  print("CONN FAIL:", repr(e))
+                  raise
+              finally:
+                  await engine.dispose()
+
+          asyncio.run(main())
+          EOF
+
       - name: pytest + coverage
         run: |
           SCM_TEST_DSN="mysql+asyncmy://root:root123@mysql:3306/scm_platform?charset=utf8mb4" \
-          pytest backend/tests \
+          pytest backend/tests -v \
             --cov=backend --cov-report=term-missing --cov-report=xml:coverage.xml
 
       - name: Upload coverage report
