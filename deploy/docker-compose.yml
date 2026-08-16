@@ -1,0 +1,35 @@
+# ★ W23 Day1：SCM Copilot 平台基础服务编排
+# 本期只起 MySQL 8（平台权威库），后续周按需追加 redis/qdrant/nginx/backend
+# 位置：deploy/docker-compose.yml ｜ 运行：make up（或 docker compose -f deploy/docker-compose.yml up -d）
+#
+# 设计要点（手册坑）：
+# - 数据卷用【命名卷】而非绑定挂载：Windows + WSL2 下 NTFS 权限会导致 InnoDB 初始化失败
+# - TZ 必须设：否则 DATETIME(3) 默认值差 8 小时，W24 "近7天"查询会全错
+# - utf8mb4 + utf8mb4_unicode_ci：中文供应链数据唯一正确字符集
+# - 宿主端口默认 13306（本地 3306 已被 yudao-mysql 占用，错开避免冲突）
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: scm-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: scm_platform
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "${MYSQL_PORT:-13306}:3306"   # 宿主 13306 → 容器 3306（本机 3306 已被占用）
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  mysql_data:
+    name: scm_mysql_data

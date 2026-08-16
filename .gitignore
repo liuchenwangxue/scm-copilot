@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# 虚拟环境
+.venv/
+venv/
+
+# 环境变量（密钥绝不入库）
+.env
+.env.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# 运行时产物
+reports/*.log
+reports/*.jsonl
+data/*.db
+*.sqlite3
+
+# Docker 数据卷（命名卷不受影响，这里只防绑定挂载漏网）
+mysql_data/

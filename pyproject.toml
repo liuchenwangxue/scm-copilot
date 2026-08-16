@@ -1,0 +1,79 @@
+[project]
+name = "scm-copilot"
+version = "0.1.0"
+description = "SCM Copilot 供应链智能运营平台（阶段四）——模块化单体生产平台"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncmy",
+    "alembic",
+    "bcrypt",
+    "pyjwt",
+    "cryptography",          # asyncmy 连 MySQL8 caching_sha2_password 认证必需
+    "pydantic-settings",
+    "httpx",
+    "pytest",
+    "pytest-asyncio",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "mypy",
+    "pytest-cov",
+    "cryptography",
+]
+
+# ==================== ruff（lint + format） ====================
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["backend"]
+
+[tool.ruff.lint]
+# 生产级规则集（面试可讲）：E/F = 核心错误，W = 警告，UP = pyupgrade，
+# B = bugbear 常见坑，I = isort 导入排序，SIM = 简化
+select = ["E", "F", "W", "UP", "B", "I", "SIM"]
+ignore = [
+    "E402",   # 模块级 import 非顶部（sys.path hack 常见，项目惯例）
+    "E501",   # 行长交给 formatter（ruff format）
+    "F401",   # import 未使用（模块级 re-export noqa 已标注，减少噪音）
+    "B008",   # Depends(...) 作默认参数（FastAPI 依赖注入是标准用法）
+]
+
+# ==================== mypy（类型检查） ====================
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+warn_unused_ignores = false
+explicit_package_bases = true
+namespace_packages = true
+exclude = [
+    "deploy/",
+]
+
+# ==================== pytest + coverage ====================
+[tool.pytest.ini_options]
+# 单包布局：backend 是包根（from app.xxx import ...），pythonpath 兜底
+testpaths = ["backend/tests"]
+pythonpath = ["backend"]
+# 评测/集成类打 tag 跳过——CI 里不下载模型不烧 token（手册坑）
+markers = [
+    "llm: 需要真实 LLM/网络（CI 跳过，留本地跑）",
+    "model: 需要模型下载/推理（CI 跳过，留本地跑）",
+    "integration: 需要外部服务（MySQL/Redis/Qdrant/mock）（按需跑）",
+]
+addopts = "-q --disable-warnings"
+# async 测试自动收集（pytest-asyncio auto 模式，否则 async def 测试不被支持）
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+branch = true
+source = ["backend"]
+omit = ["*/__pycache__/*", "*/tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 0          # 本周目标=有报告；下门槛留到 W24
