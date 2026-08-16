@@ -62,19 +62,13 @@ jobs:
             timeout 30 python scripts/diag_mysql.py \
               "mysql+asyncmy://root:root123@127.0.0.1:3306/scm_platform?charset=utf8mb4" \
               || echo "FAILED localhost rc=$?"
-            echo "=== netstat / dns ==="
+            echo "=== dns / tcp ==="
             getent hosts mysql || echo "getent mysql FAILED"
             (exec 3<>/dev/tcp/mysql/3306 && echo "tcp mysql:3306 OK") 2>&1 || echo "tcp mysql:3306 FAILED"
+            (exec 3<>/dev/tcp/127.0.0.1/3306 && echo "tcp 127.0.0.1:3306 OK") 2>&1 || echo "tcp 127.0.0.1:3306 FAILED"
           } > /tmp/diag.out 2>&1
-          cat /tmp/diag.out
-          echo "::error::DIAG_COMPLETE rc=done"
-
-      - name: Upload diag artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: diag-mysql
-          path: /tmp/diag.out
+          CONTENT=$(tr '\n' ';' < /tmp/diag.out | tr '"' "'" | cut -c1-3500)
+          echo "::error title=MySQLDiag,file=ci.yml::$CONTENT"
 
       - name: pytest + coverage
         run: |
