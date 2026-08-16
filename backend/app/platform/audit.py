@@ -96,8 +96,6 @@ class AuditMiddleware:
         finally:
             # 异步写审计：新开会话独立提交，不污染请求事务；失败仅记日志
             try:
-                import asyncio
-
                 factory = scope["app"].state.session_factory
                 async with factory() as session:
                     await write_audit(
