@@ -49,9 +49,9 @@ test:
 ## lint + 类型检查（CI 同款）
 check:
 	@echo "== [1/2] ruff lint =="
-	$(RUFF) check backend
+	$(RUFF) check backend scripts
 	@echo "== [2/2] mypy =="
-	$(MYPY) --explicit-package-bases --namespace-packages backend
+	$(MYPY) --explicit-package-bases --namespace-packages backend scripts
 	@echo "OK: make check 全过"
 
 ## 自动修复 lint

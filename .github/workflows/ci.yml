@@ -45,10 +45,10 @@ jobs:
           pip install -e ".[dev]"   # 依赖唯一来源 = pyproject.toml，避免双清单漂移
 
       - name: ruff lint
-        run: ruff check backend
+        run: ruff check backend scripts
 
       - name: mypy
-        run: mypy --explicit-package-bases --namespace-packages backend
+        run: mypy --explicit-package-bases --namespace-packages backend scripts
 
       # 平台库 schema 合法 + 种子可重放（保证 PR 合并前 schema 一定可用）
       - name: alembic migrate + seed

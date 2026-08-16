@@ -61,6 +61,8 @@ ignore_missing_imports = true
 warn_unused_ignores = false
 explicit_package_bases = true
 namespace_packages = true
+# scripts/（seed 等）import app.* 需要 backend 在解析路径上
+mypy_path = ["backend"]
 exclude = [
     "deploy/",
 ]
