@@ -40,6 +40,8 @@ include = ["app*"]
 target-version = "py312"
 line-length = 100
 src = ["backend"]
+# alembic/versions 是自动生成的迁移代码，不参与 lint/format（模板自带 Union 等旧风格）
+extend-exclude = ["backend/alembic/versions"]
 
 [tool.ruff.lint]
 # 生产级规则集（面试可讲）：E/F = 核心错误，W = 警告，UP = pyupgrade，

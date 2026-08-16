@@ -50,6 +50,17 @@ jobs:
       - name: mypy
         run: mypy --explicit-package-bases --namespace-packages backend
 
+      # 平台库 schema 合法 + 种子可重放（保证 PR 合并前 schema 一定可用）
+      - name: alembic migrate + seed
+        run: |
+          SCM_PLATFORM_DSN="mysql+asyncmy://root:root123@127.0.0.1:3306/scm_platform?charset=utf8mb4" \
+            alembic -c backend/alembic.ini upgrade head
+          SCM_PLATFORM_DSN="mysql+asyncmy://root:root123@127.0.0.1:3306/scm_platform?charset=utf8mb4" \
+            python scripts/seed_platform.py
+          # 幂等验证：seed 跑两遍结果一致（无重复告警即过）
+          SCM_PLATFORM_DSN="mysql+asyncmy://root:root123@127.0.0.1:3306/scm_platform?charset=utf8mb4" \
+            python scripts/seed_platform.py
+
       - name: pytest + coverage
         run: |
           SCM_TEST_DSN="mysql+asyncmy://root:root123@127.0.0.1:3306/scm_platform?charset=utf8mb4" \

@@ -5,6 +5,7 @@
   CI 用 service container 映射到 job 本机的 127.0.0.1:3306（实测 VM runner
   解析不了 service 名 `mysql`），本地默认 docker compose 的 13306
 """
+
 import os
 
 import pytest

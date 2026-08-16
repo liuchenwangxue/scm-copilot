@@ -4,6 +4,7 @@
 - GET /health：存活探针 + DB 连通状态（deploy compose healthcheck 用）
 - 白名单端点：/health /docs /metrics（其余路由 W23 Day3 起挂 JWT）
 """
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
