@@ -1,8 +1,9 @@
 # ★ W23 Day1：SCM Copilot CI 流水线：push/PR → Python 3.12 → ruff → mypy → pytest → coverage
 #
 # 设计（沿用 stage3 W21 经验）：
-# - MySQL service container：host 名就是 service 名 `mysql`（不是 localhost）
-#   → 连通性用例用 SCM_TEST_DSN=mysql+asyncmy://root:root123@mysql:3306/... 覆盖
+# - MySQL service container：端口映射到 job 容器本机 127.0.0.1:3306（实测 DNS 无法
+#   解析 service 名 `mysql`，手册的"service 名即 host"在 GH Actions 不成立）
+#   → 连通性用例用 SCM_TEST_DSN=mysql+asyncmy://root:root123@127.0.0.1:3306/... 覆盖
 # - CI 不做模型下载/网络访问（integration 以外的用例必须离线可跑）
 # - coverage 生成 XML 报告上传
 name: CI
@@ -50,30 +51,9 @@ jobs:
       - name: mypy
         run: mypy --explicit-package-bases --namespace-packages backend
 
-      - name: Debug MySQL (diagnose)
-        continue-on-error: true
-        run: |
-          {
-            echo "=== try hostname mysql ==="
-            timeout 30 python scripts/diag_mysql.py \
-              "mysql+asyncmy://root:root123@mysql:3306/scm_platform?charset=utf8mb4" \
-              || echo "FAILED hostname mysql rc=$?"
-            echo "=== try localhost 3306 ==="
-            timeout 30 python scripts/diag_mysql.py \
-              "mysql+asyncmy://root:root123@127.0.0.1:3306/scm_platform?charset=utf8mb4" \
-              || echo "FAILED localhost rc=$?"
-            echo "=== dns / tcp ==="
-            getent hosts mysql || echo "getent mysql FAILED"
-            (exec 3<>/dev/tcp/mysql/3306 && echo "tcp mysql:3306 OK") 2>&1 || echo "tcp mysql:3306 FAILED"
-            (exec 3<>/dev/tcp/127.0.0.1/3306 && echo "tcp 127.0.0.1:3306 OK") 2>&1 || echo "tcp 127.0.0.1:3306 FAILED"
-          } > /tmp/diag.out 2>&1
-          # 输出前 2 个关键段（mysql 主机名 / localhost / dns / tcp）
-          CONTENT=$(grep -E "^(DSN|SELECT 1|tz|charset|CONN FAIL|=== try|FAILED|OK|getent|tcp)" /tmp/diag.out | tr '\n' ';' | tr '"' "'" | cut -c1-1500)
-          echo "::error title=MySQLDiag,file=ci.yml::$CONTENT"
-
       - name: pytest + coverage
         run: |
-          SCM_TEST_DSN="mysql+asyncmy://root:root123@mysql:3306/scm_platform?charset=utf8mb4" \
+          SCM_TEST_DSN="mysql+asyncmy://root:root123@127.0.0.1:3306/scm_platform?charset=utf8mb4" \
           pytest backend/tests -v \
             --cov=backend --cov-report=term-missing --cov-report=xml:coverage.xml
 
