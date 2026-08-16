@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "scm-copilot"
 version = "0.1.0"
@@ -13,18 +17,23 @@ dependencies = [
     "pyjwt",
     "cryptography",          # asyncmy 连 MySQL8 caching_sha2_password 认证必需
     "pydantic-settings",
-    "httpx",
-    "pytest",
-    "pytest-asyncio",
+    "httpx",                 # fastapi TestClient 依赖（测试经 dev extra 安装）
 ]
 
 [project.optional-dependencies]
 dev = [
     "ruff",
     "mypy",
+    "pytest",
+    "pytest-asyncio",
     "pytest-cov",
-    "cryptography",
 ]
+
+# 包发现：backend/ 下只有 app* 是可安装包（tests 不打包）；
+# 不声明会导致 setuptools 自动发现撞上 backend/deploy/docs 多顶层目录而失败
+[tool.setuptools.packages.find]
+where = ["backend"]
+include = ["app*"]
 
 # ==================== ruff（lint + format） ====================
 [tool.ruff]

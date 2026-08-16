@@ -42,8 +42,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install ruff mypy pytest pytest-cov pytest-asyncio fastapi uvicorn \
-            "sqlalchemy[asyncio]" asyncmy cryptography pydantic-settings httpx
+          pip install -e ".[dev]"   # 依赖唯一来源 = pyproject.toml，避免双清单漂移
 
       - name: ruff lint
         run: ruff check backend

@@ -1,8 +1,9 @@
 """W23 Day1 最小骨架测试：/health 探活 + MySQL 连通性（CI 可跑）。
 
 - test_health_endpoint：用 TestClient 打 /health（不依赖 MySQL 时返回 degraded）
-- test_mysql_connectivity：标记 integration——CI 里 MySQL service container 提供
-  PLATFORM_DSN（service 名 mysql:3306），本地用 docker compose 起的 13306
+- test_mysql_connectivity：标记 integration——DSN 由 SCM_TEST_DSN 覆盖：
+  CI 用 service container 映射到 job 本机的 127.0.0.1:3306（实测 VM runner
+  解析不了 service 名 `mysql`），本地默认 docker compose 的 13306
 """
 import os
 

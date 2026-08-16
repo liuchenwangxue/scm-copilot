@@ -1,0 +1,2 @@
+# sh 脚本强制 LF：CRLF 的 .sh 在 Git Bash 里会报 $'\r': command not found
+*.sh text eol=lf
