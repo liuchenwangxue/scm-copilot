@@ -51,18 +51,30 @@ jobs:
         run: mypy --explicit-package-bases --namespace-packages backend
 
       - name: Debug MySQL (diagnose)
+        continue-on-error: true
         run: |
-          OUT=$(python scripts/diag_mysql.py \
-            "mysql+asyncmy://root:root123@mysql:3306/scm_platform?charset=utf8mb4" 2>&1)
-          RC=$?
-          echo "$OUT"
-          if [ $RC -ne 0 ]; then
-            # 把完整错误作为 ::error:: 注解（API 可读，免登录）
-            echo "$OUT" | while IFS= read -r line; do
-              echo "::error::MYSQL_DIAG: $line"
-            done
-            exit $RC
-          fi
+          {
+            echo "=== try hostname mysql ==="
+            timeout 30 python scripts/diag_mysql.py \
+              "mysql+asyncmy://root:root123@mysql:3306/scm_platform?charset=utf8mb4" \
+              || echo "FAILED hostname mysql rc=$?"
+            echo "=== try localhost 3306 ==="
+            timeout 30 python scripts/diag_mysql.py \
+              "mysql+asyncmy://root:root123@127.0.0.1:3306/scm_platform?charset=utf8mb4" \
+              || echo "FAILED localhost rc=$?"
+            echo "=== netstat / dns ==="
+            getent hosts mysql || echo "getent mysql FAILED"
+            (exec 3<>/dev/tcp/mysql/3306 && echo "tcp mysql:3306 OK") 2>&1 || echo "tcp mysql:3306 FAILED"
+          } > /tmp/diag.out 2>&1
+          cat /tmp/diag.out
+          echo "::error::DIAG_COMPLETE rc=done"
+
+      - name: Upload diag artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diag-mysql
+          path: /tmp/diag.out
 
       - name: pytest + coverage
         run: |
