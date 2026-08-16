@@ -208,6 +208,33 @@ class QuotaUsage(Base):
 # ==================== 伴随表：调度 + 会话 ====================
 
 
+class TokenBlacklist(Base):
+    """JWT 吊销名单（W23 Day3 logout 落库版，W25 可迁 Redis）。
+
+    设计要点：
+    - 按 jti 精准吊销（不按整条 token 存，审计可回放哪个签名被吊销）
+    - 记录过期时间：本周末 Redis 迁移前，吊销清理可直接 DELETE where expires_at < NOW()
+    - 登出时把 access/refresh 的 jti 一并入库；校验时命中即 401
+    """
+
+    __tablename__ = "token_blacklist"
+    __table_args__ = (
+        Index("idx_blacklist_jti_expires", "jti", "expires_at"),
+        Index("idx_blacklist_created", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    jti: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, comment="JWT ID")
+    token_type: Mapped[str] = mapped_column(String(16), nullable=False, comment="access / refresh")
+    user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(_dt3(), nullable=False, comment="吊销截至")
+    created_at: Mapped[datetime] = mapped_column(
+        _dt3(),
+        nullable=False,
+        server_default=text("CURRENT_TIMESTAMP(3)"),
+    )
+
+
 class SchedulerJobRun(Base):
     __tablename__ = "scheduler_job_runs"
     __table_args__ = (

@@ -1,10 +1,11 @@
-# ★ W23 SCM Copilot 平台 Makefile（Day1 建仓版 + Day2 seed）
+# ★ W23 SCM Copilot 平台 Makefile（Day1 建仓 + Day2 seed + Day3 认证）
 # 用法：
 #   make up        docker compose 起 MySQL（-d）
 #   make down      停服务
-#   make migrate   alembic upgrade head（Day2 生效）
+#   make migrate   alembic upgrade head（含 Day3 token_blacklist）
 #   make seed      平台库幂等种子（4 角色/12 权限/12 用户）
 #   make test      pytest 平台单测 + coverage
+#   make test-auth 仅跑认证/RBAC（Day3，需 MySQL 已起 + seed）
 #   make check     ruff lint + mypy（CI 同款，本地兜底）
 PY := .venv/Scripts/python.exe
 RUFF := $(PY) -m ruff
@@ -14,16 +15,17 @@ COMPOSE := docker compose -f deploy/docker-compose.yml
 # alembic.ini 在 backend/ 下，须在此目录运行（env.py 经 pythonpath 兜底）
 BACKEND := backend
 
-.PHONY: up down migrate seed test check lint-fix format help
+.PHONY: up down migrate seed test test-auth check lint-fix format help
 
 ## 默认：显示帮助
 help:
 	@echo "目标:"
 	@echo "  make up        docker compose 起 MySQL（-d）"
 	@echo "  make down      停服务"
-	@echo "  make migrate   alembic upgrade head（Day2 生效）"
+	@echo "  make migrate   alembic upgrade head（含 Day3 token_blacklist）"
 	@echo "  make seed      平台库幂等种子（4 角色/12 权限/12 用户）"
 	@echo "  make test      pytest backend/tests + coverage"
+	@echo "  make test-auth 仅跑认证/RBAC（Day3，需 MySQL 已起 + seed）"
 	@echo "  make check     ruff lint + mypy（0 error 才算过）"
 
 ## 起 MySQL（W23 Day1）
@@ -45,6 +47,10 @@ seed:
 ## pytest + coverage
 test:
 	$(PYTEST) backend/tests --cov=backend --cov-report=term-missing
+
+## 仅跑认证/RBAC（Day3，需 MySQL 已起 + seed）
+test-auth:
+	$(PYTEST) backend/tests/test_auth.py backend/tests/test_rbac.py -v
 
 ## lint + 类型检查（CI 同款）
 check:
