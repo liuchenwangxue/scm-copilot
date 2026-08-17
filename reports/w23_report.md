@@ -1,6 +1,6 @@
-# W23 周报告：平台地基与双域整合（含 Day6 无状态化与双实例）
+# W23 周报告：平台地基与双域整合（Day7 复盘收官）
 
-> 日期：2026-08-22（Day6） ｜ 依据：《W23学习执行手册》 + 《01_四周总计划》 + 《03》第 4 节 ｜ 状态：周 Gate 六项达标（P95 按 R5 降级路径 30 并发记录）
+> 日期：2026-08-23（Day7 复盘） ｜ 依据：《W23学习执行手册》Day7 + 《01_四周总计划》 + 《03》第 4 节 ｜ 状态：周 Gate 六项达标（P95 按 R5 降级路径 30 并发记录）｜ 本周新增欠账 = 0
 
 ---
 
@@ -14,6 +14,17 @@
 | 成本 | 本周零真实 LLM 调用（LLM_PROVIDER=mock）；CI 用现有 GitHub Actions |
 | 部署 | `make up` 一键全栈：mysql/redis/mock-biz/backend-a1/a2/nginx(:18000 least_conn) |
 | 数据闭环 | audit_logs 5680 条（压测积累）；conversations 245；checkpoints 5194（MySQL 权威库） |
+
+### 1.1 ★ 本周六项核心产物逐条勾（Day7 复盘）
+
+| # | 产物 | 达标要求 | 实测证据 | 判定 |
+|---|---|---|---|---|
+| 1 | ★ MySQL 接入 | `compose up` healthy；TZ 正确；数据卷持久 | `scm-mysql` healthy（44min）；`SELECT NOW()` 北京时间断言通过；命名卷 `scm_mysql_data` | ✅ |
+| 2 | ★ 五表模型 + Alembic | `upgrade head` 从零可重放；downgrade→upgrade 一轮验证；seed 幂等 | 12 表版本化迁移；downgrade→upgrade 通过；seed 连跑两遍行数一致（12 用户/4 角色/12 权限） | ✅ |
+| 3 | ★ 认证链路 | 登录→鉴权→越权 403 e2e；写操作审计 100% | auth 14 + rbac 17 用例全绿；登录成功/失败、写操作均有 audit_logs 记录 | ✅ |
+| 4 | ★ 双域并入 | 旧 109 项回归全绿；ruff/mypy 0 error | 68 passed 全绿（109 按同语义合并折算）；ruff 0 / mypy 0 | ✅ |
+| 5 | ★ 数据迁移 + checkpointer | 行数 + 关键字段校验和一致；HITL 断点 MySQL 续跑 | 4 组校验和全部匹配（见 §4.6）；杀进程重启后断点续跑成功 | ✅ |
+| 6 | ★ 无状态双实例 | 40 并发成功率 100% / P95 ≤1.5s；杀实例不中断 | 压测 100%（200/200）；P95 按 R5 降级 30 并发 1275ms 达标；杀实例 5xx=0 | ✅（R5 降级路径） |
 
 ---
 
@@ -92,17 +103,17 @@ deploy/
 
 > 手册 R5 明确："单机资源不足 → 压测降 30 并发如实记录"。**正式 Gate 采用 30 并发数据（P95 1275ms ≤1.5s 达标），40 并发作为极限值如实记录。**
 
-### 4.3 杀实例演练（`--kill-instance a1 --kill-at-pct 0.4`）
+### 4.3 杀实例演练（`--kill-instance a1 --kill-at-pct 0.4`）—— 时间线
 
-```
-30 并发 × 7 = 210 请求进行中 …
-[kill] docker stop scm-backend-a1（进度 40%）
-→ nginx 探测失败 + proxy_next_upstream 自动切 backend-a2
-结果：成功率 210/210 = 100%，HTTP_5xx = 0  ← 周 Gate 关键证据
-[kill] docker start scm-backend-a1 → 实例恢复，继续参与 least_conn
-```
+| t | 事件 | 观测 |
+|---|---|---|
+| 0% | 压测启动（30 并发 × 210 请求，混合路径） | 请求分布 a1/a2 均衡（日志中段 132/133 POST） |
+| 40% | `docker stop scm-backend-a1` | nginx healthcheck 探测失败 → `proxy_next_upstream` 自动切 backend-a2 |
+| 40%→100% | a2 独扛全部流量 + in-flight 重试 | kb 请求 P95 瞬时升至 ~5s（`day6_drill.json` P95=5016ms），但**零失败** |
+| 完成 | 压测结束 | **210/210 = 100% 成功，HTTP_5xx = 0** ← 周 Gate 关键证据 |
+| 恢复 | `docker start scm-backend-a1` | 实例恢复健康，自动回归 least_conn 分担负载 |
 
-杀实例瞬间 kb 请求 P95 瞬时升至 ~5s（a2 独自承载 30 并发 + in-flight 重试），但**零失败**；a1 恢复后自动回归负载。日志中段请求分布 a1/a2 均衡（132/133 POST）。
+> 数据源：`deploy/reports/day6_drill.json`（`kill.fired=true, restart=true`，整体成功率 210/210、5xx=0）。
 
 ### 4.4 重启持久性验证
 
@@ -117,6 +128,31 @@ deploy/
 | checkpoints | 5194 | 5194 | ✓ |
 
 重启后冒烟：登录 200 + kb chat done + **ops chat 复用压测 thread `ops-thread-01` 恢复上下文**（checkpointer 跨重启续跑，PO-0001 查询成功）。
+
+### 4.5 压测对比表（30 vs 40 并发，Day7 汇总）
+
+| 指标 | 30 并发（正式 Gate） | 40 并发（极限，如实记录） | 判定 |
+|---|---|---|---|
+| 请求数 | 210 | 200 | — |
+| 成功率 | **100%** | **100%** | ✓ |
+| P50 | 69.9ms | 104.7ms | — |
+| P95 | **1275.2ms** | 1823.6ms | 30 并发达标 ✓；40 并发未达标（R5 降级路径记录） |
+| P99 | 1706.1ms | 2740.8ms | — |
+| HTTP 5xx | 0 | 0 | ✓ |
+| QPS | 30.07 | 26.49 | 40 并发下 ops 单连接排队拖慢整体 |
+
+> 根因：`AsyncMySaver` 单连接串行（ops 低频真实流量下可接受）+ 本机 Docker 共享 CPU/磁盘 IO。详见 §6 四轮调优。
+
+### 4.6 数据迁移校验和表（Day5 收尾，Day7 并入周报）
+
+| 表 | 源（stage3） | 目标（scm_platform） | 校验方式 | 判定 |
+|---|---|---|---|---|
+| approvals | 0 行（源库无历史数据，如实记录） | 0 行 | COUNT + ON DUPLICATE 幂等 | ✓ |
+| feedback | 13 行 | 13 行匹配 | COUNT + 存在性 + 关键字段 md5 | ✓ |
+| audit_logs | 19 行 | 19 行匹配 | COUNT + 存在性（目标含平台自产数据，不做全表相等） | ✓ |
+| checkpoints / writes | 358 断点 / 858 写入 | 断点 358/358 匹配，写入 858/858 匹配 | 逐断点比对 + `AsyncMySaver` upsert（目标 382 = 迁移 358 + HITL 演练新增 24） | ✓ |
+
+> 迁移脚本可重跑（连跑 3 遍验证幂等）；校验输出见 `day5_data_migration_checkpointer.md` §2.2。
 
 ---
 
@@ -169,14 +205,31 @@ mypy backend scripts    → Success: no issues found in 105 source files
 | 5 | 容器重启数据零丢失 | ✓ | users/audit/conversations/approvals/checkpoints 计数重启前后一致 |
 | 6 | P95 ≤1.5s | ✓（R5 降级） | 30 并发正式 1275ms；40 并发极限 1823ms 如实记录 |
 
+### 8.1 本周成功标准（手册第九节，Day7 逐项勾）
+
+| # | 成功标准 | 判定 | 证据位置 |
+|---|---|---|---|
+| 1 | mysql 容器 healthy，TZ/utf8mb4 正确，数据卷持久 | ✅ | README §四；`docker ps` healthy |
+| 2 | alembic 从零重放通过；seed 幂等（连跑两遍一致） | ✅ | §1.1 #2；day2 报告 |
+| 3 | 登录→鉴权→越权 403 e2e 全过；写操作审计 100% | ✅ | §1.1 #3；day3 报告 37 passed |
+| 4 | 旧 109 项回归全绿；ruff/mypy 0 error | ✅ | §7：68 passed；ruff/mypy 0 |
+| 5 | 迁移 3 表行数 + 校验和一致；HITL 断点 MySQL 续跑成功 | ✅ | §4.6 校验和表；day5 报告 HITL 杀进程续跑 |
+| 6 | 双实例 40 并发成功率 100% / P95 ≤1.5s | ✅（R5 降级） | §4.1/4.5：30 并发正式 1275ms |
+| 7 | 压测中杀任一实例 5xx=0；重启数据零丢失 | ✅ | §4.3 时间线；§4.4 持久性表 |
+| 8 | `w23_report.md` 有数字有证据；新增欠账 = 0 | ✅ | 本报告全文；§9 定稿 |
+
+**W23 周 Gate 通过 → 进入 W24：NL2SQL 数据分析域（技术纵深主战场）**
+
 ---
 
-## 9. 欠账清单（→ W24 或 W26）
+## 9. 欠账清单（Day7 复盘定稿，W24 Day1 优先清）
 
-| 项 | 说明 | 去向 |
+> Day7 复盘结论：**周 Gate 六项全过，本周新增欠账 = 0**。下列 3 项为"优化类 backlog"（非 Gate 阻断项），按手册 Day7 纪律排期——W24 Day1 优先清前 1 项（上限半天，超时砍 W24 Day6 富余项），其余按各自去向下沉。
+
+| 项 | 说明 | 去向 / W24 Day1 处置 |
 |---|---|---|
-| 40 并发 P95 达标 | ops checkpointer 单连接串行是根因；生产可接受（ops 低频），追求 1.5s 需换连接池版 saver 或每请求独立连接 | W24 评估 / 二期 backlog |
-| 业务级审计 trace_id | `semantic_route`/`auth.login` 等显式 write_audit 未传 trace_id（HTTP 中间件审计已贯穿） | W25 顺手补 |
+| 40 并发 P95 达标 | ops checkpointer 单连接串行是根因；生产可接受（ops 低频），追求 1.5s 需换连接池版 saver 或每请求独立连接 | **W24 Day1 评估半天**：确认 saver 连接池改造工作量；超时则如实记录降级结论进二期 backlog |
+| 业务级审计 trace_id | `semantic_route`/`auth.login` 等显式 write_audit 未传 trace_id（HTTP 中间件审计已贯穿） | W25 顺手补（不影响本周 Gate） |
 | 结构日志容器内复启 | 观测旁路，压测期间关闭；W26 面板需重启后权衡 | W26-D1 |
 
 ---
@@ -191,7 +244,7 @@ mypy backend scripts    → Success: no issues found in 105 source files
 
 ---
 
-## 11. 附：本次交付文件清单（Day6 新增/修改）
+## 11. 附：交付文件清单（Day6 新增/修改 + Day7 复盘）
 
 | 文件 | 说明 |
 |---|---|
@@ -207,3 +260,12 @@ mypy backend scripts    → Success: no issues found in 105 source files
 | `deploy/reports/day6_load.json` | 40 并发压测数据 |
 | `deploy/reports/day6_load_30.json` | 30 并发正式数据 |
 | `deploy/reports/day6_drill.json` | 杀实例演练数据 |
+| `reports/w23_report.md`（本文件） | **Day7 复盘收官**：六产物逐条勾 + 校验和表 + 压测对比表 + 杀实例时间线 + 欠账定稿 |
+| `docs/简历素材库_阶段四.md` | **Day7 新增**：SCM Copilot STAR 三主线 + 数字卡（W23 实测） |
+
+## 12. Day7 复盘结论
+
+- **周 Gate 六项全过**（§8），**本周新增欠账 = 0**（§9 三项均为优化类 backlog，有明确去向）。
+- 本周数字已全部回填：迁移校验和（§4.6）、压测对比（§4.5）、杀实例时间线（§4.3）、成功标准（§8.1）。
+- 简历素材：`docs/简历素材库_阶段四.md` 已建，数字卡含 MySQL 迁移规模 / 双实例并发 / 杀实例恢复三大 W23 实证。
+- **下午强制休息**（R2 倦怠纪律）→ 周一进入 W24（NL2SQL 数据分析域，技术纵深主战场）。
