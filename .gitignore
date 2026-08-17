@@ -26,6 +26,7 @@ venv/
 reports/*.log
 reports/*.jsonl
 data/*.db
+data/*.log
 *.sqlite3
 
 # Docker 数据卷（命名卷不受影响，这里只防绑定挂载漏网）
