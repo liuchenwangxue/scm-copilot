@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     platform_dsn: str = "mysql+asyncmy://root:root123@127.0.0.1:13306/scm_platform?charset=utf8mb4"
     # 业务库：NL2SQL 数据域（W24 使用，本周仅预置）
     biz_dsn: str = "mysql+asyncmy://root:root123@127.0.0.1:13306/scm_biz?charset=utf8mb4"
+    # 业务库只读账号（★ W24 Day2：NL2SQL 沙箱执行专用，与 sqlglot 闸构成纵深防御双保险）
+    # 仅 GRANT SELECT，写操作被 MySQL 拒绝（ERROR 1142）；CI 用 SCM_BIZ_RO_DSN 覆盖
+    biz_ro_dsn: str = (
+        "mysql+asyncmy://nl2sql_ro:ro_pass_2026_dev@127.0.0.1:13306/scm_biz?charset=utf8mb4"
+    )
 
     # ---- JWT（Day3 使用）----
     jwt_secret: str = "dev-secret-change-me"

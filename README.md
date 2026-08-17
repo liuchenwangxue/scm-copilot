@@ -28,6 +28,10 @@ python -X utf8 scripts/verify_biz_data.py   # 数据质量验证（金额勾稽/
 # ★ W23 Day5：stage3 历史数据迁移（审批/反馈/审计/LangGraph 断点，幂等可重跑）
 python scripts/migrate_sqlite_to_mysql.py    # 输出"4 表行数 + 校验和一致"
 
+# ★ W24 Day2：NL2SQL 安全四道闸 + 只读沙箱执行器（纯代码 + 测试，无需额外服务）
+make test-sql-validator    # 四道闸每闸 ≥5 单测 + 20 条攻击用例 20/20 拦截（无 DB）
+make test-executor         # 沙箱执行器：3s 超时 / 行数上限 / 字节截断 / 只读拒绝（需 MySQL）
+
 # 验证
 docker ps --filter name=scm-mysql   # 应显示 healthy
 make test                           # pytest（/health + seed 数据验证）
@@ -108,12 +112,34 @@ scm-copilot/
 - 初始化脚本 `deploy/initdb/01_create_ro_user.sql`（compose 首次建卷自动执行）
   + `scripts/init_biz_db.py`（幂等，已有数据卷的环境 / CI 用：`make init-biz-db`）
 
+## 六·五、NL2SQL 安全四道闸与沙箱执行器（W24 Day2）
+
+**第一道防线 `sql_validator.py`**（确定性 AST 校验，不依赖模型"听话"）：
+
+| 闸 | 规则 | 拦截示例 |
+|---|---|---|
+| 闸1 | 单语句（`;` 堆叠/换行注入 → `multi-statement`） | `SELECT 1; DROP TABLE orders` |
+| 闸2 | 根节点仅 SELECT/UNION（含 UNION ALL）→ `not-select` | `UPDATE/DELETE/DROP/INSERT/...` |
+| 闸3 | 子句级写操作（伪装嵌写 → `write-op`） | `SELECT (DELETE ...)`、`WITH x AS (DELETE ...)` |
+| 闸4 | 危险函数黑名单（→ `dangerous-func`） | `sleep/benchmark/load_file/outfile`（含 `SlEeP`/`SLEEP/**/` 混淆） |
+| 扩展 | FOR UPDATE 锁读（→ `for-update`）+ 表名白名单六表（→ `unknown-table`） | `... FOR UPDATE`、UNION 探测 `users`、跨库 `scm_platform.*` |
+
+- 兜底：**强制 `LIMIT 200`**（无 LIMIT 才加，防全表扫描；30.x 对 Union 根节点用 `set("limit")`）
+- 拒绝抛 `SQLRejected(reason)`，reason 机器可读落审计
+
+**第二道防线 `executor.py`**（只读沙箱执行，与平台库 engine 隔离）：
+- `nl2sql_ro` 独立连接池；3s 超时（`asyncio.timeout`）；行数上限 200；结果集 >1MB 截断
+- 类型规范化：`Decimal→float`、`datetime→isoformat`（评测脚本可直接序列化）
+- 审计回调钩子：执行成功/失败/超时都发事件（含 SQL 原文），由调用方写入 `audit_logs`
+
+> 纵深防御叙事：即使四道闸有未知绕过，MySQL 权限层兜底拒绝写操作（Day1 已实测 `ERROR 1142`）。
+
 ## 七、非目标（scope 纪律，详见《06》第 5 节）
 
 等保正式化、OCR/Whisper、钉钉企微 IM、LoRA、多 GPU、BI 图表引擎、桌面客户端、行业多场景定制——一律进二期 backlog。
 
 ## 八、CI
 
-`.github/workflows/ci.yml`：push/PR → Python 3.12 → ruff → mypy → **platform alembic migrate + seed（幂等两遍）** → **biz init_biz_db（建库+只读账号）→ alembic migrate + seed + 校验和** → pytest（含 MySQL service container 连通性与种子/只读沙箱用例）→ coverage 上传。
+`.github/workflows/ci.yml`：push/PR → Python 3.12 → ruff → mypy → **★ W24-D2 sql_validator 四道闸 + 攻击用例（纯 AST 无 DB，安全第一道闸）** → **platform alembic migrate + seed（幂等两遍）** → **biz init_biz_db（建库+只读账号）→ alembic migrate + seed + 校验和** → pytest（含 MySQL service container 连通性、种子/只读沙箱/executor 用例）→ coverage 上传。
 
 > 教训（W24 Day1）：**不要用 volumes 把工作区子目录挂进 CI service 容器**——容器内 root 改写目录所有权，重跑时 checkout 清理工作区报 EACCES。建库/建用户改由 job 步骤显式执行 `scripts/init_biz_db.py`。

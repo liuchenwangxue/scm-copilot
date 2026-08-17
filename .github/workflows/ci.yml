@@ -53,6 +53,12 @@ jobs:
       - name: mypy
         run: mypy --explicit-package-bases --namespace-packages backend scripts
 
+      # ★ W24 Day2：NL2SQL 四道闸 + 攻击用例快速安全回归（纯 AST 逻辑，无需 DB，
+      #   在数据库步骤之前跑——安全防线是 CI 的第一道闸）
+      - name: sql_validator + attack cases
+        run: |
+          python -m pytest backend/tests/test_sql_validator.py backend/tests/test_attack_cases.py -q
+
       # 平台库 schema 合法 + 种子可重放（保证 PR 合并前 schema 一定可用）
       - name: alembic migrate + seed (platform)
         run: |

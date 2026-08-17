@@ -25,7 +25,7 @@ COMPOSE := docker compose -f deploy/docker-compose.yml
 # alembic.ini 在 backend/ 下，须在此目录运行（env.py 经 pythonpath 兜底）
 BACKEND := backend
 
-.PHONY: up up-mysql down build migrate seed init-biz-db migrate-biz seed-biz reseed-biz check-biz test test-auth test-integration check lint-fix format loadtest drill help
+.PHONY: up up-mysql down build migrate seed init-biz-db migrate-biz seed-biz reseed-biz check-biz test test-auth test-sql-validator test-executor test-integration check lint-fix format loadtest drill help
 
 ## 默认：显示帮助
 help:
@@ -42,6 +42,8 @@ help:
 	@echo "  make check-biz    scm_biz 行数+校验和"
 	@echo "  make test      pytest backend/tests + coverage"
 	@echo "  make test-auth 仅跑认证/RBAC"
+	@echo "  make test-sql-validator  NL2SQL 四道闸+攻击用例（Day2，无需 DB）"
+	@echo "  make test-executor      只读沙箱执行器（Day2，需 MySQL）"
 	@echo "  make test-integration  集成回归"
 	@echo "  make check     ruff lint + mypy（0 error）"
 	@echo "  make loadtest  40 并发 × 200 压测（nginx :18000）"
@@ -104,6 +106,14 @@ test:
 ## 仅跑认证/RBAC（Day3，需 MySQL 已起 + seed）
 test-auth:
 	$(PYTEST) backend/tests/test_auth.py backend/tests/test_rbac.py -v
+
+## ★ W24 Day2：NL2SQL 四道闸 + 攻击用例（纯 AST 逻辑，无需 DB）
+test-sql-validator:
+	$(PYTEST) backend/tests/test_sql_validator.py backend/tests/test_attack_cases.py -v
+
+## ★ W24 Day2：只读沙箱执行器（需 MySQL + scm_biz seed + nl2sql_ro）
+test-executor:
+	$(PYTEST) backend/tests/test_executor.py -v
 
 ## 双域集成回归（Day4 迁移自 stage3 的脚本；审批/幂等自动拉起 mock_biz）
 test-integration:

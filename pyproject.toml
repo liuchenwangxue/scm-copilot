@@ -41,7 +41,10 @@ dependencies = [
     "opentelemetry-exporter-otlp-proto-http",
     "mcp",                   # kb MCP 工具（按需）
     # ---- W24：NL2SQL 数据分析域 ----
-    "sqlglot",               # SQL AST 校验四道闸（确定性解析，安全边界不依赖模型听话）
+    # ★ sqlglot 版本锁死：AST 结构随大版本演进（30.x 中 Anonymous 函数名取 .name、
+    #   Union 根节点 .limit() 无效需 set、CTE 挂在 with_），升级可能改 AST 结构破坏四道闸。
+    #   当前锁定 30.x（生产环境实测版本 30.17.0）。
+    "sqlglot>=30,<31",       # SQL AST 校验四道闸（确定性解析，安全边界不依赖模型听话）
     "pandas",                # 种子生成 / 结果集 as_dataframe
 ]
 
