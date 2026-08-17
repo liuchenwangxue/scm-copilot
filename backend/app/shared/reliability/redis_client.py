@@ -17,6 +17,9 @@
     .delete(key)                 -> bool
     .delete_if_equals(key, expected) -> bool  # 校验式删除（锁释放，防误删他人锁）
 """
+from __future__ import annotations
+
+import builtins
 import threading
 import time
 
@@ -127,6 +130,42 @@ class RedisClient:
         except Exception:
             self._last_fail_ts = time.time()
             return False
+
+    # ---------- 集合操作（W23 Day5 语义缓存索引用；fail-open） ----------
+
+    def sadd(self, key: str, *members: str) -> int:
+        """SADD：集合添加。返回新增成员数（0=已存在）。"""
+        try:
+            return int(self._connect().sadd(key, *members) or 0)
+        except Exception:
+            self._last_fail_ts = time.time()
+            return 0
+
+    def smembers(self, key: str) -> builtins.set[str]:
+        """SMEMBERS：集合全部成员（语义缓存索引遍历）。"""
+        try:
+            return set(self._connect().smembers(key))
+        except Exception:
+            self._last_fail_ts = time.time()
+            return set()
+
+    def srem(self, key: str, *members: str) -> int:
+        """SREM：集合移除。"""
+        try:
+            return int(self._connect().srem(key, *members) or 0)
+        except Exception:
+            self._last_fail_ts = time.time()
+            return 0
+
+    def delete_many(self, keys: list[str]) -> int:
+        """批量 DEL（缓存失效用，语义缓存版本切换时清理旧前缀）。"""
+        if not keys:
+            return 0
+        try:
+            return int(self._connect().delete(*keys) or 0)
+        except Exception:
+            self._last_fail_ts = time.time()
+            return 0
 
 
 # 模块级单例（进程内共享）

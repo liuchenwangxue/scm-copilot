@@ -13,6 +13,7 @@ SSE 事件契约与 stage3 一致（progress / message / citations / done / erro
 """
 
 import asyncio
+import contextlib
 import json
 import uuid
 from typing import Annotated
@@ -26,6 +27,7 @@ from app.domains.kb.feedback.feedback_store import FeedbackStore
 from app.domains.kb.security.input_sanitizer import InputSanitizer
 from app.platform import rbac
 from app.platform.audit import write_audit
+from app.platform.conversation import touch_conversation
 from app.platform.models import User
 from app.shared.obs import logger as obs_logger
 from app.shared.rag.semantic_cache import SemanticCache
@@ -147,6 +149,16 @@ async def chat(
         try:
             obs_logger.log_event(_log, "chat_started", request_id=request_id,
                                  session_id=session_id, msg_len=len(message))
+            # ① 会话历史落库（★ W23 Day5：conversations 表，多轮追问数据源；尽力而为）
+            with contextlib.suppress(Exception):
+                await touch_conversation(
+                    request.app.state.session_factory,
+                    thread_id=session_id,
+                    user_id=current.id,
+                    tenant_id=current.tenant_id,
+                    title=message[:50],
+                )
+
             # ① 输入消毒（规则层，A7 双层的规则部分；命中 → 拦截 + 审计）
             scan = sanitizer.scan(message)
             if scan["flagged"]:

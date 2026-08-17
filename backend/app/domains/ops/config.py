@@ -21,11 +21,18 @@ BIZ_BASE_URL = os.getenv("BIZ_BASE_URL", "http://127.0.0.1:8794")   # mock 业�
 SERVICE_NAME = os.getenv("SERVICE_NAME", "biz-agent-b")
 INSTANCE_ID = os.getenv("INSTANCE_ID", "")
 
-# ---- 审批 / 幂等 / 审计（Day5 迁 MySQL，本周文件级）----
+# ---- 审批 / 幂等 / 审计（★ W23 Day5：审批迁 MySQL 平台库）----
 APPROVER = os.getenv("APPROVER", "admin")
-APPROVAL_DB = os.getenv("APPROVAL_DB", str(DATA_DIR / "approvals.db"))
+# 审批单存储：MySQL 平台库 approvals 表（双实例共享；无状态化核销清单落项）
+# 历史 SQLite 数据已由 scripts/migrate_sqlite_to_mysql.py 迁移
+APPROVAL_DSN = os.getenv("APPROVAL_DSN", "")
 IDEMPOTENCY_DB = os.getenv("IDEMPOTENCY_DB", str(DATA_DIR / "idempotency.db"))
 AUDIT_LOG = os.getenv("AUDIT_LOG", str(DATA_DIR / "audit.log"))
+
+# ---- LangGraph checkpointer 后端（★ W23 Day5：默认切 MySQL 权威库）----
+# mysql：AsyncMySaver（平台库 scm_platform，双实例共享断点，推荐生产）
+# sqlite：AsyncSqliteSaver（本地 biz_agent.db，测试/无 MySQL 环境回退）
+CHECKPOINTER_BACKEND = os.getenv("CHECKPOINTER_BACKEND", "mysql")
 
 # ---- 任务队列（报表生成异步化，RQ + Redis broker；队列挂 → 同步降级）----
 TASK_QUEUE_ENABLED = os.getenv("TASK_QUEUE_ENABLED", "1") == "1"

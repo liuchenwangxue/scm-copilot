@@ -33,7 +33,7 @@ from app.shared.reliability.idempotency import IdempotencyStore
 
 # ---- 服务单例（进程内；Docker 化时可用依赖注入替换） ----
 audit = AuditLogger(config.AUDIT_LOG)
-approval_svc = ApprovalService(config.APPROVAL_DB, audit)
+approval_svc = ApprovalService(dsn=config.APPROVAL_DSN, audit=audit)  # ★ Day5：MySQL 平台库
 order_tools = OrderTools(config.BIZ_BASE_URL)
 report_tools = ReportTools(config.BIZ_BASE_URL)
 idem_store = IdempotencyStore(config.IDEMPOTENCY_DB)

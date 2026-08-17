@@ -46,6 +46,10 @@ migrate:
 seed:
 	$(PY) scripts/seed_platform.py
 
+## ★ W23 Day5：stage3 历史数据迁移（审批/反馈/审计/LangGraph 断点，幂等可重跑）
+migrate-data:
+	$(PY) scripts/migrate_sqlite_to_mysql.py
+
 ## pytest + coverage
 test:
 	$(PYTEST) backend/tests --cov=backend --cov-report=term-missing

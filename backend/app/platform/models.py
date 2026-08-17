@@ -128,11 +128,20 @@ class Approval(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     approval_no: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     action: Mapped[str] = mapped_column(String(64), nullable=False)
+    operation: Mapped[str | None] = mapped_column(  # W23 Day5：审批服务迁 MySQL 补齐
+        String(64), nullable=True, comment="人类可读操作描述（修改订单/取消订单）"
+    )
     target_type: Mapped[str] = mapped_column(String(64), nullable=False)
     target_id: Mapped[str] = mapped_column(String(64), nullable=False)
     actor: Mapped[str] = mapped_column(String(64), nullable=False)
     diff_before: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     diff_after: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    reason: Mapped[str | None] = mapped_column(  # W23 Day5
+        Text, nullable=True, comment="审批理由（diff 摘要/用户说明）"
+    )
+    idem_key: Mapped[str | None] = mapped_column(  # W23 Day5
+        String(64), nullable=True, comment="审批发起时生成的幂等键"
+    )
     status: Mapped[str] = mapped_column(
         String(16), nullable=False, server_default=text("'pending'")
     )

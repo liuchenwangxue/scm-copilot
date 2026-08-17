@@ -18,6 +18,9 @@ make up                        # docker compose -f deploy/docker-compose.yml up 
 make migrate                        # alembic upgrade head（12 表从零可重放）
 make seed                           # 4 角色 / 12 权限 / 3 租户 × 4 角色测试用户
 
+# ★ W23 Day5：stage3 历史数据迁移（审批/反馈/审计/LangGraph 断点，幂等可重跑）
+python scripts/migrate_sqlite_to_mysql.py    # 输出"4 表行数 + 校验和一致"
+
 # 验证
 docker ps --filter name=scm-mysql   # 应显示 healthy
 make test                           # pytest（/health + seed 数据验证）

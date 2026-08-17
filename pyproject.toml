@@ -27,7 +27,9 @@ dependencies = [
     # ---- W23 Day4 双域并入：ops（stage3-b）所需 ----
     "langgraph",             # ops 业务 Agent 图（含 checkpoint）
     "langgraph-checkpoint-sqlite",
-    "aiosqlite",             # AsyncSqliteSaver 依赖
+    "aiosqlite",             # AsyncSqliteSaver 依赖（SQLite 回退后端）
+    "langgraph-checkpoint-mysql",   # ★ W23 Day5：AsyncMySaver（MySQL 权威库 checkpointer）
+    "asyncmy",               # asyncmy 驱动（SQLAlchemy + AsyncMySaver 共用）
     "redis",                 # ops 幂等/缓存/锁（fail-open）
     "rq",                    # ops 报表异步任务队列
     # ---- 共享观测（obs）：Prometheus + OpenTelemetry ----

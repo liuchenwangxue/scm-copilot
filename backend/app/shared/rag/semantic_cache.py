@@ -1,4 +1,4 @@
-"""语义缓存（W22 Day1）：语义相似的问题"不再重算"。
+"""语义缓存（W22 Day1 + ★ W23 Day5 Redis 化）：语义相似的问题"不再重算"。
 
 为什么（面试 44 题/高并发 素材）：
 - 真实业务里用户反复问高度相似的问题（"这个申请还有效吗" / "这个申请单有效期是多久"）。
@@ -6,32 +6,38 @@
 - 语义缓存：key = query embedding；与已缓存历史 query 的相似度 ≥ 阈值（默认 0.92）→
   直接返回缓存答案（省掉检索 + LLM），并打 `source=cache` 标记，命中与未命中可区分。
 
-设计要点（对应手册坑）：
-- 高阈值（宁不命中不漏命中）：错误命中返回错答案，比不命中更糟（手册原话）。
-- 缓存内容带版本（SEMANTIC_CACHE_VERSION）：知识库更新后 bump 版本号 → 全部失效（W21 定时任务衔接）。
-- 缓存 = 最终回答 + citations（项目 A）；命中返回完整可溯源结果。
-- 降级（fail-open）：缓存仅是最速通道，挂掉/无命中都不阻塞主链路（try/except 包裹）。
-- 内存实现（进程级 LRU 上限）为默认；生产可换 Redis（W21 已有真实 Redis，此处保留接口注释说明）。
+★ W23 Day5 Redis 化（无状态化核销清单"幂等/缓存/锁 → Redis 共享"落项）：
+- 存储分层：**Redis 权威共享 + 进程内存兜底**——双实例下"实例 A 写入、实例 B 命中"
+  （Day4 欠账"kb 语义缓存仍内存实现"清零；W24 双实例压测防"缓存视图不一致"误判）
+- key 前缀 `scm:semcache:{version}:{query_hash}`（条目）+ `scm:semcache:{version}:keys`（索引 set）
+- 命中双闸门（★ 生产级防误命中）：embedding 相似度 ≥ 阈值 **且** 字符 Jaccard 重叠 ≥ 0.40
+  （bge 对疑问句式普遍高相似，需防跨主题错配——宁不命中不漏命中）
+- fail-open：Redis 不可用 → 内存兜底；都不行 → miss（缓存透明，不影响主链路）
 
-接口：
-    SemanticCache(threshold=None, max_size=None, version=None, embedder=None)
-    .lookup(query) -> dict | None          # 命中返回 {"source":"cache", "answer", "citations", "query_hash", "sim"}
-    .put(query, answer, citations=None)    # 写入缓存（带 query embedding + 版本）
-    .hit_rate() -> dict                     # 统计 {hits, misses, rate}
-    .clear() / .invalidate()               # 清空 / 版本失效
+接口（不变）：
+    SemanticCache(threshold=None, max_size=None, version=None, embedder=None, redis_client=None)
+    .lookup(query) -> dict | None
+    .put(query, answer, citations=None) -> None
+    .hit_rate() -> dict
+    .clear() / .invalidate(new_version=None) -> int
 """
 import hashlib
-from pathlib import Path
+import json
 from typing import Any
 
 import numpy as np
 
 from app.shared import config
 from app.shared.rag.embedder import Embedder
+from app.shared.reliability.redis_client import get_redis_client
+
+# Redis 前缀与条目 TTL（知识库更新 bump version 全量失效；TTL 兜底防无限增长）
+_SEMCACHE_PREFIX = "scm:semcache"
+_REDIS_TTL = 7 * 24 * 3600  # 7 天
 
 
 def _query_hash(query: str) -> str:
-    """文本哈希（用于日志/去重 key 的可读标识，不用于相似度判定）。"""
+    """文本哈希（Redis key / 去重标识，不用于相似度判定）。"""
     return hashlib.md5(query.encode("utf-8")).hexdigest()[:12]
 
 
@@ -56,19 +62,38 @@ def _char_overlap(a: str, b: str) -> float:
     return len(ka & kb) / len(ka | kb)
 
 
+def _vec_to_list(vec: np.ndarray) -> list[float]:
+    return [float(x) for x in vec]
+
+
 class SemanticCache:
-    """语义缓存：embedding 相似度命中 + 版本失效 + 内存 LRU。"""
+    """语义缓存：Redis 权威共享 + 内存兜底 + 版本失效。"""
 
     def __init__(self, threshold: float | None = None, max_size: int | None = None,
-                 version: str | None = None, embedder: Embedder | None = None):
+                 version: str | None = None, embedder: Embedder | None = None,
+                 redis_client: Any | None = None):
         self.threshold = threshold if threshold is not None else config.SEMANTIC_CACHE_THRESHOLD
         self.max_size = max_size or config.SEMANTIC_CACHE_MAX_SIZE
         self.version = version or config.SEMANTIC_CACHE_VERSION
         self.embedder = embedder or Embedder()
-        # 缓存条目：query -> {"vec", "answer", "citations", "version"}
+        self.rc = redis_client or get_redis_client()
+        # 内存兜底存储（进程内 LRU；Redis 命中后回填，加速同实例后续命中）
         self._store: dict[str, dict[str, Any]] = {}
-        self._order: list[str] = []          # 简单 LRU 顺序（命中/写入移动到末尾）
+        self._order: list[str] = []
         self._stats = {"hits": 0, "misses": 0, "error": 0}
+
+    # ---- key 管理 ----
+
+    def _ns(self) -> str:
+        return f"{_SEMCACHE_PREFIX}:{self.version}"
+
+    def _entry_key(self, query_hash: str) -> str:
+        return f"{self._ns()}:{query_hash}"
+
+    def _index_key(self) -> str:
+        return f"{self._ns()}:keys"
+
+    # ---- 内存 LRU ----
 
     def _touch(self, key: str) -> None:
         if key in self._order:
@@ -78,43 +103,89 @@ class SemanticCache:
             old = self._order.pop(0)
             self._store.pop(old, None)
 
-    def lookup(self, query: str) -> dict | None:
-        """语义查询：与缓存库中所有 query 的 embedding 算相似度，≥ 阈值且字符重叠达标才命中。
-        返回 None = 未命中（走主链路）；返回 dict = 命中（source=cache）。
+    # ---- 命中搜索（双闸门） ----
 
-        命中双闸门（★ 生产级防误命中）：
-          1. embedding 相似度 ≥ threshold（语义相近）
-          2. 字符 Jaccard 重叠 ≥ _OVERLAP_MIN（表述足够接近——bge 对疑问句高相似，需防跨主题错配）
-        """
-        if not self._store or not query.strip():
+    def _search(self, qv: np.ndarray, query: str,
+                entries: dict[str, dict[str, Any]]) -> dict | None:
+        """在给定条目集中找最相似且双闸门达标者。"""
+        best_key, best_sim, best_overlap = None, -1.0, 0.0
+        for key, entry in entries.items():
+            if entry.get("version") != self.version:
+                continue  # 版本不符不参与匹配
+            sim = float(np.dot(qv, np.asarray(entry.get("vec"))))
+            if sim > best_sim:
+                best_sim, best_key = sim, key
+        if best_key is not None and best_sim >= self.threshold:
+            matched_query = entries[best_key].get("query", "")
+            best_overlap = _char_overlap(query, matched_query)
+            if best_overlap >= _OVERLAP_MIN:
+                self._touch(best_key)
+                return {
+                    "source": "cache",
+                    "query_hash": _query_hash(query),
+                    "matched_query": matched_query[:60],
+                    "sim": round(best_sim, 4),
+                    "char_overlap": round(best_overlap, 4),
+                    "answer": entries[best_key]["answer"],
+                    "citations": entries[best_key].get("citations") or [],
+                    "version": self.version,
+                }
+        return None
+
+    # ---- Redis 交互 ----
+
+    def _redis_all(self) -> dict[str, dict[str, Any]]:
+        """拉取当前版本全部条目（跨实例共享视图）。失败/空 → {}。"""
+        if not self.rc.available:
+            return {}
+        keys = self.rc.smembers(self._index_key())
+        if not keys:
+            return {}
+        entries: dict[str, dict[str, Any]] = {}
+        for h in keys:
+            raw = self.rc.get(self._entry_key(h))
+            if not raw:
+                continue
+            try:
+                entries[h] = json.loads(raw)
+            except (ValueError, TypeError):
+                continue
+        return entries
+
+    def _redis_put(self, query_hash: str, entry: dict[str, Any]) -> None:
+        if not self.rc.available:
+            return
+        try:
+            self.rc.set(self._entry_key(query_hash), json.dumps(entry, ensure_ascii=False),
+                        ex=_REDIS_TTL)
+            self.rc.sadd(self._index_key(), query_hash)
+        except Exception:
+            pass  # fail-open：Redis 写失败不影响内存兜底
+
+    # ---- 对外接口 ----
+
+    def lookup(self, query: str) -> dict | None:
+        """语义查询：内存 → Redis 两级搜索，双闸门达标才命中。"""
+        if not query.strip():
             self._stats["misses"] += 1
             return None
         try:
             qv = self.embedder.embed_query(query)
-            best_key, best_sim, best_overlap = None, -1.0, 0.0
-            for key, entry in self._store.items():
-                if entry.get("version") != self.version:
-                    continue  # 版本不符的缓存不参与匹配
-                sim = float(np.dot(qv, entry["vec"]))
-                if sim > best_sim:
-                    best_sim, best_key = sim, key
-            # 双闸门：相似度达标 + 与匹配项字符重叠达标
-            if best_key is not None and best_sim >= self.threshold:
-                matched_query = self._store[best_key].get("query", "")
-                best_overlap = _char_overlap(query, matched_query)
-                if best_overlap >= _OVERLAP_MIN:
+            # 1) 内存快路径（本实例已命中过的条目）
+            hit = self._search(qv, query, self._store)
+            if hit:
+                self._stats["hits"] += 1
+                return hit
+            # 2) Redis 跨实例路径（其他实例写入的条目）
+            redis_entries = self._redis_all()
+            if redis_entries:
+                hit = self._search(qv, query, redis_entries)
+                if hit:
                     self._stats["hits"] += 1
-                    self._touch(best_key)
-                    return {
-                        "source": "cache",
-                        "query_hash": _query_hash(query),
-                        "matched_query": matched_query[:60],
-                        "sim": round(best_sim, 4),
-                        "char_overlap": round(best_overlap, 4),
-                        "answer": self._store[best_key]["answer"],
-                        "citations": self._store[best_key].get("citations") or [],
-                        "version": self.version,
-                    }
+                    # 回填内存（后续同实例命中走快路径）
+                    for k, e in redis_entries.items():
+                        self._store.setdefault(k, e)
+                    return hit
             self._stats["misses"] += 1
             return None
         except Exception as e:  # 缓存挂掉/embedding 失败 → fail-open，不阻塞主链路
@@ -123,16 +194,20 @@ class SemanticCache:
             return None
 
     def put(self, query: str, answer: str, citations: list | None = None) -> None:
-        """写入缓存（带 query embedding + 版本）。异常静默降级（缓存失败不影响主链路）。"""
+        """写入缓存（内存 + Redis 双写）。异常静默降级。"""
         if not query.strip() or not answer:
             return
         try:
-            vec = self.embedder.embed_query(query)
-            key = f"{self.version}:{_query_hash(query)}"
-            self._store[key] = {"vec": vec, "answer": answer,
-                                "citations": citations or [],
-                                "version": self.version, "query": query}
+            vec = _vec_to_list(self.embedder.embed_query(query))
+            query_hash = _query_hash(query)
+            entry = {"vec": vec, "answer": answer, "citations": citations or [],
+                     "version": self.version, "query": query}
+            # 内存
+            key = f"{self.version}:{query_hash}"
+            self._store[key] = entry
             self._touch(key)
+            # Redis（跨实例共享）
+            self._redis_put(query_hash, entry)
         except Exception as e:
             print(f"[semantic_cache] put 异常降级: {type(e).__name__}: {str(e)[:80]}")
 
@@ -146,17 +221,28 @@ class SemanticCache:
             "size": len(self._store),
             "threshold": self.threshold,
             "version": self.version,
+            "redis_available": self.rc.available,
         }
 
     def clear(self) -> None:
+        """清空当前版本缓存（内存 + Redis）。"""
         self._store.clear()
         self._order.clear()
+        if self.rc.available:
+            keys = self.rc.smembers(self._index_key())
+            self.rc.delete_many([self._entry_key(h) for h in keys])
+            self.rc.delete(self._index_key())
 
     def invalidate(self, new_version: str | None = None) -> int:
         """版本失效：bump 版本号并清空旧条目（知识库更新后调用）。返回清空条数。"""
         n = len(self._store)
         self._store.clear()
         self._order.clear()
+        # 清理旧版本 Redis 键（当前实例已知的）
+        if self.rc.available:
+            keys = self.rc.smembers(self._index_key())
+            self.rc.delete_many([self._entry_key(h) for h in keys])
+            self.rc.delete(self._index_key())
         if new_version:
             self.version = new_version
         return n

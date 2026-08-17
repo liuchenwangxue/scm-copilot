@@ -36,7 +36,7 @@ router = APIRouter(prefix="/api/ops", tags=["ops"])
 _log = obs_logger.get_logger("ops")
 
 audit = AuditLogger(config.AUDIT_LOG)
-approval_svc = ApprovalService(config.APPROVAL_DB, audit)
+approval_svc = ApprovalService(dsn=config.APPROVAL_DSN, audit=audit)  # ★ Day5：MySQL 平台库
 
 # 图惰性编译（首次请求在运行 loop 内编译并缓存，graph.get_biz_graph 内部有锁）
 _biz_graph = None
