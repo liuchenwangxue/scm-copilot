@@ -30,6 +30,7 @@ dependencies = [
     "aiosqlite",             # AsyncSqliteSaver 依赖（SQLite 回退后端）
     "langgraph-checkpoint-mysql",   # ★ W23 Day5：AsyncMySaver（MySQL 权威库 checkpointer）
     "asyncmy",               # asyncmy 驱动（SQLAlchemy + AsyncMySaver 共用）
+    "pymysql",               # ★ W23 Day5：审批服务 MySQL 同步驱动（approval.py）
     "redis",                 # ops 幂等/缓存/锁（fail-open）
     "rq",                    # ops 报表异步任务队列
     # ---- 共享观测（obs）：Prometheus + OpenTelemetry ----
