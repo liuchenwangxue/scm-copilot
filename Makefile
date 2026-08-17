@@ -1,12 +1,13 @@
-# ★ W23 SCM Copilot 平台 Makefile（Day1 建仓 + Day2 seed + Day3 认证）
+# ★ W23 SCM Copilot 平台 Makefile（Day1 建仓 + Day2 seed + Day3 认证 + Day4 双域并入）
 # 用法：
 #   make up        docker compose 起 MySQL（-d）
 #   make down      停服务
 #   make migrate   alembic upgrade head（含 Day3 token_blacklist）
 #   make seed      平台库幂等种子（4 角色/12 权限/12 用户）
-#   make test      pytest 平台单测 + coverage
+#   make test      pytest 平台单测 + 双域回归 + coverage
 #   make test-auth 仅跑认证/RBAC（Day3，需 MySQL 已起 + seed）
-#   make check     ruff lint + mypy（CI 同款，本地兜底）
+#   make test-integration  双域集成回归脚本（审批/幂等/工具/validator，需 mock_biz）
+#   make check     ruff lint + mypy（0 error 才算过）
 PY := .venv/Scripts/python.exe
 RUFF := $(PY) -m ruff
 MYPY := $(PY) -m mypy
@@ -15,7 +16,7 @@ COMPOSE := docker compose -f deploy/docker-compose.yml
 # alembic.ini 在 backend/ 下，须在此目录运行（env.py 经 pythonpath 兜底）
 BACKEND := backend
 
-.PHONY: up down migrate seed test test-auth check lint-fix format help
+.PHONY: up down migrate seed test test-auth test-integration check lint-fix format help
 
 ## 默认：显示帮助
 help:
@@ -26,6 +27,7 @@ help:
 	@echo "  make seed      平台库幂等种子（4 角色/12 权限/12 用户）"
 	@echo "  make test      pytest backend/tests + coverage"
 	@echo "  make test-auth 仅跑认证/RBAC（Day3，需 MySQL 已起 + seed）"
+	@echo "  make test-integration  集成回归（审批/幂等/工具/validator）"
 	@echo "  make check     ruff lint + mypy（0 error 才算过）"
 
 ## 起 MySQL（W23 Day1）
@@ -51,6 +53,13 @@ test:
 ## 仅跑认证/RBAC（Day3，需 MySQL 已起 + seed）
 test-auth:
 	$(PYTEST) backend/tests/test_auth.py backend/tests/test_rbac.py -v
+
+## 双域集成回归（Day4 迁移自 stage3 的脚本；审批/幂等自动拉起 mock_biz）
+test-integration:
+	$(PY) -X utf8 scripts/ops_day4_approval_test.py
+	$(PY) -X utf8 scripts/ops_day4_idempotency_test.py
+	$(PY) -X utf8 scripts/ops_day3_tools_test.py
+	$(PY) -X utf8 scripts/kb_day4_validator_test.py
 
 ## lint + 类型检查（CI 同款）
 check:

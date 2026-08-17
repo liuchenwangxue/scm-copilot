@@ -4,10 +4,9 @@ lifespan：建 async engine + session 工厂（SQLAlchemy 2.0 async / asyncmy）
 - GET /health：存活探针 + DB 连通状态（deploy compose healthcheck 用）
 - 白名单端点：/health /docs /metrics（其余路由挂全局 JWT，见 global_auth）
 
-W23 Day3 新增：
-- 审计中间件：非 GET 请求落 audit_logs
-- /api/auth/* 认证路由（login / refresh / logout / me）
-- 全局 JWT 门禁：除白名单外所有请求校验 Bearer access token（含吊销名单 + 用户存活）
+W23 Day3：审计中间件 + /api/auth/* 认证路由 + 全局 JWT 门禁
+W23 Day4：双域并入——挂载 /api/kb（知识问答域，承 stage3-a）与
+          /api/ops（业务操作域，承 stage3-b），旧 109 项回归保持全绿
 """
 
 from contextlib import asynccontextmanager
@@ -17,6 +16,8 @@ from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from app.domains.kb import router as kb_router
+from app.domains.ops import router as ops_router
 from app.platform import auth, rbac, schemas
 from app.platform.audit import AuditMiddleware
 from app.platform.models import User
@@ -99,3 +100,9 @@ async def me(current: User = Depends(rbac.require_permission("kb:chat"))) -> sch
 
 
 app.include_router(auth.router)
+
+# ==================== W23 Day4：双域并入 ====================
+# kb（知识问答域）与 ops（业务操作域）以模块化单体方式挂载；
+# 每个请求带身份（JWT）、每个状态有归宿（MySQL/Redis）、实例可替换（Day6 无状态）。
+app.include_router(kb_router.router)
+app.include_router(ops_router.router)

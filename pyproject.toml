@@ -18,6 +18,25 @@ dependencies = [
     "cryptography",          # asyncmy 连 MySQL8 caching_sha2_password 认证必需
     "pydantic-settings",
     "httpx",                 # fastapi TestClient 依赖（测试经 dev extra 安装）
+    # ---- W23 Day4 双域并入：kb（stage3-a）所需 ----
+    "qdrant-client",         # kb 向量检索（Qdrant）
+    "numpy",
+    "jieba",                 # kb BM25 中文分词
+    "pdfplumber",            # kb 文档解析（.pdf）
+    "python-docx",           # kb 文档解析（.docx）
+    # ---- W23 Day4 双域并入：ops（stage3-b）所需 ----
+    "langgraph",             # ops 业务 Agent 图（含 checkpoint）
+    "langgraph-checkpoint-sqlite",
+    "aiosqlite",             # AsyncSqliteSaver 依赖
+    "redis",                 # ops 幂等/缓存/锁（fail-open）
+    "rq",                    # ops 报表异步任务队列
+    # ---- 共享观测（obs）：Prometheus + OpenTelemetry ----
+    "prometheus-client",
+    "opentelemetry-api",
+    "opentelemetry-sdk",
+    "opentelemetry-instrumentation-fastapi",
+    "opentelemetry-exporter-otlp-proto-http",
+    "mcp",                   # kb MCP 工具（按需）
 ]
 
 [project.optional-dependencies]
@@ -66,6 +85,8 @@ mypy_path = ["backend"]
 exclude = [
     "deploy/",
 ]
+
+
 
 # ==================== pytest + coverage ====================
 [tool.pytest.ini_options]
