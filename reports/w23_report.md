@@ -139,10 +139,10 @@ deploy/
 | 1 | SQLAlchemy 默认连接池 5/实例 → 20 并发排队 | `pool_size=40, max_overflow=20` | ~3017ms（ops 单连接主导，改善不明显） |
 | 2 | 每 POST 多次 DB 往返（审计/会话）并发竞争 | 池再扩 + MySQL `flush_log=2` + buffer_pool 256M | 2137ms |
 | 3 | obs 结构化日志同步文件 IO（Docker volume 慢）阻塞事件循环 | 容器内 `STRUCT_LOG_ENABLED=0` | ~2241ms（kb_tool P95 1409→753ms） |
-| 4 | 审计中间件 finally await 写库挤占事件循环 | 改 `asyncio.create_task` fire-and-forget | ~1823ms |
+| 4 | 审计写挤占事件循环 | 曾改 `asyncio.create_task` 后台写（P95 ~1823ms），但 TestClient 退出取消后台任务 → 破坏"响应返回即审计可查"契约（test_audit_middleware 失败）。**回退同步写**：单条 INSERT 不构成瓶颈，连接池/刷盘调优才是收益来源 | ~1823ms（含回退后复测，语义契约保持） |
 | — | ops checkpointer 单连接串行（设计限制） | 压测会话池化 + 权重贴合真实流量 | 1823ms（30 并发正式 1275ms） |
 
-> 教训：**先关掉"观测的同步 IO"，再看"数据库池与刷盘"，最后才是业务层**——排障顺序本身是面试亮点。
+> 教训：**先关掉"观测的同步 IO"，再看"数据库池与刷盘"，最后才是业务层**——排障顺序本身是面试亮点；但"异步化/降级"若破坏时序契约（审计可查性、测试断言），收益不抵代价时果断回退。
 
 ---
 
@@ -185,7 +185,7 @@ mypy backend scripts    → Success: no issues found in 105 source files
 
 - **"ip_hash 换 least_conn 的前提"**（《05》Q2）：状态全外置核销清单逐项打勾 = 会话 JWT / 会话历史 MySQL / 断点 MySQL / 审批 MySQL / 幂等缓存锁 Redis。前提不满足时 least_conn 会丢会话——先核销，再换。
 - **杀实例不中断**：nginx `proxy_next_upstream error http_502 http_503` + least_conn 被动摘除；in-flight 已流式响应允许失败重试（SSE 语义），新请求零失败。
-- **压测排障四轮**：日志同步 IO → 连接池 → InnoDB fsync → 审计异步化；每轮有数字对比（P95 2868→1823ms）。
+- **压测排障四轮**：日志同步 IO → 连接池 → InnoDB fsync →（审计异步化尝试后回退）；每轮有数字对比（P95 2868→1823ms），且"回退"本身是决策（不破坏审计时序契约）。
 - **权衡诚实记录**：40 并发 P95 未达标如实记录 + 根因分析（ops checkpointer 单连接），按 R5 降 30 并发正式达标——"不造假指标"比"好看的数字"更能过面试。
 - **X-Request-Id 贯穿**：响应头 ⇔ 审计 trace_id ⇔ nginx 透传三者一致，双实例排查第一抓手。
 
@@ -201,7 +201,7 @@ mypy backend scripts    → Success: no issues found in 105 source files
 | `deploy/docker-compose.yml` | 扩容：redis/mock-biz/backend-a1/a2/nginx + MySQL 调优 |
 | `deploy/load_test.py` | 混合压测 + 杀实例演练（--kill-instance） |
 | `backend/app/main.py` | RequestIdMiddleware + 连接池扩容 |
-| `backend/app/platform/audit.py` | trace_id 贯穿 + 审计异步化 |
+| `backend/app/platform/audit.py` | trace_id 贯穿（审计写保持同步，保证可查性契约） |
 | `Makefile` | `up / up-mysql / build / loadtest / drill` |
 | `.dockerignore` | 构建上下文瘦身 |
 | `deploy/reports/day6_load.json` | 40 并发压测数据 |

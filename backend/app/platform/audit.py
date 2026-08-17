@@ -9,7 +9,6 @@
 - 中间件不阻断请求（审计失败只记日志不抛错，审计系统故障不拖垮主流程）
 """
 
-import asyncio
 import logging
 from typing import Any
 
@@ -102,28 +101,22 @@ class AuditMiddleware:
         try:
             await self.app(scope, receive, send_wrapper)
         finally:
-            # ★ W23 Day6 压测优化：审计写改后台任务（fire-and-forget），不再 await——
-            #   响应完成后立即返回，40 并发下避免 40 个审计写任务同时挤占事件循环
-            #   与连接池（审计旁路：失败仅记日志，不阻塞业务）
-            factory = scope["app"].state.session_factory
-            asyncio.create_task(
-                self._write_audit_async(factory, method, path, actor, request_id, status_code)
-            )
-
-    @staticmethod
-    async def _write_audit_async(factory, method: str, path: str, actor: str | None,
-                                 request_id: str | None, status_code: int) -> None:
-        """后台写审计（独立 session 提交，不污染请求事务）。"""
-        try:
-            async with factory() as session:
-                await write_audit(
-                    session,
-                    event=f"{method} {path}",
-                    actor=actor,
-                    target=path,
-                    status=status_code,
-                    trace_id=request_id,
-                )
-                await session.commit()
-        except Exception:  # noqa: BLE001
-            logger.exception("audit write failed for %s %s", method, path)
+            # 同步写审计：独立 session 提交，不污染请求事务；失败仅记日志。
+            # ★ W23 Day6 曾改为 asyncio.create_task 后台写（压测微优化），但 TestClient
+            #   退出会取消未完成任务 → 测试断言审计已落库失败（时序破坏）。审计写入是
+            #   单条 INSERT + commit（连接池调优后不构成瓶颈），回退同步保证"响应返回
+            #   即审计可查"的契约语义。
+            try:
+                factory = scope["app"].state.session_factory
+                async with factory() as session:
+                    await write_audit(
+                        session,
+                        event=f"{method} {path}",
+                        actor=actor,
+                        target=path,
+                        status=status_code,
+                        trace_id=request_id,
+                    )
+                    await session.commit()
+            except Exception:  # noqa: BLE001
+                logger.exception("audit write failed for %s %s", method, path)
