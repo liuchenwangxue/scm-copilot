@@ -1,0 +1,17 @@
+# ★ W23 Day6：docker build context 瘦身（backend 镜像 context 为项目根）
+.venv/
+**/__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+reports/
+data/
+deploy/reports/
+.git/
+.env
+*.db
+*.log

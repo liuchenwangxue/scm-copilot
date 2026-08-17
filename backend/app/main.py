@@ -10,11 +10,13 @@ W23 Day4：双域并入——挂载 /api/kb（知识问答域，承 stage3-a）�
 """
 
 from contextlib import asynccontextmanager
+from uuid import uuid4
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from starlette.datastructures import MutableHeaders
 
 from app.domains.kb import router as kb_router
 from app.domains.ops import router as ops_router
@@ -32,7 +34,17 @@ OPEN_AUTH_PATHS = ("/api/auth/login", "/api/auth/refresh")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    engine = create_async_engine(settings.platform_dsn, pool_pre_ping=True)
+    # ★ W23 Day6：双实例 40 并发压测暴露的配置缺口——SQLAlchemy 默认连接池
+    #   pool_size=5 在并发下排队（每次 POST 叠加审计写 + 会话落库 + 业务审计，
+    #   单请求峰值 2–3 个并发 session）。扩容到 40+20/实例，
+    #   MySQL command 加 --max-connections=500（compose）承接双实例 120 连接
+    engine = create_async_engine(
+        settings.platform_dsn,
+        pool_pre_ping=True,
+        pool_size=40,
+        max_overflow=20,
+        pool_timeout=30,
+    )
     app.state.engine = engine
     app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
     yield
@@ -69,8 +81,39 @@ app = FastAPI(
     dependencies=[Depends(global_auth)],
 )
 
+# ==================== 中间件 ====================
+
+class RequestIdMiddleware:
+    """请求贯穿标识（★ W23 Day6）：响应头 X-Request-Id + scope['request_id']。
+
+    双实例下日志会交错，靠 request_id 把一次请求的所有日志/审计串起来排查
+    （手册 Day6 坑）。客户端/nginx 已带 X-Request-Id 则透传，否则生成 uuid 前 12 位。
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        headers = {k.decode("latin1").lower(): v.decode("latin1")
+                   for k, v in scope.get("headers", [])}
+        rid = headers.get("x-request-id") or uuid4().hex[:12]
+        scope["request_id"] = rid
+
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                MutableHeaders(scope=message).append("X-Request-Id", rid)
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
+
+
 # 审计中间件：非 GET 写操作全覆盖（登录/刷新/登出端点自身已落账，中间件跳过）
+# 中间件顺序（手册坑）：RequestId 最外层（先生成 request_id），审计在其内读 scope
 app.add_middleware(AuditMiddleware)
+app.add_middleware(RequestIdMiddleware)
 
 
 # ==================== 路由 ====================

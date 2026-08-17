@@ -9,6 +9,7 @@
 - 中间件不阻断请求（审计失败只记日志不抛错，审计系统故障不拖垮主流程）
 """
 
+import asyncio
 import logging
 from typing import Any
 
@@ -30,11 +31,16 @@ async def write_audit(
     target: str | None = None,
     status: int = 200,
     detail: dict[str, Any] | None = None,
+    trace_id: str | None = None,
 ) -> None:
-    """显式写一条审计日志（事务随调用方 session 提交）。"""
+    """显式写一条审计日志（事务随调用方 session 提交）。
+
+    trace_id：★ W23 Day6 起由 RequestIdMiddleware 写入 scope，贯穿一次请求
+    （双实例下日志交错的排查依据）。
+    """
     session.add(
         AuditLog(
-            event=event, actor=actor, trace_id=None, target=target, detail=detail, status=status
+            event=event, actor=actor, trace_id=trace_id, target=target, detail=detail, status=status
         )
     )
 
@@ -82,6 +88,8 @@ class AuditMiddleware:
 
         headers = {k.decode().lower(): v.decode() for k, v in scope.get("headers", [])}
         actor = extract_actor_from_auth(headers.get("authorization"))
+        # ★ W23 Day6：request_id 贯穿（RequestIdMiddleware 已写入 scope）
+        request_id = scope.get("request_id")
 
         status_code = 500
 
@@ -94,17 +102,28 @@ class AuditMiddleware:
         try:
             await self.app(scope, receive, send_wrapper)
         finally:
-            # 异步写审计：新开会话独立提交，不污染请求事务；失败仅记日志
-            try:
-                factory = scope["app"].state.session_factory
-                async with factory() as session:
-                    await write_audit(
-                        session,
-                        event=f"{method} {path}",
-                        actor=actor,
-                        target=path,
-                        status=status_code,
-                    )
-                    await session.commit()
-            except Exception:  # noqa: BLE001
-                logger.exception("audit write failed for %s %s", method, path)
+            # ★ W23 Day6 压测优化：审计写改后台任务（fire-and-forget），不再 await——
+            #   响应完成后立即返回，40 并发下避免 40 个审计写任务同时挤占事件循环
+            #   与连接池（审计旁路：失败仅记日志，不阻塞业务）
+            factory = scope["app"].state.session_factory
+            asyncio.create_task(
+                self._write_audit_async(factory, method, path, actor, request_id, status_code)
+            )
+
+    @staticmethod
+    async def _write_audit_async(factory, method: str, path: str, actor: str | None,
+                                 request_id: str | None, status_code: int) -> None:
+        """后台写审计（独立 session 提交，不污染请求事务）。"""
+        try:
+            async with factory() as session:
+                await write_audit(
+                    session,
+                    event=f"{method} {path}",
+                    actor=actor,
+                    target=path,
+                    status=status_code,
+                    trace_id=request_id,
+                )
+                await session.commit()
+        except Exception:  # noqa: BLE001
+            logger.exception("audit write failed for %s %s", method, path)

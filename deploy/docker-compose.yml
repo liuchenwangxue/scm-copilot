@@ -1,13 +1,15 @@
-# ★ W23 Day1：SCM Copilot 平台基础服务编排
-# 本期只起 MySQL 8（平台权威库），后续周按需追加 redis/qdrant/nginx/backend
-# 位置：deploy/docker-compose.yml ｜ 运行：make up（或 docker compose -f deploy/docker-compose.yml up -d）
+# ★ W23 SCM Copilot 平台服务编排（Day1 建仓 MySQL → Day6 扩容双实例 + nginx）
+# 位置：deploy/docker-compose.yml ｜ 运行：make up-full（或 docker compose -f deploy/docker-compose.yml up -d --build）
 #
-# 设计要点（手册坑）：
+# 设计要点：
 # - 数据卷用【命名卷】而非绑定挂载：Windows + WSL2 下 NTFS 权限会导致 InnoDB 初始化失败
 # - TZ 必须设：否则 DATETIME(3) 默认值差 8 小时，W24 "近7天"查询会全错
 # - utf8mb4 + utf8mb4_unicode_ci：中文供应链数据唯一正确字符集
-# - 宿主端口默认 13306（本地 3306 已被 yudao-mysql 占用，错开避免冲突）
+# - 宿主端口错开：mysql 13306 / redis 16381 / nginx 18000（本机 3306/16380/8000 已被他项目占用）
+# - 无状态化（Day6）：backend 双实例同镜像不同容器，状态全在 MySQL/Redis；
+#   nginx least_conn 分发；压测/杀实例演练入口
 services:
+  # ============ 平台权威库：MySQL 8（Day1） ============
   mysql:
     image: mysql:8.0
     container_name: scm-mysql
@@ -19,6 +21,12 @@ services:
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
+      - --max-connections=500   # W23 Day6：双实例连接池 40+20/实例，承接压测峰值
+      # W23 Day6 压测调优：并发写场景（审计/conversations 每请求 commit）在 Docker
+      # Desktop 磁盘上默认 flush=1 每次 fsync → 40 并发长尾。开发环境降为每秒刷盘，
+      # 生产纪律保留 flush=1（丢 1s 日志的容忍度随业务评估）
+      - --innodb_flush_log_at_trx_commit=2
+      - --innodb_buffer_pool_size=256M
     ports:
       - "${MYSQL_PORT:-13306}:3306"   # 宿主 13306 → 容器 3306（本机 3306 已被占用）
     volumes:
@@ -30,6 +38,135 @@ services:
       retries: 10
       start_period: 10s
 
+  # ============ Redis：幂等 / 语义缓存 / 锁（Day5 起强依赖，Day6 入编排） ============
+  redis:
+    image: redis:7-alpine
+    container_name: scm-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-16381}:6379"   # 宿主 16381 → 容器 6379（本机 16380 已被 stage3 占用）
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  # ============ mock 业务系统：ops 域工具调用目标（Day6 随平台部署） ============
+  mock-biz:
+    build: ./mock_biz_server
+    image: scm-mock-biz:latest
+    container_name: scm-mock-biz
+    restart: unless-stopped
+    environment:
+      PORT: "8794"
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8794/health',timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  # ============ backend 双实例（同镜像，无状态，least_conn 分发） ============
+  backend-a1:
+    build:
+      context: ..
+      dockerfile: deploy/backend/Dockerfile
+    image: scm-backend:latest
+    container_name: scm-backend-a1
+    restart: unless-stopped
+    environment: &backend_env
+      SCM_PLATFORM_DSN: "mysql+asyncmy://root:root123@mysql:3306/scm_platform?charset=utf8mb4"
+      SCM_BIZ_DSN: "mysql+asyncmy://root:root123@mysql:3306/scm_biz?charset=utf8mb4"
+      SCM_JWT_SECRET: "dev-secret-change-me"
+      REDIS_URL: "redis://redis:6379/0"
+      LLM_PROVIDER: "mock"                 # 压测零成本：mock LLM 兜底（真实 LLM 留 W24 采样）
+      BIZ_BASE_URL: "http://mock-biz:8794" # 容器内互访走 compose 网络
+      CHECKPOINTER_BACKEND: "mysql"        # AsyncMySaver（平台库 scm_platform）
+      INSTANCE_ID: "backend-a1"
+      KB_DATA_DIR: "/data"
+      REPORTS_DIR: "/reports"
+      AUDIT_LOG: "/data/audit.log"
+      IDEMPOTENCY_DB: "/data/idempotency.db"
+      STRUCT_LOG: "/reports/struct.log.jsonl"
+      # ★ W23 Day6 压测优化：容器内关结构化日志（obs handler 是同步文件 IO + 线程锁，
+      #   Docker volume 上写盘慢，20 并发/实例下阻塞事件循环造成 P95 长尾；观测留本地/W26）
+      STRUCT_LOG_ENABLED: "0"
+      # 容器内无 embedding 模型（不装 sentence-transformers）：语义缓存关闭（避免每次异常降级）
+      SEMANTIC_CACHE_ENABLED: "0"
+      SEMANTIC_ROUTER_ENABLED: "1"         # 语义路由规则层零 embedding，kb 压测走 chat/tool 分支
+      OTEL_ENABLED: "0"
+    volumes:
+      - runtime_data:/data
+      - runtime_reports:/reports
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mock-biz:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8795/health',timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+
+  backend-a2:
+    image: scm-backend:latest
+    container_name: scm-backend-a2
+    restart: unless-stopped
+    environment:
+      <<: *backend_env
+      INSTANCE_ID: "backend-a2"
+    volumes:
+      - runtime_data:/data
+      - runtime_reports:/reports
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mock-biz:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8795/health',timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+
+  # ============ nginx：least_conn 负载均衡（Day6） ============
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: scm-nginx
+    restart: unless-stopped
+    ports:
+      - "${NGINX_PORT:-18000}:80"          # 宿主 18000 → 容器 80（本机 8000 已被 stage3 占用）
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend-a1
+      - backend-a2
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
 volumes:
   mysql_data:
     name: scm_mysql_data
+  redis_data:
+    name: scm_redis_data
+  runtime_data:      # 容器内审计日志/幂等兜底 sqlite（权威数据在 MySQL/Redis，这里只是可写区）
+    name: scm_runtime_data
+  runtime_reports:
+    name: scm_runtime_reports
