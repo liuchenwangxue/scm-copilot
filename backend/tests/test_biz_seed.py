@@ -33,13 +33,16 @@ RO_DSN = os.environ.get(
 pytestmark = pytest.mark.integration
 
 
-@pytest.fixture(scope="module")
-def biz_engine():
+# ★ CI 教训：fixture 必须是 function scope 的 async generator！
+#   pytest-asyncio 默认每个测试独立事件循环（asyncio_default_test_loop_scope=function）。
+#   若用 module scope 同步 fixture，engine 在第一个测试的 loop 里建池，后续测试在
+#   新 loop 复用连接 → RuntimeError "got Future attached to a different loop"
+#   （本地 1.4.0 侥幸通过，CI 1.6.x 严格校验暴露）。async generator 保证创建/销毁同 loop。
+@pytest.fixture
+async def biz_engine():
     engine = create_async_engine(settings.biz_dsn, pool_pre_ping=True)
     yield engine
-    import asyncio
-
-    asyncio.run(engine.dispose())
+    await engine.dispose()
 
 
 async def _count(engine, table: str) -> int:

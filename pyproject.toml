@@ -109,6 +109,11 @@ markers = [
 addopts = "-q --disable-warnings"
 # async 测试自动收集（pytest-asyncio auto 模式，否则 async def 测试不被支持）
 asyncio_mode = "auto"
+# ★ W24 CI 教训：fixture 与测试统一 function loop scope——若 fixture 默认 scope 与
+#   测试 loop 不一致，跨 loop 复用 engine 会报 "got Future attached to a different loop"
+#   （pytest-asyncio 1.6.x 严格校验，本地 1.4.0 不报）
+asyncio_default_fixture_loop_scope = "function"
+asyncio_default_test_loop_scope = "function"
 
 [tool.coverage.run]
 branch = true
