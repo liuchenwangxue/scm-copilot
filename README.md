@@ -18,6 +18,12 @@ make up                        # docker compose -f deploy/docker-compose.yml up 
 make migrate                        # alembic upgrade head（12 表从零可重放）
 make seed                           # 4 角色 / 12 权限 / 3 租户 × 4 角色测试用户
 
+# ★ W24 Day1：业务库 scm_biz（NL2SQL 靶场）——六表 + 万级固定 seed + 只读沙箱
+make migrate-biz                    # 独立 alembic_biz 链建 scm_biz 六表
+make seed-biz                       # 固定 seed（suppliers 40/orders 10000/items ~35000...）
+make check-biz                      # 行数 + 校验和（重放一致性）
+python -X utf8 scripts/verify_biz_data.py   # 数据质量验证（金额勾稽/延迟率/状态分布）
+
 # ★ W23 Day5：stage3 历史数据迁移（审批/反馈/审计/LangGraph 断点，幂等可重跑）
 python scripts/migrate_sqlite_to_mysql.py    # 输出"4 表行数 + 校验和一致"
 
@@ -82,10 +88,28 @@ scm-copilot/
   - 租户：`t_huadong` / `t_huabei` / `t_huanan`
   - 例：`admin_t_huadong` / `operator_t_huabei` / `analyst_t_huanan` / `viewer_t_huadong`
 
-## 六、非目标（scope 纪律，详见《06》第 5 节）
+## 六、业务库 scm_biz 与只读沙箱（W24 Day1）
+
+**业务库 `scm_biz`**（独立 Alembic 链 `alembic_biz.ini`，与平台库版本树完全隔离）：
+
+| 表 | 规模 | 说明 |
+|---|---|---|
+| `suppliers` | 40 | 华东/华北/华南/西南各 10；评分 60–95 |
+| `products` | 500 | SKU + 类目 8 种 + 单价 10–5000 |
+| `orders` | 10,000 | `SO-YYYYMMDD-XXXX`；近 180 天分布（近 30 天加密 40%）；状态 draft5/paid20/shipped40/done30/cancelled5 |
+| `order_items` | ~35,000 | 每单 2–5 行；`amount = quantity × unit_price` 与订单金额勾稽 |
+| `shipments` | ~7,000 | 仅 shipped/done 有发货记录；延迟发货率 ~8%（daily_brief 原料） |
+| `inventory` | 500 | 每商品一条；~15% 低库存（qty < safety_qty，评测用） |
+
+**只读沙箱账号**（纵深防御第二道保险，第一道是 W24-D2 sqlglot 四道闸）：
+- 用户 `nl2sql_ro` / 密码 `ro_pass_2026_dev`，**仅 `GRANT SELECT ON scm_biz.*`**
+- 写操作被 MySQL 拒绝：`ERROR 1142 (42000) UPDATE command denied`
+- 初始化脚本 `deploy/initdb/01_create_ro_user.sql`（compose 首次建卷自动执行）
+
+## 七、非目标（scope 纪律，详见《06》第 5 节）
 
 等保正式化、OCR/Whisper、钉钉企微 IM、LoRA、多 GPU、BI 图表引擎、桌面客户端、行业多场景定制——一律进二期 backlog。
 
-## 七、CI
+## 八、CI
 
-`.github/workflows/ci.yml`：push/PR → Python 3.12 → ruff → mypy → **alembic migrate + seed（幂等两遍）** → pytest（含 MySQL service container 连通性与种子数据用例）→ coverage 上传。
+`.github/workflows/ci.yml`：push/PR → Python 3.12 → ruff → mypy → **platform alembic migrate + seed（幂等两遍）** → **biz alembic migrate + seed + 校验和** → pytest（含 MySQL service container 连通性与种子/只读沙箱用例）→ coverage 上传。

@@ -31,6 +31,8 @@ services:
       - "${MYSQL_PORT:-13306}:3306"   # 宿主 13306 → 容器 3306（本机 3306 已被占用）
     volumes:
       - mysql_data:/var/lib/mysql
+      # ★ W24 Day1：NL2SQL 只读账号初始化（仅首次建卷时执行，改密码需 down -v 重建）
+      - ./initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 5s

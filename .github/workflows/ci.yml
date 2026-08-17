@@ -23,6 +23,9 @@ jobs:
           MYSQL_ROOT_PASSWORD: root123
           MYSQL_DATABASE: scm_platform
           TZ: Asia/Shanghai
+        # ★ W24：挂 initdb 脚本建 scm_biz + nl2sql_ro 只读账号（首次建库生效）
+        volumes:
+          - ${{ github.workspace }}/deploy/initdb:/docker-entrypoint-initdb.d:ro
         ports:
           - 3306:3306
         options: >-
@@ -51,7 +54,7 @@ jobs:
         run: mypy --explicit-package-bases --namespace-packages backend scripts
 
       # 平台库 schema 合法 + 种子可重放（保证 PR 合并前 schema 一定可用）
-      - name: alembic migrate + seed
+      - name: alembic migrate + seed (platform)
         run: |
           SCM_PLATFORM_DSN="mysql+asyncmy://root:root123@127.0.0.1:3306/scm_platform?charset=utf8mb4" \
             alembic -c backend/alembic.ini upgrade head
@@ -61,9 +64,22 @@ jobs:
           SCM_PLATFORM_DSN="mysql+asyncmy://root:root123@127.0.0.1:3306/scm_platform?charset=utf8mb4" \
             python scripts/seed_platform.py
 
+      # ★ W24：业务库 scm_biz 迁移 + seed（独立链）+ 只读沙箱校验和
+      - name: alembic migrate + seed (biz scm_biz)
+        run: |
+          SCM_BIZ_DSN="mysql+asyncmy://root:root123@127.0.0.1:3306/scm_biz?charset=utf8mb4" \
+            alembic -c backend/alembic_biz.ini upgrade head
+          SCM_BIZ_DSN="mysql+asyncmy://root:root123@127.0.0.1:3306/scm_biz?charset=utf8mb4" \
+            python -X utf8 scripts/seed_biz.py
+          # 重放一致性：seed 跑两遍，校验和应一致（seed 脚本内含 check 输出）
+          SCM_BIZ_DSN="mysql+asyncmy://root:root123@127.0.0.1:3306/scm_biz?charset=utf8mb4" \
+            python -X utf8 scripts/seed_biz.py --check
+
       - name: pytest + coverage
         run: |
           SCM_TEST_DSN="mysql+asyncmy://root:root123@127.0.0.1:3306/scm_platform?charset=utf8mb4" \
+          SCM_BIZ_DSN="mysql+asyncmy://root:root123@127.0.0.1:3306/scm_biz?charset=utf8mb4" \
+          SCM_BIZ_RO_DSN="mysql+asyncmy://nl2sql_ro:ro_pass_2026_dev@127.0.0.1:3306/scm_biz?charset=utf8mb4" \
           pytest backend/tests -v \
             --cov=backend --cov-report=term-missing --cov-report=xml:coverage.xml
 
