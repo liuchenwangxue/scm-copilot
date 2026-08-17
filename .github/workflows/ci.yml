@@ -23,9 +23,9 @@ jobs:
           MYSQL_ROOT_PASSWORD: root123
           MYSQL_DATABASE: scm_platform
           TZ: Asia/Shanghai
-        # ★ W24：挂 initdb 脚本建 scm_biz + nl2sql_ro 只读账号（首次建库生效）
-        volumes:
-          - ${{ github.workspace }}/deploy/initdb:/docker-entrypoint-initdb.d:ro
+        # ★ W24 教训：不要用 volumes 挂载工作区子目录（如 deploy/initdb）到 service 容器！
+        #   容器内 root 会改写目录所有权 → 重跑时 actions/checkout 清理工作区报
+        #   EACCES 删除失败。建 scm_biz/只读账号改由 job 步骤显式跑 scripts/init_biz_db.py。
         ports:
           - 3306:3306
         options: >-
@@ -65,8 +65,11 @@ jobs:
             python scripts/seed_platform.py
 
       # ★ W24：业务库 scm_biz 迁移 + seed（独立链）+ 只读沙箱校验和
+      # 先跑 init_biz_db.py 建 scm_biz 库 + nl2sql_ro 只读账号（替代 service volumes 挂载）
       - name: alembic migrate + seed (biz scm_biz)
         run: |
+          SCM_BIZ_DSN="mysql+asyncmy://root:root123@127.0.0.1:3306/scm_biz?charset=utf8mb4" \
+            python -X utf8 scripts/init_biz_db.py
           SCM_BIZ_DSN="mysql+asyncmy://root:root123@127.0.0.1:3306/scm_biz?charset=utf8mb4" \
             alembic -c backend/alembic_biz.ini upgrade head
           SCM_BIZ_DSN="mysql+asyncmy://root:root123@127.0.0.1:3306/scm_biz?charset=utf8mb4" \

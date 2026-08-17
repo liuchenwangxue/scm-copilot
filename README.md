@@ -19,6 +19,7 @@ make migrate                        # alembic upgrade head（12 表从零可重�
 make seed                           # 4 角色 / 12 权限 / 3 租户 × 4 角色测试用户
 
 # ★ W24 Day1：业务库 scm_biz（NL2SQL 靶场）——六表 + 万级固定 seed + 只读沙箱
+make init-biz-db                    # 建 scm_biz 库 + nl2sql_ro 只读账号（幂等）
 make migrate-biz                    # 独立 alembic_biz 链建 scm_biz 六表
 make seed-biz                       # 固定 seed（suppliers 40/orders 10000/items ~35000...）
 make check-biz                      # 行数 + 校验和（重放一致性）
@@ -105,6 +106,7 @@ scm-copilot/
 - 用户 `nl2sql_ro` / 密码 `ro_pass_2026_dev`，**仅 `GRANT SELECT ON scm_biz.*`**
 - 写操作被 MySQL 拒绝：`ERROR 1142 (42000) UPDATE command denied`
 - 初始化脚本 `deploy/initdb/01_create_ro_user.sql`（compose 首次建卷自动执行）
+  + `scripts/init_biz_db.py`（幂等，已有数据卷的环境 / CI 用：`make init-biz-db`）
 
 ## 七、非目标（scope 纪律，详见《06》第 5 节）
 
@@ -112,4 +114,6 @@ scm-copilot/
 
 ## 八、CI
 
-`.github/workflows/ci.yml`：push/PR → Python 3.12 → ruff → mypy → **platform alembic migrate + seed（幂等两遍）** → **biz alembic migrate + seed + 校验和** → pytest（含 MySQL service container 连通性与种子/只读沙箱用例）→ coverage 上传。
+`.github/workflows/ci.yml`：push/PR → Python 3.12 → ruff → mypy → **platform alembic migrate + seed（幂等两遍）** → **biz init_biz_db（建库+只读账号）→ alembic migrate + seed + 校验和** → pytest（含 MySQL service container 连通性与种子/只读沙箱用例）→ coverage 上传。
+
+> 教训（W24 Day1）：**不要用 volumes 把工作区子目录挂进 CI service 容器**——容器内 root 改写目录所有权，重跑时 checkout 清理工作区报 EACCES。建库/建用户改由 job 步骤显式执行 `scripts/init_biz_db.py`。

@@ -25,7 +25,7 @@ COMPOSE := docker compose -f deploy/docker-compose.yml
 # alembic.ini 在 backend/ 下，须在此目录运行（env.py 经 pythonpath 兜底）
 BACKEND := backend
 
-.PHONY: up up-mysql down build migrate seed migrate-biz seed-biz reseed-biz check-biz test test-auth test-integration check lint-fix format loadtest drill help
+.PHONY: up up-mysql down build migrate seed init-biz-db migrate-biz seed-biz reseed-biz check-biz test test-auth test-integration check lint-fix format loadtest drill help
 
 ## 默认：显示帮助
 help:
@@ -36,6 +36,7 @@ help:
 	@echo "  make build     构建 backend + mock-biz 镜像"
 	@echo "  make migrate   alembic upgrade head（平台库）"
 	@echo "  make seed      平台库幂等种子"
+	@echo "  make init-biz-db  scm_biz 建库+只读账号（幂等）"
 	@echo "  make migrate-biz  scm_biz 迁移（独立链）"
 	@echo "  make reseed-biz   scm_biz 重建六表+seed（Day1）"
 	@echo "  make check-biz    scm_biz 行数+校验和"
@@ -71,6 +72,10 @@ seed:
 	$(PY) scripts/seed_platform.py
 
 # ==================== W24：业务库 scm_biz（NL2SQL 靶场） ====================
+
+## scm_biz 库 + nl2sql_ro 只读账号初始化（幂等；已存在数据卷的环境先跑一次）
+init-biz-db:
+	$(PY) -X utf8 scripts/init_biz_db.py
 
 ## scm_biz 迁移（独立 alembic_biz 链，隔离 platform 版本树）
 migrate-biz:
