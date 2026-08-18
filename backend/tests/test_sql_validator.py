@@ -250,6 +250,9 @@ class TestParseError:
             "SLEEP(5)",  # 无 SELECT 前缀（Anonymous 根 → not-select）
             "SELECT \\x73leep(5)",  # 编码混淆（非法标识符）
             "SELECT 0x736c656570(5)",  # 十六进制编码混淆
+            # ★ Day5 实测：未闭合括号 → sqlglot 30.x 抛 TokenError（不是 ParseError），
+            # validator 必须一并按 parse-error 拒绝，否则图整体崩溃
+            "SELECT COUNT(*) FROM orders WHERE region='华东'(",
         ],
     )
     def test_unparseable_rejected(self, sql: str):

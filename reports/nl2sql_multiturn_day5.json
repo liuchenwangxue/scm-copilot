@@ -1,0 +1,365 @@
+{
+  "provider": "mock",
+  "base_date": "2026-08-18",
+  "summary": {
+    "cases": 10,
+    "case_pass": 10,
+    "case_pass_rate": 1.0,
+    "overall": {
+      "total": 22,
+      "correct": 22,
+      "accuracy": 1.0,
+      "resolution_ok": 1.0
+    },
+    "first_turn": {
+      "total": 10,
+      "correct": 10,
+      "accuracy": 1.0,
+      "resolution_ok": 1.0
+    },
+    "followup": {
+      "total": 12,
+      "correct": 12,
+      "accuracy": 1.0,
+      "resolution_ok": 1.0
+    }
+  },
+  "cases": [
+    {
+      "pass": true,
+      "turns": [
+        {
+          "turn": 0,
+          "q": "近7天创建了多少订单？",
+          "resolved": "近7天创建了多少订单？",
+          "expected_resolved": "近7天创建了多少订单？",
+          "resolution_ok": true,
+          "ok": true,
+          "sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-08-11' LIMIT 200",
+          "diffs": [],
+          "rejected_reason": null,
+          "error": null,
+          "repair_attempts": 0
+        },
+        {
+          "turn": 1,
+          "q": "那近30天呢？",
+          "resolved": "近30天创建了多少订单？",
+          "expected_resolved": "近30天创建了多少订单？",
+          "resolution_ok": true,
+          "ok": true,
+          "sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-07-19' LIMIT 200",
+          "diffs": [],
+          "rejected_reason": null,
+          "error": null,
+          "repair_attempts": 0
+        }
+      ]
+    },
+    {
+      "pass": true,
+      "turns": [
+        {
+          "turn": 0,
+          "q": "华东区域订单总金额是多少？",
+          "resolved": "华东区域订单总金额是多少？",
+          "expected_resolved": "华东区域订单总金额是多少？",
+          "resolution_ok": true,
+          "ok": true,
+          "sql": "SELECT SUM(amount) AS total_amount FROM orders WHERE region = '华东' LIMIT 200",
+          "diffs": [],
+          "rejected_reason": null,
+          "error": null,
+          "repair_attempts": 0
+        },
+        {
+          "turn": 1,
+          "q": "那各区域呢？",
+          "resolved": "各区域订单总金额是多少？",
+          "expected_resolved": "各区域订单总金额是多少？",
+          "resolution_ok": true,
+          "ok": true,
+          "sql": "SELECT region, SUM(amount) AS total_amount FROM orders GROUP BY region ORDER BY region LIMIT 200",
+          "diffs": [],
+          "rejected_reason": null,
+          "error": null,
+          "repair_attempts": 0
+        }
+      ]
+    },
+    {
+      "pass": true,
+      "turns": [
+        {
+          "turn": 0,
+          "q": "近30天华东区域已支付的订单有多少？",
+          "resolved": "近30天华东区域已支付的订单有多少？",
+          "expected_resolved": "近30天华东区域已支付的订单有多少？",
+          "resolution_ok": true,
+          "ok": true,
+          "sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-07-19' AND region = '华东' AND status = 'paid' LIMIT 200",
+          "diffs": [],
+          "rejected_reason": null,
+          "error": null,
+          "repair_attempts": 0
+        },
+        {
+          "turn": 1,
+          "q": "那华北呢？",
+          "resolved": "近30天华北区域已支付的订单有多少？",
+          "expected_resolved": "近30天华北区域已支付的订单有多少？",
+          "resolution_ok": true,
+          "ok": true,
+          "sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-07-19' AND region = '华北' AND status = 'paid' LIMIT 200",
+          "diffs": [],
+          "rejected_reason": null,
+          "error": null,
+          "repair_attempts": 0
+        }
+      ]
+    },
+    {
+      "pass": true,
+      "turns": [
+        {
+          "turn": 0,
+          "q": "华东区域有多少订单？",
+          "resolved": "华东区域有多少订单？",
+          "expected_resolved": "华东区域有多少订单？",
+          "resolution_ok": true,
+          "ok": true,
+          "sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region = '华东' LIMIT 200",
+          "diffs": [],
+          "rejected_reason": null,
+          "error": null,
+          "repair_attempts": 0
+        },
+        {
+          "turn": 1,
+          "q": "华北呢？",
+          "resolved": "华北区域有多少订单？",
+          "expected_resolved": "华北区域有多少订单？",
+          "resolution_ok": true,
+          "ok": true,
+          "sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region = '华北' LIMIT 200",
+          "diffs": [],
+          "rejected_reason": null,
+          "error": null,
+          "repair_attempts": 0
+        },
+        {
+          "turn": 2,
+          "q": "华南呢？",
+          "resolved": "华南区域有多少订单？",
+          "expected_resolved": "华南区域有多少订单？",
+          "resolution_ok": true,
+          "ok": true,
+          "sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region = '华南' LIMIT 200",
+          "diffs": [],
+          "rejected_reason": null,
+          "error": null,
+          "repair_attempts": 0
+        }
+      ]
+    },
+    {
+      "pass": true,
+      "turns": [
+        {
+          "turn": 0,
+          "q": "已取消的订单有多少？",
+          "resolved": "已取消的订单有多少？",
+          "expected_resolved": "已取消的订单有多少？",
+          "resolution_ok": true,
+          "ok": true,
+          "sql": "SELECT COUNT(*) AS cnt FROM orders WHERE status = 'cancelled' LIMIT 200",
+          "diffs": [],
+          "rejected_reason": null,
+          "error": null,
+          "repair_attempts": 0
+        },
+        {
+          "turn": 1,
+          "q": "那已完成的呢？",
+          "resolved": "已完成的订单有多少？",
+          "expected_resolved": "已完成的订单有多少？",
+          "resolution_ok": true,
+          "ok": true,
+          "sql": "SELECT COUNT(*) AS cnt FROM orders WHERE status = 'done' LIMIT 200",
+          "diffs": [],
+          "rejected_reason": null,
+          "error": null,
+          "repair_attempts": 0
+        }
+      ]
+    },
+    {
+      "pass": true,
+      "turns": [
+        {
+          "turn": 0,
+          "q": "延迟发货的订单有多少？",
+          "resolved": "延迟发货的订单有多少？",
+          "expected_resolved": "延迟发货的订单有多少？",
+          "resolution_ok": true,
+          "ok": true,
+          "sql": "SELECT COUNT(*) AS cnt FROM shipments WHERE delay_days > 0 LIMIT 200",
+          "diffs": [],
+          "rejected_reason": null,
+          "error": null,
+          "repair_attempts": 0
+        },
+        {
+          "turn": 1,
+          "q": "那近30天呢？",
+          "resolved": "近30天延迟发货的订单有多少？",
+          "expected_resolved": "近30天延迟发货的订单有多少？",
+          "resolution_ok": true,
+          "ok": true,
+          "sql": "SELECT COUNT(*) AS cnt FROM shipments AS s JOIN orders AS o ON s.order_no = o.order_no WHERE s.delay_days > 0 AND o.created_at >= '2026-07-19' LIMIT 200",
+          "diffs": [],
+          "rejected_reason": null,
+          "error": null,
+          "repair_attempts": 0
+        }
+      ]
+    },
+    {
+      "pass": true,
+      "turns": [
+        {
+          "turn": 0,
+          "q": "近30天各区域的订单数量？",
+          "resolved": "近30天各区域的订单数量？",
+          "expected_resolved": "近30天各区域的订单数量？",
+          "resolution_ok": true,
+          "ok": true,
+          "sql": "SELECT region, COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-07-19' GROUP BY region ORDER BY region LIMIT 200",
+          "diffs": [],
+          "rejected_reason": null,
+          "error": null,
+          "repair_attempts": 0
+        },
+        {
+          "turn": 1,
+          "q": "只算已支付的呢？",
+          "resolved": "近30天各区域的已支付的订单数量？",
+          "expected_resolved": "近30天各区域的已支付的订单数量？",
+          "resolution_ok": true,
+          "ok": true,
+          "sql": "SELECT region, COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-07-19' AND status = 'paid' GROUP BY region ORDER BY region LIMIT 200",
+          "diffs": [],
+          "rejected_reason": null,
+          "error": null,
+          "repair_attempts": 0
+        }
+      ]
+    },
+    {
+      "pass": true,
+      "turns": [
+        {
+          "turn": 0,
+          "q": "华东区域的供应商有多少？",
+          "resolved": "华东区域的供应商有多少？",
+          "expected_resolved": "华东区域的供应商有多少？",
+          "resolution_ok": true,
+          "ok": true,
+          "sql": "SELECT COUNT(*) AS cnt FROM suppliers WHERE region = '华东' LIMIT 200",
+          "diffs": [],
+          "rejected_reason": null,
+          "error": null,
+          "repair_attempts": 0
+        },
+        {
+          "turn": 1,
+          "q": "那华南呢？",
+          "resolved": "华南区域的供应商有多少？",
+          "expected_resolved": "华南区域的供应商有多少？",
+          "resolution_ok": true,
+          "ok": true,
+          "sql": "SELECT COUNT(*) AS cnt FROM suppliers WHERE region = '华南' LIMIT 200",
+          "diffs": [],
+          "rejected_reason": null,
+          "error": null,
+          "repair_attempts": 0
+        }
+      ]
+    },
+    {
+      "pass": true,
+      "turns": [
+        {
+          "turn": 0,
+          "q": "各区域的订单数量？",
+          "resolved": "各区域的订单数量？",
+          "expected_resolved": "各区域的订单数量？",
+          "resolution_ok": true,
+          "ok": true,
+          "sql": "SELECT region, COUNT(*) AS cnt FROM orders GROUP BY region ORDER BY region LIMIT 200",
+          "diffs": [],
+          "rejected_reason": null,
+          "error": null,
+          "repair_attempts": 0
+        },
+        {
+          "turn": 1,
+          "q": "西南呢？",
+          "resolved": "西南区域的订单数量？",
+          "expected_resolved": "西南区域的订单数量？",
+          "resolution_ok": true,
+          "ok": true,
+          "sql": "SELECT region, COUNT(*) AS cnt FROM orders WHERE region = '西南' GROUP BY region ORDER BY region LIMIT 200",
+          "diffs": [],
+          "rejected_reason": null,
+          "error": null,
+          "repair_attempts": 0
+        }
+      ]
+    },
+    {
+      "pass": true,
+      "turns": [
+        {
+          "turn": 0,
+          "q": "金额最高的前5个订单的订单号和金额？",
+          "resolved": "金额最高的前5个订单的订单号和金额？",
+          "expected_resolved": "金额最高的前5个订单的订单号和金额？",
+          "resolution_ok": true,
+          "ok": true,
+          "sql": "SELECT order_no, amount FROM orders ORDER BY amount DESC LIMIT 5",
+          "diffs": [],
+          "rejected_reason": null,
+          "error": null,
+          "repair_attempts": 0
+        },
+        {
+          "turn": 1,
+          "q": "只看已完成的呢？",
+          "resolved": "金额最高的前5个已完成的订单的订单号和金额？",
+          "expected_resolved": "金额最高的前5个已完成的订单的订单号和金额？",
+          "resolution_ok": true,
+          "ok": true,
+          "sql": "SELECT order_no, amount FROM orders WHERE status = 'done' ORDER BY amount DESC LIMIT 5",
+          "diffs": [],
+          "rejected_reason": null,
+          "error": null,
+          "repair_attempts": 0
+        },
+        {
+          "turn": 2,
+          "q": "近30天呢？",
+          "resolved": "近30天金额最高的前5个已完成的订单的订单号和金额？",
+          "expected_resolved": "近30天金额最高的前5个已完成的订单的订单号和金额？",
+          "resolution_ok": true,
+          "ok": true,
+          "sql": "SELECT order_no, amount FROM orders WHERE status = 'done' AND created_at >= '2026-07-19' ORDER BY amount DESC LIMIT 5",
+          "diffs": [],
+          "rejected_reason": null,
+          "error": null,
+          "repair_attempts": 0
+        }
+      ]
+    }
+  ]
+}

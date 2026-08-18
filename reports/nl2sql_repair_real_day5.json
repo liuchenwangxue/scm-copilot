@@ -1,0 +1,718 @@
+{
+  "provider": "real",
+  "base_date": "2026-08-18",
+  "summary": {
+    "total": 30,
+    "overall": {
+      "total": 30,
+      "rescued": 28,
+      "rescue_rate": 0.933,
+      "degraded": 0,
+      "avg_attempts": 1.0
+    },
+    "wrong-column": {
+      "total": 10,
+      "rescued": 10,
+      "rescue_rate": 1.0,
+      "degraded": 0,
+      "avg_attempts": 1.0
+    },
+    "wrong-table": {
+      "total": 10,
+      "rescued": 8,
+      "rescue_rate": 0.8,
+      "degraded": 0,
+      "avg_attempts": 1.0
+    },
+    "syntax": {
+      "total": 10,
+      "rescued": 10,
+      "rescue_rate": 1.0,
+      "degraded": 0,
+      "avg_attempts": 1.0
+    }
+  },
+  "records": [
+    {
+      "question": "华东区域有多少订单？",
+      "broken_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE regionx = '华东'",
+      "final_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region = '华东' LIMIT 200",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE regionx = '华东'",
+          "failure": "OperationalError: (asyncmy.errors.OperationalError) (1054, \"Unknown column 'regionx' in 'where clause'\")\n[SQL: SELECT COUNT(*) AS cnt FROM orders WHERE regionx = '华东' LIMIT 200]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
+          "repaired_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region = '华东'"
+        }
+      ],
+      "type": "wrong-column"
+    },
+    {
+      "question": "华北区域已支付的订单有多少？",
+      "broken_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE regionx = '华北' AND status = 'paid'",
+      "final_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region = '华北' AND status = 'paid' LIMIT 200",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE regionx = '华北' AND status = 'paid'",
+          "failure": "OperationalError: (asyncmy.errors.OperationalError) (1054, \"Unknown column 'regionx' in 'where clause'\")\n[SQL: SELECT COUNT(*) AS cnt FROM orders WHERE regionx = '华北' AND status = 'paid' LIMIT 200]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
+          "repaired_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region = '华北' AND status = 'paid'"
+        }
+      ],
+      "type": "wrong-column"
+    },
+    {
+      "question": "华南区域已发货的订单有多少？",
+      "broken_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE regionx = '华南' AND status = 'shipped'",
+      "final_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region = '华南' AND status = 'shipped' LIMIT 200",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE regionx = '华南' AND status = 'shipped'",
+          "failure": "OperationalError: (asyncmy.errors.OperationalError) (1054, \"Unknown column 'regionx' in 'where clause'\")\n[SQL: SELECT COUNT(*) AS cnt FROM orders WHERE regionx = '华南' AND status = 'shipped' LIMIT 200]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
+          "repaired_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region = '华南' AND status = 'shipped'"
+        }
+      ],
+      "type": "wrong-column"
+    },
+    {
+      "question": "西南区域已完成的订单有多少？",
+      "broken_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE regionx = '西南' AND status = 'done'",
+      "final_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region = '西南' AND status = 'done' LIMIT 200",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE regionx = '西南' AND status = 'done'",
+          "failure": "OperationalError: (asyncmy.errors.OperationalError) (1054, \"Unknown column 'regionx' in 'where clause'\")\n[SQL: SELECT COUNT(*) AS cnt FROM orders WHERE regionx = '西南' AND status = 'done' LIMIT 200]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
+          "repaired_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region = '西南' AND status = 'done'"
+        }
+      ],
+      "type": "wrong-column"
+    },
+    {
+      "question": "已取消的订单有多少？",
+      "broken_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE statusx = 'cancelled'",
+      "final_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE status = 'cancelled' LIMIT 200",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE statusx = 'cancelled'",
+          "failure": "OperationalError: (asyncmy.errors.OperationalError) (1054, \"Unknown column 'statusx' in 'where clause'\")\n[SQL: SELECT COUNT(*) AS cnt FROM orders WHERE statusx = 'cancelled' LIMIT 200]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
+          "repaired_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE status = 'cancelled'"
+        }
+      ],
+      "type": "wrong-column"
+    },
+    {
+      "question": "近7天创建了多少订单？",
+      "broken_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_atx >= '2026-08-11'",
+      "final_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-08-11' LIMIT 200",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_atx >= '2026-08-11'",
+          "failure": "OperationalError: (asyncmy.errors.OperationalError) (1054, \"Unknown column 'created_atx' in 'where clause'\")\n[SQL: SELECT COUNT(*) AS cnt FROM orders WHERE created_atx >= '2026-08-11' LIMIT 200]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
+          "repaired_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-08-11'"
+        }
+      ],
+      "type": "wrong-column"
+    },
+    {
+      "question": "近30天创建了多少订单？",
+      "broken_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_atx >= '2026-07-19'",
+      "final_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-07-19' LIMIT 200",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_atx >= '2026-07-19'",
+          "failure": "OperationalError: (asyncmy.errors.OperationalError) (1054, \"Unknown column 'created_atx' in 'where clause'\")\n[SQL: SELECT COUNT(*) AS cnt FROM orders WHERE created_atx >= '2026-07-19' LIMIT 200]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
+          "repaired_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-07-19'"
+        }
+      ],
+      "type": "wrong-column"
+    },
+    {
+      "question": "近30天华东区域已支付的订单有多少？",
+      "broken_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-07-19' AND region = '华东' AND statusx = 'paid'",
+      "final_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-07-19' AND region = '华东' AND status = 'paid' LIMIT 200",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-07-19' AND region = '华东' AND statusx = 'paid'",
+          "failure": "OperationalError: (asyncmy.errors.OperationalError) (1054, \"Unknown column 'statusx' in 'where clause'\")\n[SQL: SELECT COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-07-19' AND region = '华东' AND statusx = 'paid' LIMIT 200]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
+          "repaired_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-07-19' AND region = '华东' AND status = 'paid'"
+        }
+      ],
+      "type": "wrong-column"
+    },
+    {
+      "question": "金额最高的前5个订单的订单号和金额？",
+      "broken_sql": "SELECT order_nox, amount FROM orders ORDER BY amount DESC LIMIT 5",
+      "final_sql": "SELECT order_no, amount FROM orders ORDER BY amount DESC LIMIT 5",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT order_nox, amount FROM orders ORDER BY amount DESC LIMIT 5",
+          "failure": "OperationalError: (asyncmy.errors.OperationalError) (1054, \"Unknown column 'order_nox' in 'field list'\")\n[SQL: SELECT order_nox, amount FROM orders ORDER BY amount DESC LIMIT 5]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
+          "repaired_sql": "SELECT order_no, amount FROM orders ORDER BY amount DESC LIMIT 5"
+        }
+      ],
+      "type": "wrong-column"
+    },
+    {
+      "question": "共有多少个不同的区域？",
+      "broken_sql": "SELECT COUNT(DISTINCT regionx) AS cnt FROM orders",
+      "final_sql": "SELECT COUNT(DISTINCT region) AS cnt FROM orders LIMIT 200",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT COUNT(DISTINCT regionx) AS cnt FROM orders",
+          "failure": "OperationalError: (asyncmy.errors.OperationalError) (1054, \"Unknown column 'regionx' in 'field list'\")\n[SQL: SELECT COUNT(DISTINCT regionx) AS cnt FROM orders LIMIT 200]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
+          "repaired_sql": "SELECT COUNT(DISTINCT region) AS cnt FROM orders"
+        }
+      ],
+      "type": "wrong-column"
+    },
+    {
+      "question": "金额最高的前5个订单分别有多少行明细？",
+      "broken_sql": "SELECT o.order_no, COUNT(i.id) AS item_cnt FROM ordersx AS o JOIN order_items AS i ON o.order_no = i.order_no GROUP BY o.order_no, o.amount ORDER BY o.amount DESC LIMIT 5",
+      "final_sql": "SELECT o.order_no, COUNT(i.order_no) AS item_cnt FROM orders AS o JOIN order_items AS i ON o.order_no = i.order_no GROUP BY o.order_no, o.amount ORDER BY o.amount DESC LIMIT 5",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT o.order_no, COUNT(i.id) AS item_cnt FROM ordersx AS o JOIN order_items AS i ON o.order_no = i.order_no GROUP BY o.order_no, o.amount ORDER BY o.amount DESC LIMIT 5",
+          "failure": "unknown-table",
+          "repaired_sql": "SELECT o.order_no, COUNT(i.order_no) AS item_cnt FROM orders AS o JOIN order_items AS i ON o.order_no = i.order_no GROUP BY o.order_no, o.amount ORDER BY o.amount DESC LIMIT 5"
+        }
+      ],
+      "type": "wrong-table"
+    },
+    {
+      "question": "电子元件类目商品的累计销量（数量）是多少？",
+      "broken_sql": "SELECT SUM(i.quantity) AS total_amount FROM order_itemsx AS i JOIN products AS p ON i.product_id = p.id WHERE p.category = '电子元件'",
+      "final_sql": "SELECT SUM(i.quantity) AS total_amount FROM order_items AS i JOIN products AS p ON i.product_id = p.id WHERE p.category = '电子元件' LIMIT 200",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT SUM(i.quantity) AS total_amount FROM order_itemsx AS i JOIN products AS p ON i.product_id = p.id WHERE p.category = '电子元件'",
+          "failure": "unknown-table",
+          "repaired_sql": "SELECT SUM(i.quantity) AS total_amount FROM order_items AS i JOIN products AS p ON i.product_id = p.id WHERE p.category = '电子元件'"
+        }
+      ],
+      "type": "wrong-table"
+    },
+    {
+      "question": "各类目商品的累计销售金额？",
+      "broken_sql": "SELECT p.category, SUM(i.amount) AS total_amount FROM order_itemsx AS i JOIN products AS p ON i.product_id = p.id GROUP BY p.category ORDER BY p.category",
+      "final_sql": "SELECT p.category, SUM(i.amount) AS total_amount FROM order_items AS i JOIN products AS p ON i.product_id = p.id GROUP BY p.category ORDER BY p.category LIMIT 200",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT p.category, SUM(i.amount) AS total_amount FROM order_itemsx AS i JOIN products AS p ON i.product_id = p.id GROUP BY p.category ORDER BY p.category",
+          "failure": "unknown-table",
+          "repaired_sql": "SELECT p.category, SUM(i.amount) AS total_amount FROM order_items AS i JOIN products AS p ON i.product_id = p.id GROUP BY p.category ORDER BY p.category"
+        }
+      ],
+      "type": "wrong-table"
+    },
+    {
+      "question": "华东区域供应商的订单总金额是多少？",
+      "broken_sql": "SELECT SUM(o.amount) AS total_amount FROM ordersx AS o JOIN suppliers AS s ON o.supplier_id = s.id WHERE s.region = '华东'",
+      "final_sql": "SELECT SUM(o.amount) AS total_amount FROM orders AS o JOIN suppliers AS s ON o.supplier_id = s.id WHERE s.region = '华东' LIMIT 200",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT SUM(o.amount) AS total_amount FROM ordersx AS o JOIN suppliers AS s ON o.supplier_id = s.id WHERE s.region = '华东'",
+          "failure": "unknown-table",
+          "repaired_sql": "SELECT SUM(o.amount) AS total_amount FROM orders AS o JOIN suppliers AS s ON o.supplier_id = s.id WHERE s.region = '华东'"
+        }
+      ],
+      "type": "wrong-table"
+    },
+    {
+      "question": "各区域供应商的订单总金额？",
+      "broken_sql": "SELECT s.region, SUM(o.amount) AS total_amount FROM ordersx AS o JOIN suppliers AS s ON o.supplier_id = s.id GROUP BY s.region ORDER BY s.region",
+      "final_sql": "SELECT s.region, SUM(o.amount) AS total_amount FROM orders AS o JOIN suppliers AS s ON o.supplier_id = s.id GROUP BY s.region ORDER BY s.region LIMIT 200",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT s.region, SUM(o.amount) AS total_amount FROM ordersx AS o JOIN suppliers AS s ON o.supplier_id = s.id GROUP BY s.region ORDER BY s.region",
+          "failure": "unknown-table",
+          "repaired_sql": "SELECT s.region, SUM(o.amount) AS total_amount FROM orders AS o JOIN suppliers AS s ON o.supplier_id = s.id GROUP BY s.region ORDER BY s.region"
+        }
+      ],
+      "type": "wrong-table"
+    },
+    {
+      "question": "订单数量最多的前5个供应商？",
+      "broken_sql": "SELECT s.name, COUNT(o.id) AS cnt FROM ordersx AS o JOIN suppliers AS s ON o.supplier_id = s.id GROUP BY s.name ORDER BY cnt DESC LIMIT 5",
+      "final_sql": "SELECT s.name, COUNT(o.order_no) AS cnt FROM orders AS o JOIN suppliers AS s ON o.supplier_id = s.supplier_code GROUP BY s.name ORDER BY cnt DESC LIMIT 5",
+      "rescued": false,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [
+        {
+          "reason": "结果集不匹配",
+          "gold_first": [
+            [
+              "华东众联95有限公司",
+              346
+            ],
+            [
+              "华东利丰16有限公司",
+              326
+            ],
+            [
+              "华东宏图44有限公司",
+              361
+            ]
+          ],
+          "gen_first": []
+        }
+      ],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT s.name, COUNT(o.id) AS cnt FROM ordersx AS o JOIN suppliers AS s ON o.supplier_id = s.id GROUP BY s.name ORDER BY cnt DESC LIMIT 5",
+          "failure": "unknown-table",
+          "repaired_sql": "SELECT s.name, COUNT(o.order_no) AS cnt FROM orders AS o JOIN suppliers AS s ON o.supplier_id = s.supplier_code GROUP BY s.name ORDER BY cnt DESC LIMIT 5"
+        }
+      ],
+      "type": "wrong-table"
+    },
+    {
+      "question": "低库存商品对应的类目分布？",
+      "broken_sql": "SELECT p.category, COUNT(*) AS cnt FROM inventoryx AS i JOIN products AS p ON i.product_id = p.id WHERE i.qty < i.safety_qty GROUP BY p.category ORDER BY p.category",
+      "final_sql": "SELECT p.category, COUNT(*) AS cnt FROM products AS p WHERE p.status = 1 GROUP BY p.category ORDER BY p.category LIMIT 200",
+      "rescued": false,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [
+        {
+          "reason": "结果集不匹配",
+          "gold_first": [
+            [
+              "五金工具",
+              16
+            ],
+            [
+              "仓储设备",
+              4
+            ],
+            [
+              "办公用品",
+              11
+            ]
+          ],
+          "gen_first": [
+            [
+              "五金工具",
+              65
+            ],
+            [
+              "仓储设备",
+              60
+            ],
+            [
+              "办公用品",
+              59
+            ]
+          ]
+        }
+      ],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT p.category, COUNT(*) AS cnt FROM inventoryx AS i JOIN products AS p ON i.product_id = p.id WHERE i.qty < i.safety_qty GROUP BY p.category ORDER BY p.category",
+          "failure": "unknown-table",
+          "repaired_sql": "SELECT p.category, COUNT(*) AS cnt FROM products AS p WHERE p.status = 1 GROUP BY p.category ORDER BY p.category"
+        }
+      ],
+      "type": "wrong-table"
+    },
+    {
+      "question": "华东仓中各类目的库存总量？",
+      "broken_sql": "SELECT p.category, SUM(i.qty) AS total_amount FROM inventoryx AS i JOIN products AS p ON i.product_id = p.id WHERE i.warehouse = '华东仓' GROUP BY p.category ORDER BY p.category",
+      "final_sql": "SELECT p.category, SUM(i.qty) AS total_amount FROM inventory AS i JOIN products AS p ON i.product_id = p.id WHERE i.warehouse = '华东仓' GROUP BY p.category ORDER BY p.category LIMIT 200",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT p.category, SUM(i.qty) AS total_amount FROM inventoryx AS i JOIN products AS p ON i.product_id = p.id WHERE i.warehouse = '华东仓' GROUP BY p.category ORDER BY p.category",
+          "failure": "unknown-table",
+          "repaired_sql": "SELECT p.category, SUM(i.qty) AS total_amount FROM inventory AS i JOIN products AS p ON i.product_id = p.id WHERE i.warehouse = '华东仓' GROUP BY p.category ORDER BY p.category"
+        }
+      ],
+      "type": "wrong-table"
+    },
+    {
+      "question": "延迟发货的订单分布在哪些区域？各有多少？",
+      "broken_sql": "SELECT o.region, COUNT(*) AS cnt FROM shipmentsx AS s JOIN orders AS o ON s.order_no = o.order_no WHERE s.delay_days > 0 GROUP BY o.region ORDER BY o.region",
+      "final_sql": "SELECT o.region, COUNT(*) AS cnt FROM shipments AS s JOIN orders AS o ON s.order_no = o.order_no WHERE s.delay_days > 0 GROUP BY o.region ORDER BY o.region LIMIT 200",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT o.region, COUNT(*) AS cnt FROM shipmentsx AS s JOIN orders AS o ON s.order_no = o.order_no WHERE s.delay_days > 0 GROUP BY o.region ORDER BY o.region",
+          "failure": "unknown-table",
+          "repaired_sql": "SELECT o.region, COUNT(*) AS cnt FROM shipments AS s JOIN orders AS o ON s.order_no = o.order_no WHERE s.delay_days > 0 GROUP BY o.region ORDER BY o.region"
+        }
+      ],
+      "type": "wrong-table"
+    },
+    {
+      "question": "近30天延迟发货的订单有多少？",
+      "broken_sql": "SELECT COUNT(*) AS cnt FROM shipmentsx AS s JOIN orders AS o ON s.order_no = o.order_no WHERE s.delay_days > 0 AND o.created_at >= '2026-07-19'",
+      "final_sql": "SELECT COUNT(*) AS cnt FROM shipments AS s JOIN orders AS o ON s.order_no = o.order_no WHERE s.delay_days > 0 AND o.created_at >= '2026-07-19' LIMIT 200",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT COUNT(*) AS cnt FROM shipmentsx AS s JOIN orders AS o ON s.order_no = o.order_no WHERE s.delay_days > 0 AND o.created_at >= '2026-07-19'",
+          "failure": "unknown-table",
+          "repaired_sql": "SELECT COUNT(*) AS cnt FROM shipments AS s JOIN orders AS o ON s.order_no = o.order_no WHERE s.delay_days > 0 AND o.created_at >= '2026-07-19'"
+        }
+      ],
+      "type": "wrong-table"
+    },
+    {
+      "question": "被订购次数最多的前5个商品类目？",
+      "broken_sql": "SELECT p.category, COUNT(*) AS cnt FROM order_items i JOIN products p ON i.product_id=p.id GROUP BY p.category ORDER BY cnt DESC LIMIT 5(",
+      "final_sql": "SELECT p.category, COUNT(*) AS cnt FROM order_items AS i JOIN products AS p ON i.product_id = p.id GROUP BY p.category ORDER BY cnt DESC LIMIT 5",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT p.category, COUNT(*) AS cnt FROM order_items i JOIN products p ON i.product_id=p.id GROUP BY p.category ORDER BY cnt DESC LIMIT 5(",
+          "failure": "parse-error",
+          "repaired_sql": "SELECT p.category, COUNT(*) AS cnt FROM order_items i JOIN products p ON i.product_id = p.id GROUP BY p.category ORDER BY cnt DESC LIMIT 5"
+        }
+      ],
+      "type": "syntax"
+    },
+    {
+      "question": "各供应商的延迟发货单数？",
+      "broken_sql": "SELECT s.name, COUNT(*) AS cnt FROM shipments sh JOIN orders o ON sh.order_no=o.order_no JOIN suppliers s ON o.supplier_id=s.id WHERE sh.delay_days > 0 GROUP BY s.name ORDER BY s.name(",
+      "final_sql": "SELECT s.name, COUNT(*) AS cnt FROM shipments AS sh JOIN orders AS o ON sh.order_no = o.order_no JOIN suppliers AS s ON o.supplier_id = s.id WHERE sh.delay_days > 0 GROUP BY s.name ORDER BY s.name LIMIT 200",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT s.name, COUNT(*) AS cnt FROM shipments sh JOIN orders o ON sh.order_no=o.order_no JOIN suppliers s ON o.supplier_id=s.id WHERE sh.delay_days > 0 GROUP BY s.name ORDER BY s.name(",
+          "failure": "parse-error",
+          "repaired_sql": "SELECT s.name, COUNT(*) AS cnt FROM shipments sh JOIN orders o ON sh.order_no=o.order_no JOIN suppliers s ON o.supplier_id=s.id WHERE sh.delay_days > 0 GROUP BY s.name ORDER BY s.name"
+        }
+      ],
+      "type": "syntax"
+    },
+    {
+      "question": "各仓库的库存总值是多少？",
+      "broken_sql": "SELECT i.warehouse, SUM(i.qty * p.unit_price) AS total_value FROM inventory i JOIN products p ON i.product_id=p.id GROUP BY i.warehouse ORDER BY i.warehouse(",
+      "final_sql": "SELECT i.warehouse, SUM(i.qty * p.unit_price) AS total_value FROM inventory AS i JOIN products AS p ON i.product_id = p.id GROUP BY i.warehouse ORDER BY i.warehouse LIMIT 200",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT i.warehouse, SUM(i.qty * p.unit_price) AS total_value FROM inventory i JOIN products p ON i.product_id=p.id GROUP BY i.warehouse ORDER BY i.warehouse(",
+          "failure": "parse-error",
+          "repaired_sql": "SELECT i.warehouse, SUM(i.qty * p.unit_price) AS total_value FROM inventory i JOIN products p ON i.product_id = p.id GROUP BY i.warehouse ORDER BY i.warehouse"
+        }
+      ],
+      "type": "syntax"
+    },
+    {
+      "question": "华南区域供应商的订单有多少？",
+      "broken_sql": "SELECT COUNT(*) AS cnt FROM orders o JOIN suppliers s ON o.supplier_id=s.id WHERE s.region='华南'(",
+      "final_sql": "SELECT COUNT(*) AS cnt FROM orders AS o JOIN suppliers AS s ON o.supplier_id = s.id WHERE s.region = '华南' LIMIT 200",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT COUNT(*) AS cnt FROM orders o JOIN suppliers s ON o.supplier_id=s.id WHERE s.region='华南'(",
+          "failure": "parse-error",
+          "repaired_sql": "SELECT COUNT(*) AS cnt FROM orders o JOIN suppliers s ON o.supplier_id=s.id WHERE s.region='华南'"
+        }
+      ],
+      "type": "syntax"
+    },
+    {
+      "question": "订购商品的类目平均单价最高的前5个类目？",
+      "broken_sql": "SELECT p.category, AVG(p.unit_price) AS avg_amount FROM order_items i JOIN products p ON i.product_id=p.id GROUP BY p.category ORDER BY avg_amount DESC LIMIT 5(",
+      "final_sql": "SELECT p.category, AVG(p.unit_price) AS avg_amount FROM order_items AS i JOIN products AS p ON i.product_id = p.id GROUP BY p.category ORDER BY avg_amount DESC LIMIT 5",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT p.category, AVG(p.unit_price) AS avg_amount FROM order_items i JOIN products p ON i.product_id=p.id GROUP BY p.category ORDER BY avg_amount DESC LIMIT 5(",
+          "failure": "parse-error",
+          "repaired_sql": "SELECT p.category, AVG(p.unit_price) AS avg_amount FROM order_items i JOIN products p ON i.product_id = p.id GROUP BY p.category ORDER BY avg_amount DESC LIMIT 5"
+        }
+      ],
+      "type": "syntax"
+    },
+    {
+      "question": "各区域已支付订单的明细行数？",
+      "broken_sql": "SELECT o.region, COUNT(i.id) AS cnt FROM orders o JOIN order_items i ON o.order_no=i.order_no WHERE o.status='paid' GROUP BY o.region ORDER BY o.region(",
+      "final_sql": "SELECT o.region, COUNT(*) AS cnt FROM orders AS o JOIN order_items AS i ON o.order_no = i.order_no WHERE o.status = 'paid' GROUP BY o.region ORDER BY o.region LIMIT 200",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT o.region, COUNT(i.id) AS cnt FROM orders o JOIN order_items i ON o.order_no=i.order_no WHERE o.status='paid' GROUP BY o.region ORDER BY o.region(",
+          "failure": "parse-error",
+          "repaired_sql": "SELECT o.region, COUNT(*) AS cnt FROM orders o JOIN order_items i ON o.order_no=i.order_no WHERE o.status='paid' GROUP BY o.region ORDER BY o.region"
+        }
+      ],
+      "type": "syntax"
+    },
+    {
+      "question": "已完成订单中各类目的销量（数量）？",
+      "broken_sql": "SELECT p.category, SUM(i.quantity) AS total_amount FROM order_items i JOIN orders o ON i.order_no=o.order_no JOIN products p ON i.product_id=p.id WHERE o.status='done' GROUP BY p.category ORDER BY p.category(",
+      "final_sql": "SELECT p.category, SUM(i.quantity) AS total_amount FROM order_items AS i JOIN orders AS o ON i.order_no = o.order_no JOIN products AS p ON i.product_id = p.id WHERE o.status = 'done' GROUP BY p.category ORDER BY p.category LIMIT 200",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT p.category, SUM(i.quantity) AS total_amount FROM order_items i JOIN orders o ON i.order_no=o.order_no JOIN products p ON i.product_id=p.id WHERE o.status='done' GROUP BY p.category ORDER BY p.category(",
+          "failure": "parse-error",
+          "repaired_sql": "SELECT p.category, SUM(i.quantity) AS total_amount FROM order_items i JOIN orders o ON i.order_no=o.order_no JOIN products p ON i.product_id=p.id WHERE o.status='done' GROUP BY p.category ORDER BY p.category"
+        }
+      ],
+      "type": "syntax"
+    },
+    {
+      "question": "已完成订单中，各承运商的平均订单金额？",
+      "broken_sql": "SELECT sh.carrier, AVG(o.amount) AS avg_amount FROM shipments sh JOIN orders o ON sh.order_no=o.order_no WHERE o.status='done' GROUP BY sh.carrier ORDER BY avg_amount DESC LIMIT 3(",
+      "final_sql": "SELECT sh.carrier, AVG(o.amount) AS avg_amount FROM shipments AS sh JOIN orders AS o ON sh.order_no = o.order_no WHERE o.status = 'done' GROUP BY sh.carrier ORDER BY avg_amount DESC LIMIT 3",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT sh.carrier, AVG(o.amount) AS avg_amount FROM shipments sh JOIN orders o ON sh.order_no=o.order_no WHERE o.status='done' GROUP BY sh.carrier ORDER BY avg_amount DESC LIMIT 3(",
+          "failure": "parse-error",
+          "repaired_sql": "SELECT sh.carrier, AVG(o.amount) AS avg_amount FROM shipments sh JOIN orders o ON sh.order_no=o.order_no WHERE o.status='done' GROUP BY sh.carrier ORDER BY avg_amount DESC LIMIT 3"
+        }
+      ],
+      "type": "syntax"
+    },
+    {
+      "question": "发货单数最多的前5个供应商？",
+      "broken_sql": "SELECT s.name, COUNT(*) AS cnt FROM shipments sh JOIN orders o ON sh.order_no=o.order_no JOIN suppliers s ON o.supplier_id=s.id GROUP BY s.name ORDER BY cnt DESC LIMIT 5(",
+      "final_sql": "SELECT s.name, COUNT(*) AS cnt FROM shipments AS sh JOIN orders AS o ON sh.order_no = o.order_no JOIN suppliers AS s ON o.supplier_id = s.id GROUP BY s.name ORDER BY cnt DESC LIMIT 5",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT s.name, COUNT(*) AS cnt FROM shipments sh JOIN orders o ON sh.order_no=o.order_no JOIN suppliers s ON o.supplier_id=s.id GROUP BY s.name ORDER BY cnt DESC LIMIT 5(",
+          "failure": "parse-error",
+          "repaired_sql": "SELECT s.name, COUNT(*) AS cnt FROM shipments sh JOIN orders o ON sh.order_no=o.order_no JOIN suppliers s ON o.supplier_id=s.id GROUP BY s.name ORDER BY cnt DESC LIMIT 5"
+        }
+      ],
+      "type": "syntax"
+    },
+    {
+      "question": "各区域供应商名下订单的平均金额？",
+      "broken_sql": "SELECT s.region, AVG(o.amount) AS avg_amount FROM orders o JOIN suppliers s ON o.supplier_id=s.id GROUP BY s.region ORDER BY s.region(",
+      "final_sql": "SELECT s.region, AVG(o.amount) AS avg_amount FROM orders AS o JOIN suppliers AS s ON o.supplier_id = s.id GROUP BY s.region ORDER BY s.region LIMIT 200",
+      "rescued": true,
+      "repaired": true,
+      "repair_attempts": 1,
+      "repair_exhausted": false,
+      "rejected_reason": null,
+      "error": null,
+      "diffs": [],
+      "repair_log": [
+        {
+          "attempt": 1,
+          "failed_sql": "SELECT s.region, AVG(o.amount) AS avg_amount FROM orders o JOIN suppliers s ON o.supplier_id=s.id GROUP BY s.region ORDER BY s.region(",
+          "failure": "parse-error",
+          "repaired_sql": "SELECT s.region, AVG(o.amount) AS avg_amount FROM orders o JOIN suppliers s ON o.supplier_id = s.id GROUP BY s.region ORDER BY s.region"
+        }
+      ],
+      "type": "syntax"
+    }
+  ]
+}

@@ -21,6 +21,23 @@ from pathlib import Path
 # 默认安全 SQL（评测集里没有的问题，保证链路仍能跑通）
 _FALLBACK_SQL = "SELECT COUNT(*) AS cnt FROM orders"
 
+# ★ W24 Day5 多轮评测：补充映射注册表（mock 模式下测试链路用）。
+# 多轮评测的"消解后完整问题"可能不在主评测集（nl2sql_eval_v1.jsonl）中，
+# 由 eval_multiturn.py 在 mock 运行前把【每轮问题 → gold SQL】注册进来；
+# 只影响 mock 确定性生成，real 模式不读（效果数字仍只来自 real）。
+_EXTRA_MAP: dict[str, str] = {}
+
+
+def register_mock_sql(question: str, sql: str) -> None:
+    """注册补充 question→SQL 映射（多轮评测/链路测试专用，可覆盖）。"""
+    if question and sql:
+        _EXTRA_MAP[question.strip()] = sql
+
+
+def clear_mock_sql_registry() -> None:
+    """清空补充映射（测试隔离）。"""
+    _EXTRA_MAP.clear()
+
 
 class MockSQLGenerator:
     """基于评测集 gold SQL 的确定性 mock 生成器。"""
@@ -54,5 +71,11 @@ class MockSQLGenerator:
         return len(self._by_question)
 
     def generate(self, question: str) -> str:
-        """按问题精确匹配返回评测集 gold SQL；未命中返回默认安全查询。"""
-        return self._by_question.get(question.strip(), _FALLBACK_SQL)
+        """按问题精确匹配返回评测集 gold SQL；未命中返回默认安全查询。
+
+        查找顺序：补充注册表（多轮评测）→ 主评测集 → 默认安全 SQL。
+        """
+        q = question.strip()
+        if q in _EXTRA_MAP:
+            return _EXTRA_MAP[q]
+        return self._by_question.get(q, _FALLBACK_SQL)

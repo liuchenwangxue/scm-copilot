@@ -30,6 +30,7 @@ import random
 import re
 import time
 from collections.abc import AsyncIterator
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -47,12 +48,24 @@ BASE_DELAY = 0.5
 _JSON_RE = re.compile(r"\{.*\}", re.S)
 
 # ★ 模型池：单模型额度耗尽时自动切换（按顺序循环使用）
-# W21 实测（2026-08-15）：qwen3.8-max/qwen-max/plus/turbo 免费额度已耗尽（HTTP 403），
-# glm-5.2/kimi-k2.7-code/qwen3.7-max 可用（deepseek 系列已弃用，不再使用）。
+# W24 Day5 更新（2026-08-18）：根据 DashScope 控制台截图全量配置——已剔除 glm-5.2
+# （免费额度早已耗尽，每次先探它会白白浪费一次 HTTP 调用）；
+# 当前活跃模型 kimi-k2.7-code 置首位 + qwen3.7-max-2026-06-08（剩余 99%）次之；
+# 剩余按字母/版本近顺序：plus-2026-05-26 / max-2026-05-20 / max-2026-05-17 /
+# max-preview / plus / max / qwen3.8-2.4t-a95b / deepseek-v4-pro-0813。
+# ★ 持久化最近使用的模型到 reports/llm_model_state.json：下次进程启动直接接续，
+# 跳过已耗尽模型，避免每个新进程都要从 glm-5.2 探一遍再切。
 DEFAULT_MODEL_POOL = [
-    "glm-5.2",
-    "kimi-k2.7-code",
-    "qwen3.7-max-2026-06-08",
+    "kimi-k2.7-code",                  # 当前活跃（实测可用）
+    "qwen3.7-max-2026-06-08",          # 剩余 99.4%，最新快照版本
+    "qwen3.7-plus-2026-05-26",
+    "qwen3.7-max-2026-05-20",
+    "qwen3.7-max-2026-05-17",
+    "qwen3.7-max-preview",
+    "qwen3.7-plus",
+    "qwen3.7-max",
+    "qwen3.8-2.4t-a95b",
+    "deepseek-v4-pro-0813",
 ]
 
 # 额度耗尽/权限类错误关键词（命中即切下一个模型）
@@ -66,6 +79,47 @@ _QUOTA_KEYWORDS = (
 _model_pool_state: dict[str, Any] = {"idx": 0, "models": list(DEFAULT_MODEL_POOL)}
 
 
+def _state_file() -> Path:
+    """当前活跃模型持久化文件（★ Day5：避免每进程先探 glm-5.2）。
+
+    与 cost_usage.jsonl 同目录，便于管理；本文件不在 .gitignore 中——但只存模型名，
+    不含 Key/敏感信息（Key 仅在 .env 中，.gitignore 已保护）。
+    """
+    return config.REPORTS_DIR / "llm_model_state.json"
+
+
+def _load_active_model() -> str | None:
+    """读取上次成功调用的模型名（None = 首次启动，按池顺序）。"""
+    p = _state_file()
+    if not p.exists():
+        return None
+    try:
+        import json as _json
+
+        name = str(_json.loads(p.read_text(encoding="utf-8")).get("model") or "").strip()
+        return name or None
+    except Exception:  # noqa: BLE001  # 文件脏不影响业务
+        return None
+
+
+def _save_active_model(model: str) -> None:
+    """记录当前成功调用的模型名（写盘最佳努力，失败不影响业务）。"""
+    try:
+        import json as _json
+
+        p = _state_file()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(
+            _json.dumps(
+                {"model": model, "updated_at": time.time()},
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _pool_models() -> list[str]:
     """当前模型池（可被环境变量 LLM_MODEL_POOL 覆盖，逗号分隔）。"""
     import os
@@ -76,6 +130,18 @@ def _pool_models() -> list[str]:
             return models
     pool = _model_pool_state["models"]
     return list(pool) if isinstance(pool, list) else list(DEFAULT_MODEL_POOL)
+
+
+def reorder_pool_by_active(pool: list[str]) -> tuple[list[str], int]:
+    """把"上次成功调用的模型"挪到池首位（★ Day5：避免每进程先探已耗尽模型）。
+
+    返回 (新池顺序, 该模型在新池中的下标)；持久化缺失/不匹配则原样返回。
+    """
+    active = _load_active_model()
+    if not active or active not in pool:
+        return list(pool), 0
+    idx = pool.index(active)
+    return pool[idx:] + pool[:idx], idx
 
 
 def _is_quota_error(exc: BaseException) -> bool:
@@ -212,7 +278,9 @@ class RealLLMProvider(LLMProvider):
         elif model_override:
             self.models = [model_override]
         else:
-            self.models = _pool_models()
+            # ★ Day5：把"上次成功调用的模型"挪到池首位——避免每进程先探已耗尽模型
+            self.models, _start = reorder_pool_by_active(_pool_models())
+            _model_pool_state["idx"] = _start
         if not self.models:
             raise RuntimeError("LLM_MODEL 未配置")
         # 当前使用的模型 = 全局池指针指向的模型（多实例共享切换状态）
@@ -447,6 +515,7 @@ class RealLLMProvider(LLMProvider):
                         usage = _parse_usage(data)
                         # 成功后 self.model 指向实际成功模型（保持多请求认知一致）
                         self.model = model
+                        _save_active_model(model)  # ★ Day5：持久化，下次进程直接接续
                         if span is not None:
                             span.set_attributes({
                                 "llm.model": model,

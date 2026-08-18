@@ -25,7 +25,7 @@ COMPOSE := docker compose -f deploy/docker-compose.yml
 # alembic.ini 在 backend/ 下，须在此目录运行（env.py 经 pythonpath 兜底）
 BACKEND := backend
 
-.PHONY: up up-mysql down build migrate seed init-biz-db migrate-biz seed-biz reseed-biz check-biz test test-auth test-sql-validator test-executor test-nl2sql-e2e gen-eval eval-nl2sql test-integration check lint-fix format loadtest drill help
+.PHONY: up up-mysql down build migrate seed init-biz-db migrate-biz seed-biz reseed-biz check-biz test test-auth test-sql-validator test-executor test-nl2sql-e2e test-repair test-session-ctx gen-eval eval-nl2sql eval-repair eval-multiturn gen-multiturn test-integration check lint-fix format loadtest drill help
 
 ## 默认：显示帮助
 help:
@@ -44,6 +44,15 @@ help:
 	@echo "  make test-auth 仅跑认证/RBAC"
 	@echo "  make test-sql-validator  NL2SQL 四道闸+攻击用例（Day2，无需 DB）"
 	@echo "  make test-executor      只读沙箱执行器（Day2，需 MySQL）"
+	@echo "  make test-repair        错误自修复测试（Day5）"
+	@echo "  make test-session-ctx   多轮会话测试（Day5）"
+	@echo "  make gen-eval           生成评测集 v1（Day3）"
+	@echo "  make eval-nl2sql        execution accuracy 评测（Day3）"
+	@echo "  make eval-link-recall   Schema Linking 召回评测（Day4）"
+	@echo "  make eval-ab            v1 vs v2 A/B 对比（Day4）"
+	@echo "  make gen-multiturn      生成多轮评测集（Day5）"
+	@echo "  make eval-repair        修复救回率评测（Day5，30 条坏 SQL）"
+	@echo "  make eval-multiturn     多轮指代消解评测（Day5，10 条过 8）"
 	@echo "  make test-integration  集成回归"
 	@echo "  make check     ruff lint + mypy（0 error）"
 	@echo "  make loadtest  40 并发 × 200 压测（nginx :18000）"
@@ -134,6 +143,26 @@ eval-link-recall:
 ## ★ W24 Day4：A/B 基线对比 v1 vs v2（准确率 + prompt token 降幅 ≥50%）
 eval-ab:
 	$(PY) -X utf8 backend/scripts/eval_nl2sql.py --ab
+
+## ★ W24 Day5：错误自修复测试（修复 prompt/路由 mock 单测 + 修复链集成；需 MySQL+seed）
+test-repair:
+	$(PYTEST) backend/tests/test_repair.py -v
+
+## ★ W24 Day5：多轮会话测试（消解规则 mock 单测 + 全链路集成；需 MySQL+seed）
+test-session-ctx:
+	$(PYTEST) backend/tests/test_session_ctx.py -v
+
+## ★ W24 Day5：生成多轮评测集（10 条对话 × 2–3 轮，固定 gold SQL）
+gen-multiturn:
+	$(PY) -X utf8 backend/scripts/gen_multiturn_eval.py
+
+## ★ W24 Day5：错误自修复救回率评测（30 条坏 SQL：错列名/错表名/语法错各 10；mock 测链路，real 测效果）
+eval-repair:
+	$(PY) -X utf8 backend/scripts/eval_repair.py
+
+## ★ W24 Day5：多轮指代消解评测（10 条过 8；mock 测链路，real 测效果）
+eval-multiturn:
+	$(PY) -X utf8 backend/scripts/eval_multiturn.py
 
 ## 双域集成回归（Day4 迁移自 stage3 的脚本；审批/幂等自动拉起 mock_biz）
 test-integration:

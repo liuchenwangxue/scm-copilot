@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import sqlglot
 from sqlglot import exp
-from sqlglot.errors import ParseError
+from sqlglot.errors import ParseError, TokenError
 
 # 闸2：允许的根节点（UNION ALL 也是 Union，天然覆盖）
 ALLOWED_ROOT = (exp.Select, exp.Union)
@@ -104,7 +104,9 @@ def validate_sql(
     # ---- 闸1：单语句（防 ; 堆叠；解析失败也一律拒绝）----
     try:
         stmts = sqlglot.parse(sql, read="mysql")
-    except ParseError as exc:
+    except (ParseError, TokenError) as exc:
+        # ★ Day5 实测：sqlglot 30.x 对未闭合括号等输入抛 TokenError（不是 ParseError），
+        # 必须一并按 parse-error 拒绝，否则图整体崩溃（langgraph 把异常冒泡到 ainvoke 调用方）
         raise SQLRejected("parse-error") from exc
     if len(stmts) != 1:
         raise SQLRejected("multi-statement")
