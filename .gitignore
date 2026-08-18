@@ -33,5 +33,9 @@ data/*.log
 sdk/dist/
 sdk/build/
 
+# ★ W25 Day6：mkcert 本地 TLS 证书（`make tls` 生成，本地开发产物不入库；
+#   生产用 Let's Encrypt / 公司 CA，同样不入库）
+deploy/nginx/certs/
+
 # Docker 数据卷（命名卷不受影响，这里只防绑定挂载漏网）
 mysql_data/

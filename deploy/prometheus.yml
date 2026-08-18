@@ -1,0 +1,46 @@
+# ★ W25 Day6：SCM Copilot 平台监控抓取配置
+# 位置：deploy/prometheus.yml ｜ 由 docker-compose.yml 的 prometheus 服务挂载
+#
+# 设计（对照手册 Day6 下午 + W22 经验）：
+# - 三个抓取组（backend 应用 / node-exporter 宿主机 / cAdvisor 容器）：
+#   · backend：双实例 /metrics（QPS/P95/成功率，MetricsMiddleware 自动记录）
+#   · node-exporter：宿主机指标（CPU/内存/磁盘/网络）——监控"机器"维度
+#   · cAdvisor：容器指标（每容器 CPU/内存/网络）——监控"进程"维度
+# - 拉模型（pull）：Prometheus 主动抓，业务不依赖监控（监控挂了业务不受影响）
+# - 抓取周期 15s（手册坑）：压测时能看实时曲线
+# - /metrics 只在内网 compose 网络暴露（不映射宿主机端口），Prometheus 在容器内抓取
+#
+# 坑（手册）：cAdvisor 在 Windows Docker Desktop 下对 Windows 容器无效，
+# 只监控 linux 容器（backend/mysql/redis 都是 linux，没问题）。
+global:
+  scrape_interval: 15s        # 手册坑：抓取周期，压测看实时曲线要够密
+  evaluation_interval: 15s
+
+scrape_configs:
+  # ---- 平台 backend 应用指标（双实例）----
+  - job_name: scm-backend
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["backend-a1:8795"]
+        labels:
+          service: scm-backend
+          instance: backend-a1
+      - targets: ["backend-a2:8795"]
+        labels:
+          service: scm-backend
+          instance: backend-a2
+
+  # ---- 宿主机指标（node-exporter，监控 Docker 宿主 VM）----
+  - job_name: node
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  # ---- 容器指标（cAdvisor，仅 linux 容器有效）----
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]
+
+  # ---- Prometheus 自身（确认抓取状态 up/down）----
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

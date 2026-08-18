@@ -10,16 +10,21 @@
 - API Key 吊销后立即 401（机器身份生命周期验证）
 """
 
+import os
+
 import pytest
 
 from scm_client import ScmAuthError, ScmCopilot, ScmQuotaError
 
 pytestmark = pytest.mark.integration
 
+# 与 conftest 同口径：本地 mkcert 自签平台用 SCM_SDK_VERIFY=0
+VERIFY = os.environ.get("SCM_SDK_VERIFY", "1") == "1"
+
 
 def test_ten_line_sdk_flow(platform_url: str, api_key: str):
     """十行脚本验收：chat 流式打印 + nl2sql 拿表格 + approvals 列待审（三接口全通）。"""
-    client = ScmCopilot(platform_url, api_key=api_key)
+    client = ScmCopilot(platform_url, api_key=api_key, verify=VERIFY)
 
     # ① chat_stream：SSE 流必须正常结束（done 事件收尾）
     events = list(client.chat_stream("你好"))
@@ -46,7 +51,7 @@ def test_ten_line_sdk_flow(platform_url: str, api_key: str):
 def test_rate_limit_429_with_retry_after(platform_url: str, create_key):
     """429 用例：独立 Key 打满令牌桶（容量 10）→ ScmQuotaError + Retry-After。"""
     key = create_key("sdk-429")
-    client = ScmCopilot(platform_url, api_key=key)
+    client = ScmCopilot(platform_url, api_key=key, verify=VERIFY)
     hit_429 = False
     # 容量 10 + 独立桶 → 最多 10 次内应 429；Redis 不可用（fail-open）则一路 200
     for _ in range(30):
@@ -65,11 +70,11 @@ def test_rate_limit_429_with_retry_after(platform_url: str, create_key):
 def test_revoked_key_immediately_401(platform_url: str, admin_token: str, create_key):
     """吊销后 Key 立即失效（enabled=0 软删除语义）。"""
     key = create_key("sdk-revoke")
-    client = ScmCopilot(platform_url, api_key=key)
+    client = ScmCopilot(platform_url, api_key=key, verify=VERIFY)
     assert client._request("GET", "/api/v1/auth/me").status_code == 200
 
     # 吊销该 key（直接以 admin JWT 调 DELETE）
-    admin = ScmCopilot(platform_url, token=admin_token)
+    admin = ScmCopilot(platform_url, token=admin_token, verify=VERIFY)
     keys = admin._request("GET", "/api/v1/admin/apikeys").json()["api_keys"]
     key_row = next(k for k in keys if k["name"] == "sdk-revoke")
     revoke = admin._request("DELETE", f"/api/v1/admin/apikeys/{key_row['key_id']}")

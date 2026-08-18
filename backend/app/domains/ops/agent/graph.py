@@ -15,6 +15,7 @@ Key 设计：
 5. 条件路由：unclear → 直接 respond 回问，不进工具链
 """
 import asyncio
+import time
 from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
@@ -28,6 +29,7 @@ from app.domains.ops.agent.tools.report_tools import ReportTools
 from app.domains.ops.persistence import get_async_checkpointer
 from app.domains.ops.security.approval import ApprovalService
 from app.domains.ops.security.audit import AuditLogger
+from app.platform.hooks import ToolUseContext, run_post_hooks, run_pre_hooks
 from app.shared.reliability.cost_budget import get_session_budget
 from app.shared.reliability.idempotency import IdempotencyStore
 
@@ -107,14 +109,11 @@ def approval_gate(state: BizState) -> dict:
                                 "circuit_state": current.circuit_state},
                 "approval": {"status": "not_required"}}
     before = current.data
-    if tool_name == "update_order":
-        after = dict(before)
-        if "amount" in params and params["amount"] is not None:
-            after["amount"] = float(params["amount"])
-        if "delivery_date" in params and params["delivery_date"]:
-            after["delivery_date"] = params["delivery_date"]
-    else:  # cancel_order
-        after = {**before, "status": "closed"}
+    # ★ W25 Day6：after 目标状态由 hooks 能力统一计算（approval_gate 复用钩子的
+    #   before/after diff——s04"扩展点不侵入循环"的实物落点，单一来源防漂移）
+    from app.platform.hooks import make_after_state
+
+    after = make_after_state(tool_name, params, before)
 
     if tool_name == "update_order":
         parts = []
@@ -159,8 +158,24 @@ def execute_node(state: BizState) -> dict:
                   target=params.get("order_id", ""), error="rejected")
         return {"tool_result": r.to_dict(), "degraded": False}
 
+    # ★ W25 Day6：PreToolUse 钩子——参数校验 + 高危标记 + 审计埋点（before 状态）。
+    #   返回非 None = 阻断消息 → 本次工具调用不执行（s04 "钩子说停就停"语义）
+    hook_ctx = ToolUseContext(
+        tool_name=tool_name,
+        params=params,
+        session_id=state.get("session_id", ""),
+        trace_id=state.get("session_id", ""),
+    )
+    blocked = run_pre_hooks(hook_ctx)
+    if blocked:
+        r = ToolResultDummy(success=False, error=blocked)
+        audit.log("execution_failed", approval_id=approval.get("approval_id"),
+                  target=params.get("order_id", ""), tool=tool_name, error=f"hook:{blocked}")
+        return {"tool_result": r.to_dict(), "degraded": False}
+
     # ---- 可靠层工具调用（Day3 熔断+降级链已内置） ----
     result = None
+    _t0 = time.time()
     if tool_name == "query_order":
         result = order_tools.query_order(params.get("order_id", ""))
     elif tool_name == "update_order":
@@ -182,6 +197,11 @@ def execute_node(state: BizState) -> dict:
             from_date=params.get("from"), to_date=params.get("to"))
     else:
         return {"tool_result": {"success": False, "error": f"未知工具: {tool_name}"}}
+
+    # ★ W25 Day6：PostToolUse 钩子——结果审计（after 状态 + 耗时）+ 语义缓存失效
+    hook_ctx.result = result
+    hook_ctx.duration_ms = (time.time() - _t0) * 1000.0
+    run_post_hooks(hook_ctx)
 
     # ---- 审计执行事件 ----
     if result.success:

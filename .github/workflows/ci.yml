@@ -66,6 +66,11 @@ jobs:
           python -X utf8 -c "from app.domains.data.prompts import build_nl2sql_messages; msgs=build_nl2sql_messages('华东区域有多少订单？'); assert len(msgs)==2 and 'orders' in msgs[1]['content']"
           python -X utf8 -c "from app.domains.data.mock_sql import MockSQLGenerator; g=MockSQLGenerator(); assert g.loaded_count>=100; print('mock gen loaded', g.loaded_count)"
 
+      # ★ W25 Day6：工具钩子 sanity——注册表/审计/参数校验/缓存失效/diff 复用（纯逻辑，无 DB）
+      - name: hooks sanity
+        run: |
+          python -m pytest backend/tests/test_hooks.py -q
+
       # ★ W24 Day4/Day6：Schema Linking v2 prompt sanity（显式传 tables → 不触发 embedding 模型下载，CI 离线）
       #   验证：v2 模板可构建 + few-shot 与召回表联动 + 评测集 100 条三层合法 + 洞察数字溯源
       - name: schema linker v2 prompt + eval set + insight sanity

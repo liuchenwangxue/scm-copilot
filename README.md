@@ -260,13 +260,38 @@ make test-sdk-unit       # SDK 单元测试（MockTransport 离线可跑）
 make test-sdk-integration  # SDK 集成测试（需真实平台：SCM_SDK_BASE_URL 默认 http://localhost:8000）
 ```
 
+## 六·十、三吸收项：Hooks / 基础监控 / TLS（W25 Day6）
+
+**工具调用 Hooks**（`app/platform/hooks.py`，learn-claude-code s04 机制的实物落点）：
+- `PreToolUse`：参数校验（ToolSpec 契约 required）+ 高危标记 + 审计埋点（`tool_pre_use`，before 状态）
+- `PostToolUse`：结果审计（`tool_post_use`：after + 耗时 + 熔断状态）+ 语义缓存失效（写类工具 update/cancel 命中后失效同源 query 缓存）
+- ops 域 4 工具全接 `execute_node`；`approval_gate` 复用 `make_after_state` 的 before/after diff（单一来源防漂移）
+- 钩子抛错记日志放行（横切关注点故障不影响工具调用——ADR 修订记录，见 `reports/w25_report.md`）
+- 测试：`make test-hooks`（17 用例，纯逻辑 CI 可跑）
+
+**基础监控**（`deploy/prometheus.yml` + compose 4 服务）：
+- `node-exporter`（宿主机/VM 指标）+ `cAdvisor`（容器指标，Windows 下仅 linux 容器有效）+ Prometheus（三组抓取：backend 应用 /metrics + node + cAdvisor）+ Grafana（预置 Prometheus 数据源 + `SCM Platform 核心指标` 面板）
+- `/metrics` 端点：`MetricsMiddleware` 自动记录 QPS/P95/成功率/in-flight（`app/main.py` 白名单挂载）
+- 验证：`make monitor` → Prometheus targets 全 UP（http://localhost:19090/targets）→ Grafana（http://localhost:13001，admin/admin123）面板有数据
+
+**本地 TLS**（mkcert）：
+- `make tls`：`mkcert -install`（本地根 CA）+ `mkcert localhost scm.local` → `deploy/nginx/certs/`
+- nginx：80 → 301 → 443（`http2 on` + `X-Forwarded-Proto` + `proxy_buffering off` SSE 保持）→ https://localhost:18443
+- 生产换正式证书（Let's Encrypt / 公司 CA）见 `docs/deploy.md`（证书与配置解耦：换文件不换配置）
+
+```bash
+make test-hooks   # 工具钩子测试（纯逻辑 CI 可跑）
+make tls          # mkcert 本地 TLS 证书
+make monitor      # 起监控栈（node-exporter/cadvisor/prometheus/grafana）
+```
+
 ## 七、非目标（scope 纪律，详见《06》第 5 节）
 
 等保正式化、OCR/Whisper、钉钉企微 IM、LoRA、多 GPU、BI 图表引擎、桌面客户端、行业多场景定制——一律进二期 backlog。
 
 ## 八、CI
 
-`.github/workflows/ci.yml`：push/PR → Python 3.12 → ruff → mypy → **★ W24-D2 sql_validator 四道闸 + 攻击用例（纯 AST 无 DB，安全第一道闸）** → **platform alembic migrate + seed（幂等两遍）** → **biz init_biz_db（建库+只读账号）→ alembic migrate + seed + 校验和** → pytest（含 MySQL service container 连通性、种子/只读沙箱/executor 用例）→ coverage 上传。
+`.github/workflows/ci.yml`：push/PR → Python 3.12 → ruff → mypy → **★ W24-D2 sql_validator 四道闸 + 攻击用例（纯 AST 无 DB，安全第一道闸）** → **★ W25-D6 hooks sanity（Pre/PostToolUse 钩子纯逻辑）** → **platform alembic migrate + seed（幂等两遍）** → **biz init_biz_db（建库+只读账号）→ alembic migrate + seed + 校验和** → pytest（含 MySQL service container 连通性、种子/只读沙箱/executor 用例）→ coverage 上传。
 
 **★ W25 Day5 新增 `sdk` job**：装包（`pip install -e ".[dev]"` + `pip install -e ./sdk`）→ migrate + seed → 后台起 uvicorn（`SCM_SCHEDULER_ENABLED=0`）→ SDK 单元测试（离线）→ SDK 集成测试（干净环境真实调平台，十行脚本 + 吊销 401；429 用例在无 Redis 的 CI 自动 skip，本地部署环境真跑）。
 

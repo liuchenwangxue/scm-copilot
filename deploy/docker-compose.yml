@@ -87,6 +87,9 @@ services:
       TZ: Asia/Shanghai
       SCM_PLATFORM_DSN: "mysql+asyncmy://root:root123@mysql:3306/scm_platform?charset=utf8mb4"
       SCM_BIZ_DSN: "mysql+asyncmy://root:root123@mysql:3306/scm_biz?charset=utf8mb4"
+      # ★ W25 Day6 修复：容器内 NL2SQL 沙箱需用 RO 账号连业务库（默认 127.0.0.1:13306
+      #   指向容器自身 → Connection refused）。走 mysql 服务 + nl2sql_ro（initdb 建）
+      SCM_BIZ_RO_DSN: "mysql+asyncmy://nl2sql_ro:ro_pass_2026_dev@mysql:3306/scm_biz?charset=utf8mb4"
       SCM_JWT_SECRET: "dev-secret-change-me"
       REDIS_URL: "redis://redis:6379/0"
       # ★ W25 Day3 修复：settings 字段 instance_id 对应环境变量前缀 SCM_（env_prefix="SCM_"），
@@ -151,24 +154,114 @@ services:
       retries: 5
       start_period: 30s
 
-  # ============ nginx：least_conn 负载均衡（Day6） ============
+  # ============ nginx：least_conn 负载均衡（Day6）+ TLS（W25 Day6） ============
   nginx:
     image: nginx:1.27-alpine
     container_name: scm-nginx
     restart: unless-stopped
     ports:
       - "${NGINX_PORT:-18000}:80"          # 宿主 18000 → 容器 80（本机 8000 已被 stage3 占用）
+      - "${NGINX_HTTPS_PORT:-18443}:443"   # ★ W25 Day6：https 入口（mkcert 本地 TLS）
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # ★ W25 Day6：mkcert 生成的本地证书（`make tls` 生成，无证书时 nginx 仍可起
+      #   （80 端口不依赖证书；443 会因缺证书启动失败——`make up` 前先跑 `make tls`）
+      - ./nginx/certs:/etc/nginx/certs:ro
     depends_on:
       - backend-a1
       - backend-a2
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/health || exit 1"]
+      # ★ W25 Day6 修复：80 端口已 301 跳转 https，busybox wget 跟随重定向后因
+      #   mkcert 证书不在容器信任库 → SSL verify failed。改直接探 https（--no-check-certificate）
+      test: ["CMD-SHELL", "wget -q -O /dev/null --no-check-certificate https://127.0.0.1/health || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 5
       start_period: 10s
+
+  # ============ 监控（★ W25 Day6 三吸收项：基础监控） ============
+  # Prometheus 拉模型抓三组：backend 应用 /metrics + node-exporter（宿主机）+ cAdvisor（容器）
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: scm-node-exporter
+    restart: unless-stopped
+    # ★ 手册坑：Windows Docker Desktop 下 node-exporter 监控的是 Docker 宿主 VM
+    #   （Linux），不是 Windows 宿主机——"主机 CPU/内存"曲线反映的是 VM 而非真机。
+    #   对"容器资源占用"监控 cAdvisor 更直接；node-exporter 保留作标准抓取目标。
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--path.rootfs=/rootfs"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:9100/metrics"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: scm-cadvisor
+    restart: unless-stopped
+    # ★ 手册坑：cAdvisor 在 Windows Docker Desktop 下对 Windows 容器无效，
+    #   只监控 linux 容器（backend/mysql/redis 都是 linux，没问题）
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    devices:
+      - /dev/kmsg
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8080/healthz"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: scm-prometheus
+    restart: unless-stopped
+    depends_on:
+      - backend-a1
+      - backend-a2
+    ports:
+      - "${PROMETHEUS_PORT:-19090}:9090"   # 本机 http://localhost:19090/targets 看抓取状态
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"  # 指标保留 7 天（足够压测/回归用）
+
+  grafana:
+    image: grafana/grafana:11.2.2
+    container_name: scm-grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    ports:
+      - "${GRAFANA_PORT:-13001}:3000"      # 默认 13001（避开 stage3 的 3001/langfuse 3300）
+    environment:
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:-admin}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-admin123}"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
 
 volumes:
   mysql_data:
@@ -179,3 +272,7 @@ volumes:
     name: scm_runtime_data
   runtime_reports:
     name: scm_runtime_reports
+  prometheus_data:
+    name: scm_prometheus_data
+  grafana_data:
+    name: scm_grafana_data

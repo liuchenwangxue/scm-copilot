@@ -54,6 +54,7 @@ class ScmCopilot:
         token: str | None = None,
         timeout: float = 30.0,
         client: httpx.Client | None = None,
+        verify: bool | str = True,
     ):
         self.base_url = base_url.rstrip("/")
         headers: dict[str, str] = {}
@@ -67,7 +68,8 @@ class ScmCopilot:
             self._client = client
         else:
             self._client = httpx.Client(
-                base_url=self.base_url, headers=headers, timeout=timeout
+                base_url=self.base_url, headers=headers, timeout=timeout,
+                verify=verify,  # ★ W25 Day6：mkcert 本地 TLS 平台 / 自签 CA 内网
             )
         self.approvals = Approvals(self)
 

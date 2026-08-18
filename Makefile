@@ -25,7 +25,7 @@ COMPOSE := docker compose -f deploy/docker-compose.yml
 # alembic.ini 在 backend/ 下，须在此目录运行（env.py 经 pythonpath 兜底）
 BACKEND := backend
 
-.PHONY: up up-mysql down build migrate seed init-biz-db migrate-biz seed-biz reseed-biz check-biz test test-auth test-sql-validator test-executor test-nl2sql-e2e test-repair test-session-ctx test-scheduler test-kb-sync test-day3-tasks test-openapi test-apikeys test-sdk-unit test-sdk-integration kb-sync-smoke gen-eval eval-nl2sql eval-repair eval-multiturn gen-multiturn eval-day6 test-integration check lint-fix format loadtest drill help
+.PHONY: up up-mysql down build migrate seed init-biz-db migrate-biz seed-biz reseed-biz check-biz test test-auth test-sql-validator test-executor test-nl2sql-e2e test-repair test-session-ctx test-scheduler test-kb-sync test-day3-tasks test-openapi test-apikeys test-hooks test-sdk-unit test-sdk-integration kb-sync-smoke gen-eval eval-nl2sql eval-repair eval-multiturn gen-multiturn eval-day6 test-integration tls monitor check lint-fix format loadtest drill help
 
 ## 默认：显示帮助
 help:
@@ -58,6 +58,8 @@ help:
 	@echo "  make eval-multiturn     多轮指代消解评测（Day5，10 条过 8）"
 	@echo "  make eval-day6          real 全量 100 条 v2（Day6，含 P95 + token/条）"
 	@echo "  make test-integration  集成回归"
+	@echo "  make tls       mkcert 生成本地 TLS 证书（deploy/nginx/certs）"
+	@echo "  make monitor   起监控栈（node-exporter/cadvisor/prometheus/grafana）"
 	@echo "  make check     ruff lint + mypy（0 error）"
 	@echo "  make loadtest  40 并发 × 200 压测（nginx :18000）"
 	@echo "  make drill     压测中段杀 backend-a1 演练（5xx=0）"
@@ -73,6 +75,14 @@ up:
 ## 停全栈
 down:
 	$(COMPOSE) down
+
+## ★ W25 Day6：mkcert 生成本地 TLS 证书（nginx 443 用；无证书 nginx 起不来）
+tls:
+	$(PY) -X utf8 scripts/gen_tls_certs.py
+
+## ★ W25 Day6：起监控栈（node-exporter/cadvisor/prometheus/grafana，其余服务不动）
+monitor:
+	$(COMPOSE) up -d node-exporter cadvisor prometheus grafana
 
 ## 构建 backend + mock-biz 镜像（Day6）
 build:
@@ -175,6 +185,10 @@ test-openapi:
 ## ★ W25 Day5：API Key 机器身份 + 令牌桶 + 审批列表（纯逻辑 CI 可跑；集成需 MySQL+Redis）
 test-apikeys:
 	$(PYTEST) backend/tests/test_apikeys.py backend/tests/test_ops_approvals_api.py -v
+
+## ★ W25 Day6：工具钩子测试（Pre/PostToolUse：审计/参数校验/缓存失效/diff 复用，纯逻辑 CI 可跑）
+test-hooks:
+	$(PYTEST) backend/tests/test_hooks.py -v
 
 ## ★ W25 Day5：SDK 单元测试（MockTransport 离线可跑，无需平台）
 test-sdk-unit:

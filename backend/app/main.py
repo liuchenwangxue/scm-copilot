@@ -12,7 +12,7 @@ W23 Day4：双域并入——挂载 /api/kb（知识问答域，承 stage3-a）�
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -30,6 +30,8 @@ from app.platform.errors import Err, ErrorCode, register_error_handlers
 from app.platform.models import User
 from app.platform.scheduler import PlatformScheduler
 from app.platform.settings import settings
+from app.shared.obs.metrics import MetricsMiddleware
+from app.shared.obs.metrics import render as render_metrics
 
 # 全局放行路径（不校验 JWT）——对齐《02》4 节"放行清单：/health /docs /metrics"
 WHITELIST_PREFIXES = ("/health", "/docs", "/redoc", "/openapi.json", "/metrics")
@@ -165,6 +167,8 @@ class RequestIdMiddleware:
 
 # 审计中间件：非 GET 写操作全覆盖（登录/刷新/登出端点自身已落账，中间件跳过）
 # 中间件顺序（手册坑）：RequestId 最外层（先生成 request_id），审计在其内读 scope
+# ★ W25 Day6：Metrics 中间件在最内层（统计真实业务耗时，不含审计/请求头开销）
+app.add_middleware(MetricsMiddleware)
 app.add_middleware(AuditMiddleware)
 app.add_middleware(RequestIdMiddleware)
 
@@ -193,6 +197,26 @@ async def health() -> schemas.HealthOut:
         db=db_status,
         scheduler="running" if scheduler is not None and scheduler.running else "off",
     )
+
+
+@app.get(
+    "/metrics",
+    tags=["ops"],
+    summary="Prometheus 指标",
+    description=(
+        "Prometheus 文本格式指标（QPS/P95/成功率/in-flight）。★ W25 Day6："
+        "node-exporter 与 cAdvisor 加入 compose 后，prometheus.yml 抓取三个 job"
+        "（backend 双实例 / metrics + 宿主机 + 容器）——双监控面板有数据。"
+    ),
+    response_class=Response,
+)
+async def metrics() -> Response:
+    """Prometheus 指标端点（白名单；MetricsMiddleware 自动记录每请求）。
+
+    ★ W25 Day6 实测坑：`-> str` 会被 FastAPI 包成 JSON 字符串（带引号 + \\n 转义），
+    Prometheus 解析报 `expected a valid start token` → 显式 `Response` + `text/plain`。
+    """
+    return Response(content=render_metrics(), media_type="text/plain; version=0.0.4")
 
 
 @app.get("/api/v1/auth/me", response_model=schemas.UserOut, tags=["auth"])

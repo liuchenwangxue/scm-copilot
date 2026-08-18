@@ -1,0 +1,23 @@
+# Grafana 仪表盘自动装载（W25 Day6）
+#
+# 面板目录（/var/lib/grafana/dashboards）：
+#   scm_backend.json       平台应用面板（QPS/P95/成功率/in-flight）
+#   scm_node.json          Node Exporter Full（官方 1860，可从 grafana.com 下载后放入）
+#   scm_cadvisor.json      cAdvisor 官方（14282，可从 grafana.com 下载后放入）
+#
+# ★ 手册 Day6：Grafana 导入官方仪表盘（Node Exporter Full / cAdvisor）。
+#   官方 JSON 从 https://grafana.com/grafana/dashboards/ 按 ID 下载后放入本目录
+#   （id=1860 Node Exporter Full；id=14282 cAdvisor），重载即自动生效。
+#   本地离线环境先由 scm_backend.json 保证"面板有数据"（周 Gate 验收项），
+#   官方面板放 W26 联调网络后补。
+apiVersion: 1
+
+providers:
+  - name: "scm"
+    orgId: 1
+    folder: "SCM"
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
