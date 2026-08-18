@@ -69,15 +69,16 @@ def _clean_sql(raw: str) -> str:
 
 
 def _sort_key(row: tuple[Any, ...]) -> tuple:
-    """排序键：按第一列排序，NULL 放最后（None 无法直接比大小，包一层）。"""
-    if not row:
-        return (0,)
-    first = row[0]
-    return (1,) if first is None else (0, first)
+    """排序键：按**整行**排序（多列分组/复合排序结果集也能对齐），NULL 放最后。
+
+    ★ W24 Day6 修复：旧实现只按第一列排序——"各区域各状态"这类多列分组
+    （region,status）gold/gen 第一列相同但第二列顺序不同时被误判为错。
+    """
+    return tuple((1,) if v is None else (0, v) for v in row)
 
 
 def _norm_rows(columns: list[str], rows: list[list[Any]]) -> list[tuple]:
-    """规范化结果集：排序键统一（按第一列），每行转 tuple 便于比对。"""
+    """规范化结果集：排序键统一（按整行，NULL 放最后），每行转 tuple 便于比对。"""
     return sorted([tuple(r) for r in rows], key=_sort_key)
 
 

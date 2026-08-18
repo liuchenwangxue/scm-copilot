@@ -141,26 +141,44 @@ scm-copilot/
   时间窗口径由 `today` 驱动生成显式日期（评测传 `BASE_DATE=2026-08-18` 固定 seed 基准，防运行日漂移）；
 - `graph.py`：LangGraph 子图 `generate→validate→execute→format`，SQL 被拒时条件路由到降级话术；
 - `router.py`：`POST /api/data/query`（JWT + `data:nl2sql` 权限），响应透出 `table/sql/columns/rows/elapsed/rejected_reason`；
+- `service.py`：`run_nl2sql_query` 统一编排（多轮消解→子图→洞察），router 与对话入口复用；
 - `schema_linker.py`：表/列双语料 + bge-small 向量召回 Top-3 → 按相对分数裁剪注入（≥0.75×top1）；
   精简 DDL 注入（省略低价值列）+ few-shot 与召回表联动、按重叠度动态排序；
+- `insight.py`：结果洞察（≤3 条，prompt 给结果集 JSON + **数字溯源校验**双保险，禁止编造数字）；
 - `mock_sql.py`：mock 生成器（从评测集取 gold SQL，只测链路不算效果）。
 
 **评测**（`backend/evals/` + `backend/scripts/`）：
-- `nl2sql_eval_v1.jsonl`：90 条三层（单表 30 / join 40 / 聚合 20），固定 seed 保证 gold 结果稳定；
-- `eval_nl2sql.py`：execution accuracy（**结果集比对非字符串比对**：类型归一 + 列子集/同义别名对齐 + 排序键统一）；
-  `--ab` 模式跑 v1 vs v2 A/B（准确率 + prompt token 降幅）；
+- `nl2sql_eval_v1.jsonl`：100 条三层（单表 40 / join 40 / 聚合 20），固定 seed 保证 gold 结果稳定；
+- `eval_nl2sql.py`：execution accuracy（**结果集比对非字符串比对**：类型归一 + 列子集/同义别名对齐 + 整行排序键）；
+  `--ab` 模式跑 v1 vs v2 A/B（准确率 + prompt token 降幅）；`--prompt-version v2` 单版本全量；
 - `eval_link_recall.py`：召回准确率（gold 表 ⊆ Top-3，sqlglot 从 gold SQL 提取标注）；
-- `gen_eval_set_v1.py`：评测集生成（含冗余 join 检测，gold SQL 全部可执行且非空）。
+- `gen_eval_set_v1.py`：评测集生成（含冗余 join 检测，gold SQL 全部可执行且非空）；
+- `recompute_eval.py`：比对逻辑修复后复用报告中的 gen SQL 重算（省 token，快速验证）。
 
-**验收数字**：召回准确率 1.000（90/90）；real A/B 50 条 v1 0.980 → v2 1.000，prompt token 降幅 53.5%。
+**验收数字**（Day6 real 全量 100 条，kimi-k2.7-code）：**整体 0.970**（单表 0.975 / join 0.950 / 聚合 1.000）；
+召回准确率 1.000（100/100）；token 降幅 53.3%；P95 38.9ms；攻击 20/20。
 
 ```bash
-make gen-eval             # 评测集 90 条
+make gen-eval             # 评测集 100 条
 make eval-nl2sql          # execution accuracy（默认 mock 测链路；LLM_PROVIDER=real 测效果）
 make eval-ab              # A/B 对比 v1 vs v2（token 降幅 ≥50% 验收）
 make eval-link-recall     # Schema Linking 召回准确率（≥90% 验收）
+make eval-day6            # Day6 real 全量 100 条（v2，含 P95）
 make test-nl2sql-e2e      # NL2SQL e2e 链路测试
 ```
+
+## 六·七、呈现链路与语义路由 data 分支（W24 Day6）
+
+**结果洞察 `insight.py`**（禁止编造数字双保险）：
+- prompt 给结果集 JSON（前 10 行）+"只允许引用结果集中的数值"硬性规则；
+- 输出后 `verify_insight_digits` **确定性数字溯源**：摘要中每个数字必须能在结果集数值单元格中找到
+  （支持 %/万/千/亿 量纲换算 + 1% 容差），查无出处的整条丢弃；
+- 业务字符串中的数字可溯源（供应商名"华东宏图44"里的 44 合法）、日期字符串不溯源（防编造撞上）。
+
+**对话入口 data 分支**：`/api/kb/chat` 语义路由新增 `data` 类目（查数→NL2SQL 域）：
+- 规则层 4 组高置信组合模式（延迟/发货+多少、近N天+订单+多少、各区域+订单/库存、TOP N+供应商）+ 样本 kNN；
+- data 分支权限二次校验（`data:nl2sql`，viewer 无权限礼貌拒答）→ `run_nl2sql_query` → SSE `data_table` 事件
+  （columns/rows/sql/insights/elapsed，前端表格 + SQL 折叠面板 + 洞察 + 反馈按钮的数据源）。
 
 ## 七、非目标（scope 纪律，详见《06》第 5 节）
 

@@ -1,0 +1,6114 @@
+{
+  "provider": "real",
+  "prompt_version": "v1",
+  "base_date": "2026-08-18",
+  "summary": {
+    "total": 100,
+    "overall": {
+      "total": 100,
+      "correct": 95,
+      "accuracy": 0.95,
+      "rejected": 0,
+      "exec_error": 0
+    },
+    "single": {
+      "total": 40,
+      "correct": 39,
+      "accuracy": 0.975,
+      "rejected": 0,
+      "exec_error": 0
+    },
+    "join": {
+      "total": 40,
+      "correct": 36,
+      "accuracy": 0.9,
+      "rejected": 0,
+      "exec_error": 0
+    },
+    "aggregation": {
+      "total": 20,
+      "correct": 20,
+      "accuracy": 1.0,
+      "rejected": 0,
+      "exec_error": 0
+    },
+    "elapsed_s": 121.34,
+    "avg_prompt_tokens": 1060.6
+  },
+  "records": [
+    {
+      "id": 1,
+      "layer": "single",
+      "category": "filter-region",
+      "question": "华东区域有多少订单？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region='华东'",
+      "prompt_tokens": 1058,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region = '华东' LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          3478
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 2,
+      "layer": "single",
+      "category": "filter-region-status",
+      "question": "华北区域已支付的订单有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region='华北' AND status='paid'",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region = '华北' AND status = 'paid' LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          518
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 3,
+      "layer": "single",
+      "category": "filter-region-status",
+      "question": "华南区域已发货的订单有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region='华南' AND status='shipped'",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region = '华南' AND status = 'shipped' LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          1034
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 4,
+      "layer": "single",
+      "category": "filter-region-status",
+      "question": "西南区域已完成的订单有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region='西南' AND status='done'",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region = '西南' AND status = 'done' LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          453
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 5,
+      "layer": "single",
+      "category": "filter-status",
+      "question": "已取消的订单有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE status='cancelled'",
+      "prompt_tokens": 1058,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE status = 'cancelled' LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          532
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 6,
+      "layer": "single",
+      "category": "filter-window",
+      "question": "近7天创建了多少订单？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-08-11'",
+      "prompt_tokens": 1058,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-08-11' LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          1067
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 7,
+      "layer": "single",
+      "category": "filter-window",
+      "question": "近30天创建了多少订单？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-07-19'",
+      "prompt_tokens": 1058,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-07-19' LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          4163
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 8,
+      "layer": "single",
+      "category": "filter-window-region-status",
+      "question": "近30天华东区域已支付的订单有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-07-19' AND region='华东' AND status='paid'",
+      "prompt_tokens": 1062,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region = '华东' AND status = 'paid' AND created_at >= '2026-07-19' LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          257
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 9,
+      "layer": "single",
+      "category": "topn",
+      "question": "金额最高的前5个订单的订单号和金额？",
+      "gold_sql": "SELECT order_no, amount FROM orders ORDER BY amount DESC LIMIT 5",
+      "prompt_tokens": 1063,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT order_no, amount FROM orders ORDER BY amount DESC LIMIT 5",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "order_no",
+        "amount"
+      ],
+      "gen_rows": [
+        [
+          "SO-20260605-0026",
+          869042.4
+        ],
+        [
+          "SO-20260423-0021",
+          805068.4
+        ],
+        [
+          "SO-20260817-0012",
+          761681.8
+        ],
+        [
+          "SO-20260510-0017",
+          760038.2
+        ],
+        [
+          "SO-20260321-0029",
+          758858.0
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 10,
+      "layer": "single",
+      "category": "distinct-count",
+      "question": "共有多少个不同的区域？",
+      "gold_sql": "SELECT COUNT(DISTINCT region) AS cnt FROM orders",
+      "prompt_tokens": 1058,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT COUNT(DISTINCT region) AS region_cnt FROM orders LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region_cnt"
+      ],
+      "gen_rows": [
+        [
+          4
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 11,
+      "layer": "single",
+      "category": "groupby",
+      "question": "各区域的订单数量？",
+      "gold_sql": "SELECT region, COUNT(*) AS cnt FROM orders GROUP BY region ORDER BY region",
+      "prompt_tokens": 1057,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT region, COUNT(*) AS order_cnt FROM orders GROUP BY region ORDER BY order_cnt DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "order_cnt"
+      ],
+      "gen_rows": [
+        [
+          "华东",
+          3478
+        ],
+        [
+          "华南",
+          2547
+        ],
+        [
+          "华北",
+          2482
+        ],
+        [
+          "西南",
+          1493
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 12,
+      "layer": "single",
+      "category": "groupby",
+      "question": "各状态的订单数量？",
+      "gold_sql": "SELECT status, COUNT(*) AS cnt FROM orders GROUP BY status ORDER BY status",
+      "prompt_tokens": 1057,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT status, COUNT(*) AS cnt FROM orders GROUP BY status LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "status",
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          "draft",
+          484
+        ],
+        [
+          "paid",
+          2033
+        ],
+        [
+          "shipped",
+          3983
+        ],
+        [
+          "done",
+          2968
+        ],
+        [
+          "cancelled",
+          532
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 13,
+      "layer": "single",
+      "category": "groupby-window",
+      "question": "近30天各区域的订单数量？",
+      "gold_sql": "SELECT region, COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-07-19' GROUP BY region ORDER BY region",
+      "prompt_tokens": 1059,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT region, COUNT(*) AS order_cnt FROM orders WHERE created_at >= '2026-07-19' GROUP BY region ORDER BY order_cnt DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "order_cnt"
+      ],
+      "gen_rows": [
+        [
+          "华东",
+          1455
+        ],
+        [
+          "华南",
+          1068
+        ],
+        [
+          "华北",
+          1029
+        ],
+        [
+          "西南",
+          611
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 14,
+      "layer": "single",
+      "category": "agg-sum",
+      "question": "订单总金额是多少？",
+      "gold_sql": "SELECT SUM(amount) AS total_amount FROM orders",
+      "prompt_tokens": 1057,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT SUM(amount) AS total_amount FROM orders LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          2271700008.6
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 15,
+      "layer": "single",
+      "category": "agg-sum-filter",
+      "question": "华东区域订单总金额是多少？",
+      "gold_sql": "SELECT SUM(amount) AS total_amount FROM orders WHERE region='华东'",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT SUM(amount) AS total_amount FROM orders WHERE region = '华东' LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          793093807.4
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 16,
+      "layer": "single",
+      "category": "agg-avg",
+      "question": "平均订单金额是多少？",
+      "gold_sql": "SELECT AVG(amount) AS avg_amount FROM orders",
+      "prompt_tokens": 1058,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT AVG(amount) AS avg_amount FROM orders LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "avg_amount"
+      ],
+      "gen_rows": [
+        [
+          227170.00086
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 17,
+      "layer": "single",
+      "category": "topn-filter",
+      "question": "金额最高的前3个已完成订单的订单号和金额？",
+      "gold_sql": "SELECT order_no, amount FROM orders WHERE status='done' ORDER BY amount DESC LIMIT 3",
+      "prompt_tokens": 1065,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT order_no, amount FROM orders WHERE status = 'done' ORDER BY amount DESC LIMIT 3",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "order_no",
+        "amount"
+      ],
+      "gen_rows": [
+        [
+          "SO-20260605-0026",
+          869042.4
+        ],
+        [
+          "SO-20260321-0029",
+          758858.0
+        ],
+        [
+          "SO-20260221-0041",
+          734283.7
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 18,
+      "layer": "single",
+      "category": "agg-sum-window",
+      "question": "近30天已支付的订单总金额是多少？",
+      "gold_sql": "SELECT SUM(amount) AS total_amount FROM orders WHERE created_at >= '2026-07-19' AND status='paid'",
+      "prompt_tokens": 1062,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT SUM(amount) AS total_amount FROM orders WHERE status = 'paid' AND created_at >= '2026-07-19' LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          185261459.6
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 19,
+      "layer": "single",
+      "category": "groupby-agg",
+      "question": "各区域的订单总金额？",
+      "gold_sql": "SELECT region, SUM(amount) AS total_amount FROM orders GROUP BY region ORDER BY region",
+      "prompt_tokens": 1058,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT region, SUM(amount) AS total_amount FROM orders GROUP BY region ORDER BY total_amount DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          "华东",
+          793093807.4
+        ],
+        [
+          "华南",
+          578034247.8
+        ],
+        [
+          "华北",
+          567242679.9
+        ],
+        [
+          "西南",
+          333329273.5
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 20,
+      "layer": "single",
+      "category": "filter-amount",
+      "question": "金额大于5000的订单有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE amount > 5000",
+      "prompt_tokens": 1059,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE amount > 5000 LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          9993
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 21,
+      "layer": "single",
+      "category": "filter-region",
+      "question": "华东区域的供应商有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM suppliers WHERE region='华东'",
+      "prompt_tokens": 1059,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM suppliers WHERE region = '华东' LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          10
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 22,
+      "layer": "single",
+      "category": "groupby",
+      "question": "各区域的供应商数量？",
+      "gold_sql": "SELECT region, COUNT(*) AS cnt FROM suppliers GROUP BY region ORDER BY region",
+      "prompt_tokens": 1058,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT region, COUNT(*) AS supplier_cnt FROM suppliers GROUP BY region ORDER BY supplier_cnt DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "supplier_cnt"
+      ],
+      "gen_rows": [
+        [
+          "华东",
+          10
+        ],
+        [
+          "华北",
+          10
+        ],
+        [
+          "华南",
+          10
+        ],
+        [
+          "西南",
+          10
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 23,
+      "layer": "single",
+      "category": "topn",
+      "question": "评分最高的前5个供应商的名称和评分？",
+      "gold_sql": "SELECT name, rating FROM suppliers ORDER BY rating DESC LIMIT 5",
+      "prompt_tokens": 1063,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT name, rating FROM suppliers ORDER BY rating DESC LIMIT 5",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "name",
+        "rating"
+      ],
+      "gen_rows": [
+        [
+          "华南利丰33有限公司",
+          95
+        ],
+        [
+          "华北宏图35有限公司",
+          95
+        ],
+        [
+          "西南恒远98有限公司",
+          94
+        ],
+        [
+          "华东利丰26有限公司",
+          94
+        ],
+        [
+          "华东启航30有限公司",
+          92
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 24,
+      "layer": "single",
+      "category": "filter-category",
+      "question": "电子元件类目有多少商品？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM products WHERE category='电子元件'",
+      "prompt_tokens": 1059,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM products WHERE category = '电子元件' LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          59
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 25,
+      "layer": "single",
+      "category": "groupby",
+      "question": "各类目的商品数量？",
+      "gold_sql": "SELECT category, COUNT(*) AS cnt FROM products GROUP BY category ORDER BY category",
+      "prompt_tokens": 1057,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT category, COUNT(*) AS product_count FROM products GROUP BY category ORDER BY product_count DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "category",
+        "product_count"
+      ],
+      "gen_rows": [
+        [
+          "机械配件",
+          75
+        ],
+        [
+          "纺织辅料",
+          70
+        ],
+        [
+          "五金工具",
+          65
+        ],
+        [
+          "化工原料",
+          64
+        ],
+        [
+          "仓储设备",
+          60
+        ],
+        [
+          "办公用品",
+          59
+        ],
+        [
+          "电子元件",
+          59
+        ],
+        [
+          "包装材料",
+          48
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 26,
+      "layer": "single",
+      "category": "topn",
+      "question": "单价最高的前3个商品的名称和单价？",
+      "gold_sql": "SELECT name, unit_price FROM products ORDER BY unit_price DESC LIMIT 3",
+      "prompt_tokens": 1062,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT name, unit_price FROM products ORDER BY unit_price DESC LIMIT 3",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "name",
+        "unit_price"
+      ],
+      "gen_rows": [
+        [
+          "纽扣 300号",
+          4983.5
+        ],
+        [
+          "仓储货架 471号",
+          4976.8
+        ],
+        [
+          "气泡膜 440号",
+          4967.5
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 27,
+      "layer": "single",
+      "category": "filter-lowstock",
+      "question": "库存低于安全库存的商品有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM inventory WHERE qty < safety_qty",
+      "prompt_tokens": 1061,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM inventory WHERE qty < safety_qty LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          95
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 28,
+      "layer": "single",
+      "category": "groupby-agg",
+      "question": "各仓库的库存总量？",
+      "gold_sql": "SELECT warehouse, SUM(qty) AS total_amount FROM inventory GROUP BY warehouse ORDER BY warehouse",
+      "prompt_tokens": 1057,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT warehouse, SUM(qty) AS total_qty FROM inventory GROUP BY warehouse ORDER BY total_qty DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "warehouse",
+        "total_qty"
+      ],
+      "gen_rows": [
+        [
+          "华东仓",
+          47537.0
+        ],
+        [
+          "西南仓",
+          46406.0
+        ],
+        [
+          "华北仓",
+          43766.0
+        ],
+        [
+          "华南仓",
+          42315.0
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 29,
+      "layer": "single",
+      "category": "filter-delay",
+      "question": "延迟发货的订单有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM shipments WHERE delay_days > 0",
+      "prompt_tokens": 1058,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM shipments WHERE delay_days > 0 LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          545
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 30,
+      "layer": "single",
+      "category": "groupby",
+      "question": "各承运商的发货数量？",
+      "gold_sql": "SELECT carrier, COUNT(*) AS cnt FROM shipments GROUP BY carrier ORDER BY carrier",
+      "prompt_tokens": 1058,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT carrier, COUNT(*) AS shipment_count FROM shipments GROUP BY carrier ORDER BY shipment_count DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "carrier",
+        "shipment_count"
+      ],
+      "gen_rows": [
+        [
+          "京东物流",
+          1458
+        ],
+        [
+          "中通",
+          1413
+        ],
+        [
+          "顺丰",
+          1411
+        ],
+        [
+          "德邦",
+          1356
+        ],
+        [
+          "圆通",
+          1313
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 31,
+      "layer": "single",
+      "category": "filter-window-region",
+      "question": "近7天华东区域创建了多少订单？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-08-11' AND region='华东'",
+      "prompt_tokens": 1061,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region = '华东' AND created_at >= '2026-08-11' LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          386
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 32,
+      "layer": "single",
+      "category": "filter-status",
+      "question": "草稿状态的订单有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE status='draft'",
+      "prompt_tokens": 1058,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE status = 'draft' LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          484
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 33,
+      "layer": "single",
+      "category": "topn-asc",
+      "question": "金额最低的前5个订单的订单号和金额？",
+      "gold_sql": "SELECT order_no, amount FROM orders ORDER BY amount ASC LIMIT 5",
+      "prompt_tokens": 1063,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT order_no, amount FROM orders ORDER BY amount ASC LIMIT 5",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "order_no",
+        "amount"
+      ],
+      "gen_rows": [
+        [
+          "SO-20260628-0038",
+          2458.4
+        ],
+        [
+          "SO-20260224-0030",
+          2497.2
+        ],
+        [
+          "SO-20260702-0024",
+          3018.8
+        ],
+        [
+          "SO-20260723-0100",
+          3452.0
+        ],
+        [
+          "SO-20260319-0003",
+          4234.8
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 34,
+      "layer": "single",
+      "category": "groupby-agg",
+      "question": "各区域供应商的平均评分？",
+      "gold_sql": "SELECT region, AVG(rating) AS avg_amount FROM suppliers GROUP BY region ORDER BY region",
+      "prompt_tokens": 1059,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT region, AVG(rating) AS avg_rating FROM suppliers GROUP BY region ORDER BY avg_rating DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "avg_rating"
+      ],
+      "gen_rows": [
+        [
+          "华北",
+          78.4
+        ],
+        [
+          "西南",
+          78.1
+        ],
+        [
+          "华东",
+          77.0
+        ],
+        [
+          "华南",
+          76.7
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 35,
+      "layer": "single",
+      "category": "filter-region-rating",
+      "question": "西南区域评分高于80的供应商有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM suppliers WHERE region='西南' AND rating > 80",
+      "prompt_tokens": 1062,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM suppliers WHERE region = '西南' AND rating > 80 LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          3
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 36,
+      "layer": "single",
+      "category": "filter-price-range",
+      "question": "单价在100到500之间的商品有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM products WHERE unit_price >= 100 AND unit_price <= 500",
+      "prompt_tokens": 1061,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM products WHERE unit_price BETWEEN 100 AND 500 LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          35
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 37,
+      "layer": "single",
+      "category": "filter-lowstock-groupby",
+      "question": "各仓库低库存商品的数量？",
+      "gold_sql": "SELECT warehouse, COUNT(*) AS cnt FROM inventory WHERE qty < safety_qty GROUP BY warehouse ORDER BY warehouse",
+      "prompt_tokens": 1059,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT warehouse, COUNT(*) AS low_stock_cnt FROM inventory WHERE qty < safety_qty GROUP BY warehouse ORDER BY low_stock_cnt DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "warehouse",
+        "low_stock_cnt"
+      ],
+      "gen_rows": [
+        [
+          "华南仓",
+          30
+        ],
+        [
+          "华东仓",
+          26
+        ],
+        [
+          "华北仓",
+          20
+        ],
+        [
+          "西南仓",
+          19
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 38,
+      "layer": "single",
+      "category": "filter-delay-window",
+      "question": "近30天发货的延迟订单有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM shipments WHERE shipped_at >= '2026-07-19' AND delay_days > 0",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM shipments sh JOIN orders o ON sh.order_no = o.order_no WHERE o.created_at >= '2026-07-19' AND sh.delay_days > 0 LIMIT 200",
+      "status": "ok",
+      "correct": false,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          228
+        ]
+      ],
+      "diffs": [
+        {
+          "reason": "结果集不匹配",
+          "gold_first": [
+            [
+              248
+            ]
+          ],
+          "gen_first": [
+            [
+              228
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": 39,
+      "layer": "single",
+      "category": "agg-sum-filter",
+      "question": "已完成订单的总金额是多少？",
+      "gold_sql": "SELECT SUM(amount) AS total_amount FROM orders WHERE status='done'",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT SUM(amount) AS total_amount FROM orders WHERE status = 'done' LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          673114977.0
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 40,
+      "layer": "single",
+      "category": "topn-asc",
+      "question": "评分最低的前3个供应商的名称和评分？",
+      "gold_sql": "SELECT name, rating FROM suppliers ORDER BY rating ASC LIMIT 3",
+      "prompt_tokens": 1063,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT name, rating FROM suppliers ORDER BY rating ASC LIMIT 3",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "name",
+        "rating"
+      ],
+      "gen_rows": [
+        [
+          "华北鑫达30有限公司",
+          62
+        ],
+        [
+          "华东骏业55有限公司",
+          62
+        ],
+        [
+          "华北优品90有限公司",
+          64
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 41,
+      "layer": "join",
+      "category": "join-order-items",
+      "question": "金额最高的前5个订单分别有多少行明细？",
+      "gold_sql": "SELECT o.order_no, COUNT(i.id) AS item_cnt FROM orders o JOIN order_items i ON o.order_no=i.order_no GROUP BY o.order_no, o.amount ORDER BY o.amount DESC LIMIT 5",
+      "prompt_tokens": 1063,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT o.order_no, COUNT(i.id) AS item_count FROM orders o JOIN order_items i ON o.order_no = i.order_no GROUP BY o.order_no ORDER BY o.amount DESC LIMIT 5",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "order_no",
+        "item_count"
+      ],
+      "gen_rows": [
+        [
+          "SO-20260605-0026",
+          5
+        ],
+        [
+          "SO-20260423-0021",
+          5
+        ],
+        [
+          "SO-20260817-0012",
+          5
+        ],
+        [
+          "SO-20260510-0017",
+          5
+        ],
+        [
+          "SO-20260321-0029",
+          5
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 42,
+      "layer": "join",
+      "category": "join-items-products",
+      "question": "电子元件类目商品的累计销量（数量）是多少？",
+      "gold_sql": "SELECT SUM(i.quantity) AS total_amount FROM order_items i JOIN products p ON i.product_id=p.id WHERE p.category='电子元件'",
+      "prompt_tokens": 1064,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT SUM(i.quantity) AS total_quantity FROM order_items i JOIN products p ON i.product_id = p.id WHERE p.category = '电子元件' LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "total_quantity"
+      ],
+      "gen_rows": [
+        [
+          106458.0
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 43,
+      "layer": "join",
+      "category": "join-groupby",
+      "question": "各类目商品的累计销售金额？",
+      "gold_sql": "SELECT p.category, SUM(i.amount) AS total_amount FROM order_items i JOIN products p ON i.product_id=p.id GROUP BY p.category ORDER BY p.category",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT p.category, SUM(i.amount) AS total_amount FROM order_items i JOIN products p ON i.product_id = p.id GROUP BY p.category ORDER BY total_amount DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "category",
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          "机械配件",
+          351305463.4
+        ],
+        [
+          "化工原料",
+          321179071.6
+        ],
+        [
+          "办公用品",
+          314822068.3
+        ],
+        [
+          "纺织辅料",
+          294693174.2
+        ],
+        [
+          "仓储设备",
+          267878696.3
+        ],
+        [
+          "电子元件",
+          250985815.0
+        ],
+        [
+          "五金工具",
+          245002571.6
+        ],
+        [
+          "包装材料",
+          225833148.2
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 44,
+      "layer": "join",
+      "category": "join-orders-suppliers",
+      "question": "华东区域供应商的订单总金额是多少？",
+      "gold_sql": "SELECT SUM(o.amount) AS total_amount FROM orders o JOIN suppliers s ON o.supplier_id=s.id WHERE s.region='华东'",
+      "prompt_tokens": 1062,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT SUM(o.amount) AS total_amount FROM orders o JOIN suppliers s ON o.supplier_id = s.id WHERE s.region = '华东' LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          738555246.1
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 45,
+      "layer": "join",
+      "category": "join-groupby",
+      "question": "各区域供应商的订单总金额？",
+      "gold_sql": "SELECT s.region, SUM(o.amount) AS total_amount FROM orders o JOIN suppliers s ON o.supplier_id=s.id GROUP BY s.region ORDER BY s.region",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT s.region, SUM(o.amount) AS total_amount FROM orders o JOIN suppliers s ON o.supplier_id = s.id GROUP BY s.region ORDER BY total_amount DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          "华东",
+          738555246.1
+        ],
+        [
+          "华北",
+          573638389.0
+        ],
+        [
+          "华南",
+          568507823.6
+        ],
+        [
+          "西南",
+          390998549.9
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 46,
+      "layer": "join",
+      "category": "join-topn",
+      "question": "订单数量最多的前5个供应商？",
+      "gold_sql": "SELECT s.name, COUNT(o.id) AS cnt FROM orders o JOIN suppliers s ON o.supplier_id=s.id GROUP BY s.name ORDER BY cnt DESC LIMIT 5",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT s.name, COUNT(o.id) AS order_cnt FROM orders o JOIN suppliers s ON o.supplier_id = s.id GROUP BY s.name ORDER BY order_cnt DESC LIMIT 5",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "name",
+        "order_cnt"
+      ],
+      "gen_rows": [
+        [
+          "华东宏图44有限公司",
+          361
+        ],
+        [
+          "华东众联95有限公司",
+          346
+        ],
+        [
+          "华东顺达45有限公司",
+          336
+        ],
+        [
+          "华东顺达14有限公司",
+          327
+        ],
+        [
+          "华东利丰16有限公司",
+          326
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 47,
+      "layer": "join",
+      "category": "join-lowstock",
+      "question": "低库存商品对应的类目分布？",
+      "gold_sql": "SELECT p.category, COUNT(*) AS cnt FROM inventory i JOIN products p ON i.product_id=p.id WHERE i.qty < i.safety_qty GROUP BY p.category ORDER BY p.category",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT p.category, COUNT(*) AS cnt FROM inventory i JOIN products p ON i.product_id = p.id WHERE i.qty < i.safety_qty GROUP BY p.category ORDER BY cnt DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "category",
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          "机械配件",
+          20
+        ],
+        [
+          "五金工具",
+          16
+        ],
+        [
+          "化工原料",
+          15
+        ],
+        [
+          "电子元件",
+          12
+        ],
+        [
+          "纺织辅料",
+          12
+        ],
+        [
+          "办公用品",
+          11
+        ],
+        [
+          "包装材料",
+          5
+        ],
+        [
+          "仓储设备",
+          4
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 48,
+      "layer": "join",
+      "category": "join-inventory-products",
+      "question": "华东仓中各类目的库存总量？",
+      "gold_sql": "SELECT p.category, SUM(i.qty) AS total_amount FROM inventory i JOIN products p ON i.product_id=p.id WHERE i.warehouse='华东仓' GROUP BY p.category ORDER BY p.category",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT p.category, SUM(i.qty) AS total_qty FROM inventory i JOIN products p ON i.product_id = p.id WHERE i.warehouse = '华东仓' GROUP BY p.category ORDER BY total_qty DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "category",
+        "total_qty"
+      ],
+      "gen_rows": [
+        [
+          "五金工具",
+          6896.0
+        ],
+        [
+          "机械配件",
+          6630.0
+        ],
+        [
+          "纺织辅料",
+          6607.0
+        ],
+        [
+          "包装材料",
+          6395.0
+        ],
+        [
+          "仓储设备",
+          6149.0
+        ],
+        [
+          "电子元件",
+          5827.0
+        ],
+        [
+          "办公用品",
+          4926.0
+        ],
+        [
+          "化工原料",
+          4107.0
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 49,
+      "layer": "join",
+      "category": "join-shipments-orders",
+      "question": "延迟发货的订单分布在哪些区域？各有多少？",
+      "gold_sql": "SELECT o.region, COUNT(*) AS cnt FROM shipments s JOIN orders o ON s.order_no=o.order_no WHERE s.delay_days > 0 GROUP BY o.region ORDER BY o.region",
+      "prompt_tokens": 1064,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT o.region, COUNT(*) AS cnt FROM orders o JOIN shipments sh ON o.order_no = sh.order_no WHERE sh.delay_days > 0 GROUP BY o.region ORDER BY cnt DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          "华东",
+          198
+        ],
+        [
+          "华北",
+          145
+        ],
+        [
+          "华南",
+          132
+        ],
+        [
+          "西南",
+          70
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 50,
+      "layer": "join",
+      "category": "join-window",
+      "question": "近30天延迟发货的订单有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM shipments s JOIN orders o ON s.order_no=o.order_no WHERE s.delay_days > 0 AND o.created_at >= '2026-07-19'",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM shipments sh JOIN orders o ON sh.order_no = o.order_no WHERE o.created_at >= '2026-07-19' AND sh.delay_days > 0 LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          228
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 51,
+      "layer": "join",
+      "category": "join-items-orders",
+      "question": "已支付订单的明细总数量是多少？",
+      "gold_sql": "SELECT SUM(i.quantity) AS total_amount FROM orders o JOIN order_items i ON o.order_no=i.order_no WHERE o.status='paid'",
+      "prompt_tokens": 1061,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT SUM(oi.quantity) AS total_quantity FROM order_items oi JOIN orders o ON oi.order_no = o.order_no WHERE o.status = 'paid' LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "total_quantity"
+      ],
+      "gen_rows": [
+        [
+          179144.0
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 52,
+      "layer": "join",
+      "category": "join-topn-filter",
+      "question": "已完成订单中订单金额最高的前5个供应商？",
+      "gold_sql": "SELECT s.name, SUM(o.amount) AS total_amount FROM orders o JOIN suppliers s ON o.supplier_id=s.id WHERE o.status='done' GROUP BY s.name ORDER BY total_amount DESC LIMIT 5",
+      "prompt_tokens": 1064,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT s.name, SUM(o.amount) AS total_amount FROM orders o JOIN suppliers s ON o.supplier_id = s.id WHERE o.status = 'done' GROUP BY s.name ORDER BY total_amount DESC LIMIT 5",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "name",
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          "华东顺达14有限公司",
+          27653045.5
+        ],
+        [
+          "华东众联95有限公司",
+          26938792.5
+        ],
+        [
+          "华东永盛76有限公司",
+          23963867.1
+        ],
+        [
+          "华东顺达45有限公司",
+          23288871.6
+        ],
+        [
+          "华东利丰16有限公司",
+          22854713.4
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 53,
+      "layer": "join",
+      "category": "join-topn",
+      "question": "被订购次数最多的前5个商品？",
+      "gold_sql": "SELECT p.name, COUNT(i.id) AS cnt FROM order_items i JOIN products p ON i.product_id=p.id GROUP BY p.name ORDER BY cnt DESC LIMIT 5",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT p.name, COUNT(*) AS order_count FROM order_items oi JOIN products p ON oi.product_id = p.id GROUP BY p.name ORDER BY order_count DESC LIMIT 5",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "name",
+        "order_count"
+      ],
+      "gen_rows": [
+        [
+          "轴承 3号",
+          92
+        ],
+        [
+          "涤纶纱线 95号",
+          90
+        ],
+        [
+          "周转箱 139号",
+          89
+        ],
+        [
+          "硒鼓 2号",
+          88
+        ],
+        [
+          "硒鼓 12号",
+          87
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 54,
+      "layer": "join",
+      "category": "join-groupby-agg",
+      "question": "各供应商的订单平均金额最高的前5个？",
+      "gold_sql": "SELECT s.name, AVG(o.amount) AS avg_amount FROM orders o JOIN suppliers s ON o.supplier_id=s.id GROUP BY s.name ORDER BY avg_amount DESC LIMIT 5",
+      "prompt_tokens": 1063,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT s.name, AVG(o.amount) AS avg_amount FROM orders o JOIN suppliers s ON o.supplier_id = s.id GROUP BY s.name ORDER BY avg_amount DESC LIMIT 5",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "name",
+        "avg_amount"
+      ],
+      "gen_rows": [
+        [
+          "西南永盛71有限公司",
+          245086.074118
+        ],
+        [
+          "华南利丰97有限公司",
+          240112.463052
+        ],
+        [
+          "华北顺达21有限公司",
+          239699.50916
+        ],
+        [
+          "华东利丰16有限公司",
+          238271.657055
+        ],
+        [
+          "华南优品56有限公司",
+          236716.006719
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 55,
+      "layer": "join",
+      "category": "join-items-products",
+      "question": "办公用品类目商品的销售总金额是多少？",
+      "gold_sql": "SELECT SUM(i.amount) AS total_amount FROM order_items i JOIN products p ON i.product_id=p.id WHERE p.category='办公用品'",
+      "prompt_tokens": 1063,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT SUM(i.amount) AS total_amount FROM order_items i JOIN products p ON i.product_id = p.id WHERE p.category = '办公用品' LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          314822068.3
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 56,
+      "layer": "join",
+      "category": "join-topn",
+      "question": "已发货订单中延迟发货单数最多的前3个承运商？",
+      "gold_sql": "SELECT sh.carrier, COUNT(*) AS cnt FROM shipments sh JOIN orders o ON sh.order_no=o.order_no WHERE o.status='shipped' AND sh.delay_days > 0 GROUP BY sh.carrier ORDER BY cnt DESC LIMIT 3",
+      "prompt_tokens": 1065,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT sh.carrier, COUNT(*) AS delay_cnt FROM shipments sh JOIN orders o ON sh.order_no = o.order_no WHERE o.status = 'shipped' AND sh.delay_days > 0 GROUP BY sh.carrier ORDER BY delay_cnt DESC LIMIT 3",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "carrier",
+        "delay_cnt"
+      ],
+      "gen_rows": [
+        [
+          "京东物流",
+          72
+        ],
+        [
+          "德邦",
+          66
+        ],
+        [
+          "中通",
+          64
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 57,
+      "layer": "join",
+      "category": "join-inventory-products",
+      "question": "库存量最高的前5个商品的名称和库存量？",
+      "gold_sql": "SELECT p.name, i.qty FROM inventory i JOIN products p ON i.product_id=p.id ORDER BY i.qty DESC LIMIT 5",
+      "prompt_tokens": 1063,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT p.name, i.qty FROM inventory i JOIN products p ON i.product_id = p.id ORDER BY i.qty DESC LIMIT 5",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "name",
+        "qty"
+      ],
+      "gen_rows": [
+        [
+          "法兰盘 439号",
+          798
+        ],
+        [
+          "涤纶纱线 95号",
+          797
+        ],
+        [
+          "标签纸 186号",
+          796
+        ],
+        [
+          "文件夹 334号",
+          795
+        ],
+        [
+          "稀释剂 259号",
+          794
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 58,
+      "layer": "join",
+      "category": "join-orders-suppliers",
+      "question": "华南区域供应商名下订单总金额是多少？",
+      "gold_sql": "SELECT SUM(o.amount) AS total_amount FROM orders o JOIN suppliers s ON o.supplier_id=s.id WHERE s.region='华南'",
+      "prompt_tokens": 1063,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT SUM(o.amount) AS total_amount FROM orders o JOIN suppliers s ON o.supplier_id = s.id WHERE s.region = '华南' LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          568507823.6
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 59,
+      "layer": "join",
+      "category": "join-topn",
+      "question": "销售金额最高的商品是哪个？",
+      "gold_sql": "SELECT p.name, SUM(i.amount) AS total_amount FROM order_items i JOIN products p ON i.product_id=p.id GROUP BY p.name ORDER BY total_amount DESC LIMIT 1",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT p.name, SUM(i.amount) AS total_sales FROM order_items i JOIN products p ON i.product_id = p.id GROUP BY p.name ORDER BY total_sales DESC LIMIT 1",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "name",
+        "total_sales"
+      ],
+      "gen_rows": [
+        [
+          "文件夹 136号",
+          11052967.5
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 60,
+      "layer": "join",
+      "category": "join-shipments-orders",
+      "question": "已完成订单中延迟发货的有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM shipments s JOIN orders o ON s.order_no=o.order_no WHERE o.status='done' AND s.delay_days > 0",
+      "prompt_tokens": 1061,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM shipments sh JOIN orders o ON sh.order_no = o.order_no WHERE o.status = 'done' AND sh.delay_days > 0 LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          240
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 61,
+      "layer": "join",
+      "category": "join-topn",
+      "question": "各类目商品的销量最高的前5个商品？",
+      "gold_sql": "SELECT p.name, SUM(i.quantity) AS total_amount FROM order_items i JOIN products p ON i.product_id=p.id GROUP BY p.name ORDER BY total_amount DESC LIMIT 5",
+      "prompt_tokens": 1062,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT p.category, p.name, SUM(i.quantity) AS total_qty FROM order_items i JOIN products p ON i.product_id = p.id GROUP BY p.category, p.name ORDER BY p.category, total_qty DESC LIMIT 200",
+      "status": "ok",
+      "correct": false,
+      "gen_columns": [
+        "category",
+        "name",
+        "total_qty"
+      ],
+      "gen_rows": [
+        [
+          "五金工具",
+          "扳手 260号",
+          2348.0
+        ],
+        [
+          "五金工具",
+          "螺丝批 62号",
+          2152.0
+        ],
+        [
+          "五金工具",
+          "螺丝批 153号",
+          2148.0
+        ],
+        [
+          "五金工具",
+          "钢丝钳 403号",
+          2116.0
+        ],
+        [
+          "五金工具",
+          "卷尺 329号",
+          2060.0
+        ],
+        [
+          "五金工具",
+          "钢丝钳 181号",
+          2052.0
+        ],
+        [
+          "五金工具",
+          "钢丝钳 423号",
+          2040.0
+        ],
+        [
+          "五金工具",
+          "钢丝钳 196号",
+          2038.0
+        ],
+        [
+          "五金工具",
+          "卷尺 163号",
+          2032.0
+        ],
+        [
+          "五金工具",
+          "螺丝批 376号",
+          2021.0
+        ],
+        [
+          "五金工具",
+          "美工刀 157号",
+          2005.0
+        ],
+        [
+          "五金工具",
+          "螺丝批 304号",
+          2001.0
+        ],
+        [
+          "五金工具",
+          "美工刀 343号",
+          1980.0
+        ],
+        [
+          "五金工具",
+          "卷尺 360号",
+          1980.0
+        ],
+        [
+          "五金工具",
+          "钢丝钳 49号",
+          1978.0
+        ],
+        [
+          "五金工具",
+          "卷尺 345号",
+          1975.0
+        ],
+        [
+          "五金工具",
+          "钢丝钳 285号",
+          1963.0
+        ],
+        [
+          "五金工具",
+          "扳手 442号",
+          1963.0
+        ],
+        [
+          "五金工具",
+          "美工刀 241号",
+          1942.0
+        ],
+        [
+          "五金工具",
+          "美工刀 466号",
+          1938.0
+        ],
+        [
+          "五金工具",
+          "螺丝批 143号",
+          1935.0
+        ],
+        [
+          "五金工具",
+          "螺丝批 213号",
+          1932.0
+        ],
+        [
+          "五金工具",
+          "卷尺 148号",
+          1905.0
+        ],
+        [
+          "五金工具",
+          "美工刀 124号",
+          1902.0
+        ],
+        [
+          "五金工具",
+          "美工刀 40号",
+          1896.0
+        ],
+        [
+          "五金工具",
+          "扳手 34号",
+          1892.0
+        ],
+        [
+          "五金工具",
+          "美工刀 393号",
+          1886.0
+        ],
+        [
+          "五金工具",
+          "卷尺 72号",
+          1876.0
+        ],
+        [
+          "五金工具",
+          "卷尺 274号",
+          1875.0
+        ],
+        [
+          "五金工具",
+          "扳手 499号",
+          1874.0
+        ],
+        [
+          "五金工具",
+          "钢丝钳 318号",
+          1873.0
+        ],
+        [
+          "五金工具",
+          "卷尺 222号",
+          1851.0
+        ],
+        [
+          "五金工具",
+          "螺丝批 65号",
+          1828.0
+        ],
+        [
+          "五金工具",
+          "钢丝钳 73号",
+          1815.0
+        ],
+        [
+          "五金工具",
+          "扳手 415号",
+          1814.0
+        ],
+        [
+          "五金工具",
+          "扳手 435号",
+          1811.0
+        ],
+        [
+          "五金工具",
+          "卷尺 98号",
+          1802.0
+        ],
+        [
+          "五金工具",
+          "钢丝钳 291号",
+          1793.0
+        ],
+        [
+          "五金工具",
+          "美工刀 70号",
+          1792.0
+        ],
+        [
+          "五金工具",
+          "卷尺 357号",
+          1779.0
+        ],
+        [
+          "五金工具",
+          "钢丝钳 236号",
+          1777.0
+        ],
+        [
+          "五金工具",
+          "扳手 235号",
+          1722.0
+        ],
+        [
+          "五金工具",
+          "螺丝批 220号",
+          1706.0
+        ],
+        [
+          "五金工具",
+          "美工刀 131号",
+          1699.0
+        ],
+        [
+          "五金工具",
+          "卷尺 444号",
+          1699.0
+        ],
+        [
+          "五金工具",
+          "扳手 88号",
+          1684.0
+        ],
+        [
+          "五金工具",
+          "美工刀 185号",
+          1673.0
+        ],
+        [
+          "五金工具",
+          "螺丝批 290号",
+          1659.0
+        ],
+        [
+          "五金工具",
+          "卷尺 191号",
+          1650.0
+        ],
+        [
+          "五金工具",
+          "扳手 223号",
+          1650.0
+        ],
+        [
+          "五金工具",
+          "卷尺 372号",
+          1641.0
+        ],
+        [
+          "五金工具",
+          "扳手 438号",
+          1641.0
+        ],
+        [
+          "五金工具",
+          "螺丝批 172号",
+          1629.0
+        ],
+        [
+          "五金工具",
+          "卷尺 245号",
+          1616.0
+        ],
+        [
+          "五金工具",
+          "扳手 230号",
+          1595.0
+        ],
+        [
+          "五金工具",
+          "卷尺 168号",
+          1544.0
+        ],
+        [
+          "五金工具",
+          "扳手 261号",
+          1439.0
+        ],
+        [
+          "五金工具",
+          "卷尺 169号",
+          1433.0
+        ],
+        [
+          "五金工具",
+          "美工刀 303号",
+          1427.0
+        ],
+        [
+          "五金工具",
+          "卷尺 365号",
+          1363.0
+        ],
+        [
+          "五金工具",
+          "螺丝批 226号",
+          1342.0
+        ],
+        [
+          "五金工具",
+          "钢丝钳 114号",
+          1311.0
+        ],
+        [
+          "五金工具",
+          "钢丝钳 462号",
+          1289.0
+        ],
+        [
+          "五金工具",
+          "扳手 78号",
+          1277.0
+        ],
+        [
+          "五金工具",
+          "扳手 57号",
+          871.0
+        ],
+        [
+          "仓储设备",
+          "标签纸 17号",
+          2138.0
+        ],
+        [
+          "仓储设备",
+          "周转箱 139号",
+          2129.0
+        ],
+        [
+          "仓储设备",
+          "标签纸 456号",
+          2127.0
+        ],
+        [
+          "仓储设备",
+          "塑料托盘 409号",
+          2120.0
+        ],
+        [
+          "仓储设备",
+          "标签纸 202号",
+          2104.0
+        ],
+        [
+          "仓储设备",
+          "周转箱 198号",
+          2080.0
+        ],
+        [
+          "仓储设备",
+          "周转箱 394号",
+          2048.0
+        ],
+        [
+          "仓储设备",
+          "标签纸 170号",
+          2047.0
+        ],
+        [
+          "仓储设备",
+          "仓储货架 105号",
+          2011.0
+        ],
+        [
+          "仓储设备",
+          "手持扫码枪 45号",
+          1991.0
+        ],
+        [
+          "仓储设备",
+          "塑料托盘 84号",
+          1988.0
+        ],
+        [
+          "仓储设备",
+          "周转箱 315号",
+          1976.0
+        ],
+        [
+          "仓储设备",
+          "周转箱 156号",
+          1967.0
+        ],
+        [
+          "仓储设备",
+          "手持扫码枪 487号",
+          1960.0
+        ],
+        [
+          "仓储设备",
+          "周转箱 399号",
+          1951.0
+        ],
+        [
+          "仓储设备",
+          "手持扫码枪 460号",
+          1935.0
+        ],
+        [
+          "仓储设备",
+          "手持扫码枪 429号",
+          1932.0
+        ],
+        [
+          "仓储设备",
+          "标签纸 327号",
+          1927.0
+        ],
+        [
+          "仓储设备",
+          "仓储货架 419号",
+          1909.0
+        ],
+        [
+          "仓储设备",
+          "周转箱 363号",
+          1891.0
+        ],
+        [
+          "仓储设备",
+          "塑料托盘 205号",
+          1888.0
+        ],
+        [
+          "仓储设备",
+          "塑料托盘 426号",
+          1886.0
+        ],
+        [
+          "仓储设备",
+          "周转箱 497号",
+          1876.0
+        ],
+        [
+          "仓储设备",
+          "仓储货架 197号",
+          1838.0
+        ],
+        [
+          "仓储设备",
+          "手持扫码枪 161号",
+          1827.0
+        ],
+        [
+          "仓储设备",
+          "标签纸 125号",
+          1817.0
+        ],
+        [
+          "仓储设备",
+          "手持扫码枪 325号",
+          1812.0
+        ],
+        [
+          "仓储设备",
+          "塑料托盘 421号",
+          1809.0
+        ],
+        [
+          "仓储设备",
+          "塑料托盘 271号",
+          1785.0
+        ],
+        [
+          "仓储设备",
+          "周转箱 179号",
+          1785.0
+        ],
+        [
+          "仓储设备",
+          "仓储货架 123号",
+          1777.0
+        ],
+        [
+          "仓储设备",
+          "塑料托盘 255号",
+          1770.0
+        ],
+        [
+          "仓储设备",
+          "标签纸 186号",
+          1745.0
+        ],
+        [
+          "仓储设备",
+          "手持扫码枪 36号",
+          1728.0
+        ],
+        [
+          "仓储设备",
+          "标签纸 373号",
+          1713.0
+        ],
+        [
+          "仓储设备",
+          "仓储货架 89号",
+          1690.0
+        ],
+        [
+          "仓储设备",
+          "仓储货架 418号",
+          1670.0
+        ],
+        [
+          "仓储设备",
+          "塑料托盘 280号",
+          1653.0
+        ],
+        [
+          "仓储设备",
+          "周转箱 412号",
+          1624.0
+        ],
+        [
+          "仓储设备",
+          "标签纸 184号",
+          1621.0
+        ],
+        [
+          "仓储设备",
+          "仓储货架 390号",
+          1607.0
+        ],
+        [
+          "仓储设备",
+          "塑料托盘 391号",
+          1591.0
+        ],
+        [
+          "仓储设备",
+          "塑料托盘 405号",
+          1572.0
+        ],
+        [
+          "仓储设备",
+          "仓储货架 127号",
+          1568.0
+        ],
+        [
+          "仓储设备",
+          "手持扫码枪 137号",
+          1559.0
+        ],
+        [
+          "仓储设备",
+          "仓储货架 471号",
+          1547.0
+        ],
+        [
+          "仓储设备",
+          "塑料托盘 485号",
+          1541.0
+        ],
+        [
+          "仓储设备",
+          "周转箱 42号",
+          1530.0
+        ],
+        [
+          "仓储设备",
+          "标签纸 134号",
+          1504.0
+        ],
+        [
+          "仓储设备",
+          "仓储货架 458号",
+          1499.0
+        ],
+        [
+          "仓储设备",
+          "周转箱 228号",
+          1495.0
+        ],
+        [
+          "仓储设备",
+          "周转箱 175号",
+          1494.0
+        ],
+        [
+          "仓储设备",
+          "塑料托盘 150号",
+          1470.0
+        ],
+        [
+          "仓储设备",
+          "手持扫码枪 475号",
+          1470.0
+        ],
+        [
+          "仓储设备",
+          "仓储货架 87号",
+          1444.0
+        ],
+        [
+          "仓储设备",
+          "仓储货架 252号",
+          1415.0
+        ],
+        [
+          "仓储设备",
+          "塑料托盘 151号",
+          1394.0
+        ],
+        [
+          "仓储设备",
+          "手持扫码枪 23号",
+          1377.0
+        ],
+        [
+          "仓储设备",
+          "标签纸 447号",
+          1366.0
+        ],
+        [
+          "仓储设备",
+          "标签纸 338号",
+          1133.0
+        ],
+        [
+          "办公用品",
+          "文件夹 136号",
+          2315.0
+        ],
+        [
+          "办公用品",
+          "文件夹 66号",
+          2256.0
+        ],
+        [
+          "办公用品",
+          "签字笔 111号",
+          2255.0
+        ],
+        [
+          "办公用品",
+          "订书机 7号",
+          2228.0
+        ],
+        [
+          "办公用品",
+          "硒鼓 2号",
+          2189.0
+        ],
+        [
+          "办公用品",
+          "文件夹 395号",
+          2158.0
+        ],
+        [
+          "办公用品",
+          "硒鼓 12号",
+          2107.0
+        ],
+        [
+          "办公用品",
+          "A4打印纸 481号",
+          2078.0
+        ],
+        [
+          "办公用品",
+          "订书机 165号",
+          2064.0
+        ],
+        [
+          "办公用品",
+          "文件夹 491号",
+          2053.0
+        ],
+        [
+          "办公用品",
+          "文件夹 54号",
+          2004.0
+        ],
+        [
+          "办公用品",
+          "订书机 219号",
+          1992.0
+        ],
+        [
+          "办公用品",
+          "硒鼓 27号",
+          1962.0
+        ],
+        [
+          "办公用品",
+          "文件夹 436号",
+          1952.0
+        ],
+        [
+          "办公用品",
+          "文件夹 164号",
+          1941.0
+        ],
+        [
+          "办公用品",
+          "硒鼓 498号",
+          1923.0
+        ],
+        [
+          "办公用品",
+          "订书机 192号",
+          1921.0
+        ],
+        [
+          "办公用品",
+          "签字笔 187号",
+          1912.0
+        ],
+        [
+          "办公用品",
+          "A4打印纸 189号",
+          1892.0
+        ],
+        [
+          "办公用品",
+          "文件夹 410号",
+          1887.0
+        ],
+        [
+          "办公用品",
+          "硒鼓 263号",
+          1871.0
+        ],
+        [
+          "办公用品",
+          "A4打印纸 479号",
+          1870.0
+        ],
+        [
+          "办公用品",
+          "订书机 142号",
+          1860.0
+        ],
+        [
+          "办公用品",
+          "A4打印纸 387号",
+          1852.0
+        ],
+        [
+          "办公用品",
+          "订书机 81号",
+          1840.0
+        ],
+        [
+          "办公用品",
+          "订书机 26号",
+          1834.0
+        ],
+        [
+          "办公用品",
+          "A4打印纸 110号",
+          1832.0
+        ],
+        [
+          "办公用品",
+          "硒鼓 309号",
+          1830.0
+        ],
+        [
+          "办公用品",
+          "签字笔 286号",
+          1827.0
+        ],
+        [
+          "办公用品",
+          "A4打印纸 140号",
+          1813.0
+        ],
+        [
+          "办公用品",
+          "硒鼓 75号",
+          1775.0
+        ],
+        [
+          "办公用品",
+          "文件夹 358号",
+          1760.0
+        ],
+        [
+          "办公用品",
+          "文件夹 334号",
+          1747.0
+        ],
+        [
+          "办公用品",
+          "订书机 484号",
+          1741.0
+        ],
+        [
+          "办公用品",
+          "订书机 218号",
+          1734.0
+        ],
+        [
+          "办公用品",
+          "硒鼓 486号",
+          1708.0
+        ],
+        [
+          "办公用品",
+          "硒鼓 200号",
+          1706.0
+        ],
+        [
+          "办公用品",
+          "签字笔 50号",
+          1691.0
+        ],
+        [
+          "办公用品",
+          "A4打印纸 118号",
+          1679.0
+        ],
+        [
+          "办公用品",
+          "文件夹 35号",
+          1650.0
+        ],
+        [
+          "办公用品",
+          "文件夹 144号",
+          1646.0
+        ],
+        [
+          "办公用品",
+          "签字笔 500号",
+          1632.0
+        ],
+        [
+          "办公用品",
+          "文件夹 490号",
+          1602.0
+        ],
+        [
+          "办公用品",
+          "硒鼓 258号",
+          1596.0
+        ],
+        [
+          "办公用品",
+          "订书机 99号",
+          1594.0
+        ],
+        [
+          "办公用品",
+          "签字笔 166号",
+          1594.0
+        ],
+        [
+          "办公用品",
+          "硒鼓 155号",
+          1547.0
+        ],
+        [
+          "办公用品",
+          "文件夹 464号",
+          1547.0
+        ],
+        [
+          "办公用品",
+          "A4打印纸 244号",
+          1517.0
+        ],
+        [
+          "办公用品",
+          "文件夹 5号",
+          1516.0
+        ],
+        [
+          "办公用品",
+          "签字笔 56号",
+          1516.0
+        ],
+        [
+          "办公用品",
+          "签字笔 306号",
+          1508.0
+        ],
+        [
+          "办公用品",
+          "签字笔 82号",
+          1507.0
+        ],
+        [
+          "办公用品",
+          "文件夹 21号",
+          1483.0
+        ],
+        [
+          "办公用品",
+          "A4打印纸 14号",
+          1466.0
+        ],
+        [
+          "办公用品",
+          "订书机 492号",
+          1466.0
+        ],
+        [
+          "办公用品",
+          "订书机 276号",
+          1428.0
+        ],
+        [
+          "办公用品",
+          "订书机 58号",
+          1370.0
+        ],
+        [
+          "办公用品",
+          "A4打印纸 132号",
+          1337.0
+        ],
+        [
+          "包装材料",
+          "防潮袋 102号",
+          2151.0
+        ],
+        [
+          "包装材料",
+          "瓦楞纸箱 408号",
+          2144.0
+        ],
+        [
+          "包装材料",
+          "封箱胶带 488号",
+          2108.0
+        ],
+        [
+          "包装材料",
+          "气泡膜 351号",
+          1997.0
+        ],
+        [
+          "包装材料",
+          "瓦楞纸箱 335号",
+          1994.0
+        ],
+        [
+          "包装材料",
+          "瓦楞纸箱 221号",
+          1990.0
+        ],
+        [
+          "包装材料",
+          "封箱胶带 248号",
+          1942.0
+        ],
+        [
+          "包装材料",
+          "气泡膜 52号",
+          1941.0
+        ],
+        [
+          "包装材料",
+          "缠绕膜 339号",
+          1937.0
+        ],
+        [
+          "包装材料",
+          "气泡膜 292号",
+          1904.0
+        ],
+        [
+          "包装材料",
+          "瓦楞纸箱 337号",
+          1896.0
+        ],
+        [
+          "包装材料",
+          "气泡膜 433号",
+          1891.0
+        ],
+        [
+          "包装材料",
+          "缠绕膜 362号",
+          1887.0
+        ],
+        [
+          "包装材料",
+          "封箱胶带 174号",
+          1872.0
+        ],
+        [
+          "包装材料",
+          "缠绕膜 296号",
+          1867.0
+        ],
+        [
+          "包装材料",
+          "防潮袋 480号",
+          1865.0
+        ]
+      ],
+      "diffs": [
+        {
+          "reason": "结果集不匹配",
+          "gold_first": [
+            [
+              "扳手 260号",
+              2348.0
+            ],
+            [
+              "文件夹 136号",
+              2315.0
+            ],
+            [
+              "无纺布 249号",
+              2441.0
+            ]
+          ],
+          "gen_first": [
+            [
+              "A4打印纸 110号",
+              1832.0
+            ],
+            [
+              "A4打印纸 118号",
+              1679.0
+            ],
+            [
+              "A4打印纸 132号",
+              1337.0
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": 62,
+      "layer": "join",
+      "category": "join-suppliers-shipments",
+      "question": "各供应商的发货单数？",
+      "gold_sql": "SELECT s.name, COUNT(*) AS cnt FROM shipments sh JOIN orders o ON sh.order_no=o.order_no JOIN suppliers s ON o.supplier_id=s.id GROUP BY s.name ORDER BY s.name",
+      "prompt_tokens": 1058,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT s.name, COUNT(sh.id) AS shipment_cnt FROM shipments sh JOIN orders o ON sh.order_no = o.order_no JOIN suppliers s ON o.supplier_id = s.id GROUP BY s.name ORDER BY shipment_cnt DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "name",
+        "shipment_cnt"
+      ],
+      "gen_rows": [
+        [
+          "华东顺达45有限公司",
+          252
+        ],
+        [
+          "华东众联95有限公司",
+          250
+        ],
+        [
+          "华东宏图44有限公司",
+          250
+        ],
+        [
+          "华东永盛76有限公司",
+          240
+        ],
+        [
+          "华东顺达14有限公司",
+          237
+        ],
+        [
+          "华东利丰16有限公司",
+          222
+        ],
+        [
+          "华东启航30有限公司",
+          220
+        ],
+        [
+          "华东利丰26有限公司",
+          216
+        ],
+        [
+          "华东骏业55有限公司",
+          215
+        ],
+        [
+          "华东恒远4有限公司",
+          207
+        ],
+        [
+          "华南骏业52有限公司",
+          197
+        ],
+        [
+          "华南利丰69有限公司",
+          186
+        ],
+        [
+          "华北众联69有限公司",
+          186
+        ],
+        [
+          "华北宏图35有限公司",
+          184
+        ],
+        [
+          "华北顺达21有限公司",
+          182
+        ],
+        [
+          "华南众联81有限公司",
+          182
+        ],
+        [
+          "华北优品81有限公司",
+          181
+        ],
+        [
+          "华南利丰33有限公司",
+          180
+        ],
+        [
+          "华南恒远50有限公司",
+          176
+        ],
+        [
+          "华南优品65有限公司",
+          174
+        ],
+        [
+          "华南永盛19有限公司",
+          174
+        ],
+        [
+          "华南优品56有限公司",
+          173
+        ],
+        [
+          "华南利丰97有限公司",
+          169
+        ],
+        [
+          "华北优品90有限公司",
+          166
+        ],
+        [
+          "华北启航13有限公司",
+          164
+        ],
+        [
+          "华南利丰64有限公司",
+          162
+        ],
+        [
+          "华北鑫达30有限公司",
+          161
+        ],
+        [
+          "华北启航84有限公司",
+          161
+        ],
+        [
+          "华北恒远6有限公司",
+          158
+        ],
+        [
+          "华北优品9有限公司",
+          153
+        ],
+        [
+          "西南鑫达77有限公司",
+          133
+        ],
+        [
+          "西南永盛16有限公司",
+          128
+        ],
+        [
+          "西南恒远47有限公司",
+          127
+        ],
+        [
+          "西南启航73有限公司",
+          122
+        ],
+        [
+          "西南优品82有限公司",
+          122
+        ],
+        [
+          "西南众联48有限公司",
+          115
+        ],
+        [
+          "西南永盛71有限公司",
+          112
+        ],
+        [
+          "西南优品52有限公司",
+          108
+        ],
+        [
+          "西南恒远98有限公司",
+          107
+        ],
+        [
+          "西南骏业55有限公司",
+          99
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 63,
+      "layer": "join",
+      "category": "join-shipments-orders",
+      "question": "各承运商的发货订单总金额？",
+      "gold_sql": "SELECT sh.carrier, SUM(o.amount) AS total_amount FROM shipments sh JOIN orders o ON sh.order_no=o.order_no GROUP BY sh.carrier ORDER BY sh.carrier",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT sh.carrier, SUM(o.amount) AS total_amount FROM shipments sh JOIN orders o ON sh.order_no = o.order_no GROUP BY sh.carrier ORDER BY total_amount DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "carrier",
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          "京东物流",
+          329096079.3
+        ],
+        [
+          "顺丰",
+          326258360.5
+        ],
+        [
+          "中通",
+          315628930.7
+        ],
+        [
+          "德邦",
+          310283452.3
+        ],
+        [
+          "圆通",
+          298070895.6
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 64,
+      "layer": "join",
+      "category": "join-topn",
+      "question": "延迟发货天数最多的前5个订单？",
+      "gold_sql": "SELECT o.order_no, sh.delay_days FROM shipments sh JOIN orders o ON sh.order_no=o.order_no ORDER BY sh.delay_days DESC LIMIT 5",
+      "prompt_tokens": 1061,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT sh.order_no, sh.delay_days FROM shipments sh ORDER BY sh.delay_days DESC LIMIT 5",
+      "status": "ok",
+      "correct": false,
+      "gen_columns": [
+        "order_no",
+        "delay_days"
+      ],
+      "gen_rows": [
+        [
+          "SO-20260811-0019",
+          15
+        ],
+        [
+          "SO-20260814-0002",
+          15
+        ],
+        [
+          "SO-20260810-0003",
+          15
+        ],
+        [
+          "SO-20260226-0004",
+          15
+        ],
+        [
+          "SO-20260722-0006",
+          15
+        ]
+      ],
+      "diffs": [
+        {
+          "reason": "结果集不匹配",
+          "gold_first": [
+            [
+              "SO-20260616-0036",
+              15
+            ],
+            [
+              "SO-20260728-0131",
+              15
+            ],
+            [
+              "SO-20260810-0003",
+              15
+            ]
+          ],
+          "gen_first": [
+            [
+              "SO-20260226-0004",
+              15
+            ],
+            [
+              "SO-20260722-0006",
+              15
+            ],
+            [
+              "SO-20260810-0003",
+              15
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": 65,
+      "layer": "join",
+      "category": "join-lowstock-top",
+      "question": "低库存商品最多的仓库是哪个？",
+      "gold_sql": "SELECT warehouse, COUNT(*) AS cnt FROM inventory WHERE qty < safety_qty GROUP BY warehouse ORDER BY cnt DESC LIMIT 1",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT warehouse, COUNT(*) AS low_stock_cnt FROM inventory WHERE qty < safety_qty GROUP BY warehouse ORDER BY low_stock_cnt DESC LIMIT 1",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "warehouse",
+        "low_stock_cnt"
+      ],
+      "gen_rows": [
+        [
+          "华南仓",
+          30
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 66,
+      "layer": "join",
+      "category": "join-inventory-products",
+      "question": "各仓库的库存商品覆盖了几个类目？",
+      "gold_sql": "SELECT i.warehouse, COUNT(DISTINCT p.category) AS cnt FROM inventory i JOIN products p ON i.product_id=p.id GROUP BY i.warehouse ORDER BY i.warehouse",
+      "prompt_tokens": 1062,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT i.warehouse, COUNT(DISTINCT p.category) AS category_cnt FROM inventory i JOIN products p ON i.product_id = p.id GROUP BY i.warehouse ORDER BY category_cnt DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "warehouse",
+        "category_cnt"
+      ],
+      "gen_rows": [
+        [
+          "华东仓",
+          8
+        ],
+        [
+          "华北仓",
+          8
+        ],
+        [
+          "华南仓",
+          8
+        ],
+        [
+          "西南仓",
+          8
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 67,
+      "layer": "join",
+      "category": "join-window",
+      "question": "近30天发货订单的总金额是多少？",
+      "gold_sql": "SELECT SUM(o.amount) AS total_amount FROM shipments sh JOIN orders o ON sh.order_no=o.order_no WHERE sh.shipped_at >= '2026-07-19'",
+      "prompt_tokens": 1061,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT SUM(o.amount) AS total_amount FROM orders o JOIN shipments sh ON o.order_no = sh.order_no WHERE o.created_at >= '2026-07-19' AND o.status IN ('shipped', 'done') LIMIT 200",
+      "status": "ok",
+      "correct": false,
+      "gen_columns": [
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          661969912.1
+        ]
+      ],
+      "diffs": [
+        {
+          "reason": "结果集不匹配",
+          "gold_first": [
+            [
+              679074166.5
+            ]
+          ],
+          "gen_first": [
+            [
+              661969912.1
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": 68,
+      "layer": "join",
+      "category": "join-items-orders",
+      "question": "已完成订单的明细总金额是多少？",
+      "gold_sql": "SELECT SUM(i.amount) AS total_amount FROM orders o JOIN order_items i ON o.order_no=i.order_no WHERE o.status='done'",
+      "prompt_tokens": 1061,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT SUM(oi.amount) AS total_amount FROM order_items oi JOIN orders o ON oi.order_no = o.order_no WHERE o.status = 'done' LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          673114977.0
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 69,
+      "layer": "join",
+      "category": "join-region-status",
+      "question": "各区域已发货订单的延迟发货单数？",
+      "gold_sql": "SELECT o.region, COUNT(*) AS cnt FROM shipments sh JOIN orders o ON sh.order_no=o.order_no WHERE o.status='shipped' AND sh.delay_days > 0 GROUP BY o.region ORDER BY o.region",
+      "prompt_tokens": 1062,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT o.region, COUNT(*) AS delay_cnt FROM orders o JOIN shipments sh ON o.order_no = sh.order_no WHERE o.status = 'shipped' AND sh.delay_days > 0 GROUP BY o.region ORDER BY delay_cnt DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "delay_cnt"
+      ],
+      "gen_rows": [
+        [
+          "华东",
+          102
+        ],
+        [
+          "华北",
+          83
+        ],
+        [
+          "华南",
+          76
+        ],
+        [
+          "西南",
+          44
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 70,
+      "layer": "join",
+      "category": "join-inventory-products",
+      "question": "电子元件类目商品的库存总量是多少？",
+      "gold_sql": "SELECT SUM(i.qty) AS total_amount FROM inventory i JOIN products p ON i.product_id=p.id WHERE p.category='电子元件'",
+      "prompt_tokens": 1062,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT SUM(i.qty) AS total_qty FROM inventory i JOIN products p ON i.product_id = p.id WHERE p.category = '电子元件' LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "total_qty"
+      ],
+      "gen_rows": [
+        [
+          19436.0
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 71,
+      "layer": "join",
+      "category": "join-topn",
+      "question": "被订购次数最多的前5个商品类目？",
+      "gold_sql": "SELECT p.category, COUNT(*) AS cnt FROM order_items i JOIN products p ON i.product_id=p.id GROUP BY p.category ORDER BY cnt DESC LIMIT 5",
+      "prompt_tokens": 1061,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT p.category, COUNT(*) AS order_count FROM order_items oi JOIN products p ON oi.product_id = p.id GROUP BY p.category ORDER BY order_count DESC LIMIT 5",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "category",
+        "order_count"
+      ],
+      "gen_rows": [
+        [
+          "机械配件",
+          5222
+        ],
+        [
+          "纺织辅料",
+          4900
+        ],
+        [
+          "化工原料",
+          4535
+        ],
+        [
+          "五金工具",
+          4530
+        ],
+        [
+          "仓储设备",
+          4173
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 72,
+      "layer": "join",
+      "category": "join-supplier-delay",
+      "question": "各供应商的延迟发货单数？",
+      "gold_sql": "SELECT s.name, COUNT(*) AS cnt FROM shipments sh JOIN orders o ON sh.order_no=o.order_no JOIN suppliers s ON o.supplier_id=s.id WHERE sh.delay_days > 0 GROUP BY s.name ORDER BY s.name",
+      "prompt_tokens": 1059,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT s.name, COUNT(*) AS delay_cnt FROM shipments sh JOIN orders o ON sh.order_no = o.order_no JOIN suppliers s ON o.supplier_id = s.id WHERE sh.delay_days > 0 GROUP BY s.name ORDER BY delay_cnt DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "name",
+        "delay_cnt"
+      ],
+      "gen_rows": [
+        [
+          "华东利丰16有限公司",
+          22
+        ],
+        [
+          "华东顺达14有限公司",
+          21
+        ],
+        [
+          "华北启航13有限公司",
+          21
+        ],
+        [
+          "华东众联95有限公司",
+          20
+        ],
+        [
+          "华东顺达45有限公司",
+          20
+        ],
+        [
+          "华南恒远50有限公司",
+          19
+        ],
+        [
+          "华东永盛76有限公司",
+          18
+        ],
+        [
+          "华东骏业55有限公司",
+          18
+        ],
+        [
+          "华北优品81有限公司",
+          18
+        ],
+        [
+          "华东宏图44有限公司",
+          18
+        ],
+        [
+          "华北启航84有限公司",
+          17
+        ],
+        [
+          "华北恒远6有限公司",
+          16
+        ],
+        [
+          "华东启航30有限公司",
+          16
+        ],
+        [
+          "华北众联69有限公司",
+          16
+        ],
+        [
+          "华北优品90有限公司",
+          16
+        ],
+        [
+          "华南骏业52有限公司",
+          15
+        ],
+        [
+          "华北顺达21有限公司",
+          15
+        ],
+        [
+          "华南利丰33有限公司",
+          15
+        ],
+        [
+          "华南利丰69有限公司",
+          15
+        ],
+        [
+          "华南优品65有限公司",
+          15
+        ],
+        [
+          "华北宏图35有限公司",
+          14
+        ],
+        [
+          "华东恒远4有限公司",
+          13
+        ],
+        [
+          "华东利丰26有限公司",
+          13
+        ],
+        [
+          "西南优品52有限公司",
+          12
+        ],
+        [
+          "西南永盛71有限公司",
+          11
+        ],
+        [
+          "西南永盛16有限公司",
+          11
+        ],
+        [
+          "华南永盛19有限公司",
+          11
+        ],
+        [
+          "华南利丰64有限公司",
+          10
+        ],
+        [
+          "西南优品82有限公司",
+          10
+        ],
+        [
+          "华南众联81有限公司",
+          10
+        ],
+        [
+          "华北鑫达30有限公司",
+          10
+        ],
+        [
+          "华北优品9有限公司",
+          9
+        ],
+        [
+          "西南鑫达77有限公司",
+          9
+        ],
+        [
+          "西南众联48有限公司",
+          8
+        ],
+        [
+          "华南利丰97有限公司",
+          8
+        ],
+        [
+          "西南恒远98有限公司",
+          8
+        ],
+        [
+          "西南恒远47有限公司",
+          8
+        ],
+        [
+          "西南启航73有限公司",
+          7
+        ],
+        [
+          "西南骏业55有限公司",
+          6
+        ],
+        [
+          "华南优品56有限公司",
+          6
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 73,
+      "layer": "join",
+      "category": "join-inventory-value",
+      "question": "各仓库的库存总值是多少？",
+      "gold_sql": "SELECT i.warehouse, SUM(i.qty * p.unit_price) AS total_value FROM inventory i JOIN products p ON i.product_id=p.id GROUP BY i.warehouse ORDER BY i.warehouse",
+      "prompt_tokens": 1059,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT i.warehouse, SUM(i.qty * p.unit_price) AS total_value FROM inventory i JOIN products p ON i.product_id = p.id GROUP BY i.warehouse ORDER BY total_value DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "warehouse",
+        "total_value"
+      ],
+      "gen_rows": [
+        [
+          "华北仓",
+          116119184.1
+        ],
+        [
+          "华南仓",
+          111708006.6
+        ],
+        [
+          "华东仓",
+          111077003.5
+        ],
+        [
+          "西南仓",
+          106054578.8
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 74,
+      "layer": "join",
+      "category": "join-orders-suppliers",
+      "question": "华南区域供应商的订单有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM orders o JOIN suppliers s ON o.supplier_id=s.id WHERE s.region='华南'",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM orders o JOIN suppliers s ON o.supplier_id = s.id WHERE s.region = '华南' LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          2531
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 75,
+      "layer": "join",
+      "category": "join-category-avg",
+      "question": "订购商品的类目平均单价最高的前5个类目？",
+      "gold_sql": "SELECT p.category, AVG(p.unit_price) AS avg_amount FROM order_items i JOIN products p ON i.product_id=p.id GROUP BY p.category ORDER BY avg_amount DESC LIMIT 5",
+      "prompt_tokens": 1064,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT p.category, AVG(i.unit_price) AS avg_unit_price FROM order_items i JOIN products p ON i.product_id = p.id GROUP BY p.category ORDER BY avg_unit_price DESC LIMIT 5",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "category",
+        "avg_unit_price"
+      ],
+      "gen_rows": [
+        [
+          "办公用品",
+          2985.889421
+        ],
+        [
+          "化工原料",
+          2821.970011
+        ],
+        [
+          "包装材料",
+          2696.724022
+        ],
+        [
+          "机械配件",
+          2672.72229
+        ],
+        [
+          "仓储设备",
+          2538.643206
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 76,
+      "layer": "join",
+      "category": "join-items-orders",
+      "question": "各区域已支付订单的明细行数？",
+      "gold_sql": "SELECT o.region, COUNT(i.id) AS cnt FROM orders o JOIN order_items i ON o.order_no=i.order_no WHERE o.status='paid' GROUP BY o.region ORDER BY o.region",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT o.region, COUNT(oi.id) AS item_count FROM orders o JOIN order_items oi ON o.order_no = oi.order_no WHERE o.status = 'paid' GROUP BY o.region ORDER BY item_count DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "item_count"
+      ],
+      "gen_rows": [
+        [
+          "华东",
+          2302
+        ],
+        [
+          "华北",
+          1821
+        ],
+        [
+          "华南",
+          1813
+        ],
+        [
+          "西南",
+          1121
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 77,
+      "layer": "join",
+      "category": "join-done-category",
+      "question": "已完成订单中各类目的销量（数量）？",
+      "gold_sql": "SELECT p.category, SUM(i.quantity) AS total_amount FROM order_items i JOIN orders o ON i.order_no=o.order_no JOIN products p ON i.product_id=p.id WHERE o.status='done' GROUP BY p.category ORDER BY p.category",
+      "prompt_tokens": 1062,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT p.category, SUM(oi.quantity) AS total_qty FROM orders o JOIN order_items oi ON o.order_no = oi.order_no JOIN products p ON oi.product_id = p.id WHERE o.status = 'done' GROUP BY p.category ORDER BY total_qty DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "category",
+        "total_qty"
+      ],
+      "gen_rows": [
+        [
+          "机械配件",
+          38159.0
+        ],
+        [
+          "纺织辅料",
+          35852.0
+        ],
+        [
+          "化工原料",
+          34536.0
+        ],
+        [
+          "五金工具",
+          33607.0
+        ],
+        [
+          "仓储设备",
+          32601.0
+        ],
+        [
+          "办公用品",
+          30743.0
+        ],
+        [
+          "电子元件",
+          30582.0
+        ],
+        [
+          "包装材料",
+          25337.0
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 78,
+      "layer": "join",
+      "category": "join-topn",
+      "question": "已完成订单中，各承运商的平均订单金额？",
+      "gold_sql": "SELECT sh.carrier, AVG(o.amount) AS avg_amount FROM shipments sh JOIN orders o ON sh.order_no=o.order_no WHERE o.status='done' GROUP BY sh.carrier ORDER BY avg_amount DESC LIMIT 3",
+      "prompt_tokens": 1063,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT sh.carrier, AVG(o.amount) AS avg_amount FROM orders o JOIN shipments sh ON o.order_no = sh.order_no WHERE o.status = 'done' GROUP BY sh.carrier ORDER BY avg_amount DESC LIMIT 200",
+      "status": "ok",
+      "correct": false,
+      "gen_columns": [
+        "carrier",
+        "avg_amount"
+      ],
+      "gen_rows": [
+        [
+          "中通",
+          228855.542208
+        ],
+        [
+          "圆通",
+          228379.253623
+        ],
+        [
+          "德邦",
+          227146.770968
+        ],
+        [
+          "顺丰",
+          225268.306807
+        ],
+        [
+          "京东物流",
+          224537.8744
+        ]
+      ],
+      "diffs": [
+        {
+          "reason": "结果集不匹配",
+          "gold_first": [
+            [
+              "中通",
+              228855.542208
+            ],
+            [
+              "圆通",
+              228379.253623
+            ],
+            [
+              "德邦",
+              227146.770968
+            ]
+          ],
+          "gen_first": [
+            [
+              "中通",
+              228855.542208
+            ],
+            [
+              "京东物流",
+              224537.8744
+            ],
+            [
+              "圆通",
+              228379.253623
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": 79,
+      "layer": "join",
+      "category": "join-topn",
+      "question": "发货单数最多的前5个供应商？",
+      "gold_sql": "SELECT s.name, COUNT(*) AS cnt FROM shipments sh JOIN orders o ON sh.order_no=o.order_no JOIN suppliers s ON o.supplier_id=s.id GROUP BY s.name ORDER BY cnt DESC LIMIT 5",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT s.name, COUNT(sh.id) AS shipment_cnt FROM shipments sh JOIN orders o ON sh.order_no = o.order_no JOIN suppliers s ON o.supplier_id = s.id GROUP BY s.name ORDER BY shipment_cnt DESC LIMIT 5",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "name",
+        "shipment_cnt"
+      ],
+      "gen_rows": [
+        [
+          "华东顺达45有限公司",
+          252
+        ],
+        [
+          "华东众联95有限公司",
+          250
+        ],
+        [
+          "华东宏图44有限公司",
+          250
+        ],
+        [
+          "华东永盛76有限公司",
+          240
+        ],
+        [
+          "华东顺达14有限公司",
+          237
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 80,
+      "layer": "join",
+      "category": "join-groupby",
+      "question": "各区域供应商名下订单的平均金额？",
+      "gold_sql": "SELECT s.region, AVG(o.amount) AS avg_amount FROM orders o JOIN suppliers s ON o.supplier_id=s.id GROUP BY s.region ORDER BY s.region",
+      "prompt_tokens": 1062,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT s.region, AVG(o.amount) AS avg_amount FROM orders o JOIN suppliers s ON o.supplier_id = s.id GROUP BY s.region ORDER BY avg_amount DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "avg_amount"
+      ],
+      "gen_rows": [
+        [
+          "华北",
+          230099.634577
+        ],
+        [
+          "西南",
+          227854.632809
+        ],
+        [
+          "华东",
+          226550.688988
+        ],
+        [
+          "华南",
+          224617.867878
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 81,
+      "layer": "aggregation",
+      "category": "agg-having",
+      "question": "平均订单金额超过200000的区域有哪些？",
+      "gold_sql": "SELECT region, AVG(amount) AS avg_amount FROM orders GROUP BY region HAVING AVG(amount) > 200000 ORDER BY region",
+      "prompt_tokens": 1063,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT region, AVG(amount) AS avg_amount FROM orders GROUP BY region HAVING AVG(amount) > 200000 LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "avg_amount"
+      ],
+      "gen_rows": [
+        [
+          "华东",
+          228031.571995
+        ],
+        [
+          "华北",
+          228542.578525
+        ],
+        [
+          "华南",
+          226947.093757
+        ],
+        [
+          "西南",
+          223261.40221
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 82,
+      "layer": "aggregation",
+      "category": "agg-having",
+      "question": "订单数超过2000的区域有哪些？",
+      "gold_sql": "SELECT region, COUNT(*) AS cnt FROM orders GROUP BY region HAVING COUNT(*) > 2000 ORDER BY region",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT region, COUNT(*) AS order_cnt FROM orders GROUP BY region HAVING order_cnt > 2000 LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "order_cnt"
+      ],
+      "gen_rows": [
+        [
+          "华东",
+          3478
+        ],
+        [
+          "华北",
+          2482
+        ],
+        [
+          "华南",
+          2547
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 83,
+      "layer": "aggregation",
+      "category": "agg-having-filter",
+      "question": "已支付订单总金额超过1500000的区域有哪些？",
+      "gold_sql": "SELECT region, SUM(amount) AS total_amount FROM orders WHERE status='paid' GROUP BY region HAVING SUM(amount) > 1500000 ORDER BY region",
+      "prompt_tokens": 1064,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT region, SUM(amount) AS total_amount FROM orders WHERE status = 'paid' GROUP BY region HAVING total_amount > 1500000 LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          "华南",
+          117076766.7
+        ],
+        [
+          "华东",
+          148488589.9
+        ],
+        [
+          "华北",
+          120042492.5
+        ],
+        [
+          "西南",
+          74377083.0
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 84,
+      "layer": "aggregation",
+      "category": "agg-multigroup",
+      "question": "各区域各状态的订单数量？",
+      "gold_sql": "SELECT region, status, COUNT(*) AS cnt FROM orders GROUP BY region, status ORDER BY region, status",
+      "prompt_tokens": 1059,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT region, status, COUNT(*) AS cnt FROM orders GROUP BY region, status ORDER BY region, status LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "status",
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          "华东",
+          "draft",
+          170
+        ],
+        [
+          "华东",
+          "paid",
+          667
+        ],
+        [
+          "华东",
+          "shipped",
+          1400
+        ],
+        [
+          "华东",
+          "done",
+          1053
+        ],
+        [
+          "华东",
+          "cancelled",
+          188
+        ],
+        [
+          "华北",
+          "draft",
+          121
+        ],
+        [
+          "华北",
+          "paid",
+          518
+        ],
+        [
+          "华北",
+          "shipped",
+          981
+        ],
+        [
+          "华北",
+          "done",
+          722
+        ],
+        [
+          "华北",
+          "cancelled",
+          140
+        ],
+        [
+          "华南",
+          "draft",
+          116
+        ],
+        [
+          "华南",
+          "paid",
+          524
+        ],
+        [
+          "华南",
+          "shipped",
+          1034
+        ],
+        [
+          "华南",
+          "done",
+          740
+        ],
+        [
+          "华南",
+          "cancelled",
+          133
+        ],
+        [
+          "西南",
+          "draft",
+          77
+        ],
+        [
+          "西南",
+          "paid",
+          324
+        ],
+        [
+          "西南",
+          "shipped",
+          568
+        ],
+        [
+          "西南",
+          "done",
+          453
+        ],
+        [
+          "西南",
+          "cancelled",
+          71
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 85,
+      "layer": "aggregation",
+      "category": "agg-multigroup",
+      "question": "各区域各状态的订单总金额？",
+      "gold_sql": "SELECT region, status, SUM(amount) AS total_amount FROM orders GROUP BY region, status ORDER BY region, status",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT region, status, SUM(amount) AS total_amount FROM orders GROUP BY region, status ORDER BY region, status LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "status",
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          "华东",
+          "draft",
+          38322080.5
+        ],
+        [
+          "华东",
+          "paid",
+          148488589.9
+        ],
+        [
+          "华东",
+          "shipped",
+          318284642.6
+        ],
+        [
+          "华东",
+          "done",
+          246800680.6
+        ],
+        [
+          "华东",
+          "cancelled",
+          41197813.8
+        ],
+        [
+          "华北",
+          "draft",
+          27599771.8
+        ],
+        [
+          "华北",
+          "paid",
+          120042492.5
+        ],
+        [
+          "华北",
+          "shipped",
+          225829366.3
+        ],
+        [
+          "华北",
+          "done",
+          161549808.6
+        ],
+        [
+          "华北",
+          "cancelled",
+          32221240.7
+        ],
+        [
+          "华南",
+          "draft",
+          26496927.4
+        ],
+        [
+          "华南",
+          "paid",
+          117076766.7
+        ],
+        [
+          "华南",
+          "shipped",
+          236734489.4
+        ],
+        [
+          "华南",
+          "done",
+          165975463.2
+        ],
+        [
+          "华南",
+          "cancelled",
+          31750601.1
+        ],
+        [
+          "西南",
+          "draft",
+          17253611.0
+        ],
+        [
+          "西南",
+          "paid",
+          74377083.0
+        ],
+        [
+          "西南",
+          "shipped",
+          125374243.1
+        ],
+        [
+          "西南",
+          "done",
+          98789024.6
+        ],
+        [
+          "西南",
+          "cancelled",
+          17535311.8
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 86,
+      "layer": "aggregation",
+      "category": "agg-multigroup",
+      "question": "各区域各状态的订单平均金额？",
+      "gold_sql": "SELECT region, status, AVG(amount) AS avg_amount FROM orders GROUP BY region, status ORDER BY region, status",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT region, status, AVG(amount) AS avg_amount FROM orders GROUP BY region, status ORDER BY region, status LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "status",
+        "avg_amount"
+      ],
+      "gen_rows": [
+        [
+          "华东",
+          "draft",
+          225424.002941
+        ],
+        [
+          "华东",
+          "paid",
+          222621.574063
+        ],
+        [
+          "华东",
+          "shipped",
+          227346.173286
+        ],
+        [
+          "华东",
+          "done",
+          234378.614055
+        ],
+        [
+          "华东",
+          "cancelled",
+          219137.307447
+        ],
+        [
+          "华北",
+          "draft",
+          228097.287603
+        ],
+        [
+          "华北",
+          "paid",
+          231742.263514
+        ],
+        [
+          "华北",
+          "shipped",
+          230203.227625
+        ],
+        [
+          "华北",
+          "done",
+          223753.197507
+        ],
+        [
+          "华北",
+          "cancelled",
+          230151.719286
+        ],
+        [
+          "华南",
+          "draft",
+          228421.787931
+        ],
+        [
+          "华南",
+          "paid",
+          223428.944084
+        ],
+        [
+          "华南",
+          "shipped",
+          228950.183172
+        ],
+        [
+          "华南",
+          "done",
+          224291.166486
+        ],
+        [
+          "华南",
+          "cancelled",
+          238726.32406
+        ],
+        [
+          "西南",
+          "draft",
+          224072.87013
+        ],
+        [
+          "西南",
+          "paid",
+          229558.898148
+        ],
+        [
+          "西南",
+          "shipped",
+          220729.301232
+        ],
+        [
+          "西南",
+          "done",
+          218077.316998
+        ],
+        [
+          "西南",
+          "cancelled",
+          246976.222535
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 87,
+      "layer": "aggregation",
+      "category": "agg-ratio",
+      "question": "华东区域的订单占全部订单的比例（百分比）？",
+      "gold_sql": "SELECT ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM orders), 2) AS pct FROM orders WHERE region='华东'",
+      "prompt_tokens": 1064,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT ROUND(SUM(CASE WHEN region = '华东' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS east_china_pct FROM orders LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "east_china_pct"
+      ],
+      "gen_rows": [
+        [
+          34.78
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 88,
+      "layer": "aggregation",
+      "category": "agg-ratio",
+      "question": "已支付订单占总订单的比例（百分比）？",
+      "gold_sql": "SELECT ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM orders), 2) AS pct FROM orders WHERE status='paid'",
+      "prompt_tokens": 1062,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT ROUND(SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS paid_pct FROM orders LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "paid_pct"
+      ],
+      "gen_rows": [
+        [
+          20.33
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 89,
+      "layer": "aggregation",
+      "category": "agg-ratio",
+      "question": "延迟发货订单占全部发货订单的比例（百分比）？",
+      "gold_sql": "SELECT ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM shipments), 2) AS pct FROM shipments WHERE delay_days > 0",
+      "prompt_tokens": 1065,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT ROUND(SUM(CASE WHEN sh.delay_days > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS delay_pct FROM shipments sh JOIN orders o ON sh.order_no = o.order_no WHERE o.status IN ('shipped', 'done') LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "delay_pct"
+      ],
+      "gen_rows": [
+        [
+          7.84
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 90,
+      "layer": "aggregation",
+      "category": "agg-top",
+      "question": "订单数量最多的区域？",
+      "gold_sql": "SELECT region, COUNT(*) AS cnt FROM orders GROUP BY region ORDER BY cnt DESC LIMIT 1",
+      "prompt_tokens": 1058,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT region, COUNT(*) AS order_cnt FROM orders GROUP BY region ORDER BY order_cnt DESC LIMIT 1",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "order_cnt"
+      ],
+      "gen_rows": [
+        [
+          "华东",
+          3478
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 91,
+      "layer": "aggregation",
+      "category": "agg-top",
+      "question": "累计销售金额最高的商品类目？",
+      "gold_sql": "SELECT p.category, SUM(i.amount) AS total_amount FROM order_items i JOIN products p ON i.product_id=p.id GROUP BY p.category ORDER BY total_amount DESC LIMIT 1",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT p.category, SUM(i.amount) AS total_amount FROM order_items i JOIN products p ON i.product_id = p.id GROUP BY p.category ORDER BY total_amount DESC LIMIT 1",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "category",
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          "机械配件",
+          351305463.4
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 92,
+      "layer": "aggregation",
+      "category": "agg-window",
+      "question": "近30天各区域的订单总金额？",
+      "gold_sql": "SELECT region, SUM(amount) AS total_amount FROM orders WHERE created_at >= '2026-07-19' GROUP BY region ORDER BY region",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT region, SUM(amount) AS total_amount FROM orders WHERE created_at >= '2026-07-19' GROUP BY region ORDER BY total_amount DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          "华东",
+          335632877.8
+        ],
+        [
+          "华南",
+          245450396.3
+        ],
+        [
+          "华北",
+          232354964.2
+        ],
+        [
+          "西南",
+          136194157.8
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 93,
+      "layer": "aggregation",
+      "category": "agg-window",
+      "question": "近7天各状态的订单数量？",
+      "gold_sql": "SELECT status, COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-08-11' GROUP BY status ORDER BY status",
+      "prompt_tokens": 1059,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT status, COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-08-11' GROUP BY status ORDER BY cnt DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "status",
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          "shipped",
+          417
+        ],
+        [
+          "done",
+          343
+        ],
+        [
+          "paid",
+          185
+        ],
+        [
+          "draft",
+          67
+        ],
+        [
+          "cancelled",
+          55
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 94,
+      "layer": "aggregation",
+      "category": "agg-window",
+      "question": "近30天各区域的订单平均金额？",
+      "gold_sql": "SELECT region, AVG(amount) AS avg_amount FROM orders WHERE created_at >= '2026-07-19' GROUP BY region ORDER BY region",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT region, AVG(amount) AS avg_amount FROM orders WHERE created_at >= '2026-07-19' GROUP BY region ORDER BY avg_amount DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "avg_amount"
+      ],
+      "gen_rows": [
+        [
+          "华东",
+          230675.517388
+        ],
+        [
+          "华南",
+          229822.468446
+        ],
+        [
+          "华北",
+          225806.573567
+        ],
+        [
+          "西南",
+          222903.695254
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 95,
+      "layer": "aggregation",
+      "category": "agg-groupby-avg",
+      "question": "各状态订单的平均金额？",
+      "gold_sql": "SELECT status, AVG(amount) AS avg_amount FROM orders GROUP BY status ORDER BY status",
+      "prompt_tokens": 1058,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT status, AVG(amount) AS avg_amount FROM orders GROUP BY status ORDER BY avg_amount DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "status",
+        "avg_amount"
+      ],
+      "gen_rows": [
+        [
+          "cancelled",
+          230648.434962
+        ],
+        [
+          "shipped",
+          227522.656641
+        ],
+        [
+          "done",
+          226790.760445
+        ],
+        [
+          "draft",
+          226595.848554
+        ],
+        [
+          "paid",
+          226259.189424
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 96,
+      "layer": "aggregation",
+      "category": "agg-ratio",
+      "question": "各区域订单总金额的合计是多少？",
+      "gold_sql": "SELECT SUM(amount) AS total_amount FROM orders",
+      "prompt_tokens": 1061,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT SUM(total_amount) AS grand_total FROM (SELECT region, SUM(amount) AS total_amount FROM orders GROUP BY region) t LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "grand_total"
+      ],
+      "gen_rows": [
+        [
+          2271700008.6
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 97,
+      "layer": "aggregation",
+      "category": "agg-top",
+      "question": "平均订单金额最高的前3个区域？",
+      "gold_sql": "SELECT region, AVG(amount) AS avg_amount FROM orders GROUP BY region ORDER BY avg_amount DESC LIMIT 3",
+      "prompt_tokens": 1061,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT region, AVG(amount) AS avg_amount FROM orders GROUP BY region ORDER BY avg_amount DESC LIMIT 3",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "avg_amount"
+      ],
+      "gen_rows": [
+        [
+          "华北",
+          228542.578525
+        ],
+        [
+          "华东",
+          228031.571995
+        ],
+        [
+          "华南",
+          226947.093757
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 98,
+      "layer": "aggregation",
+      "category": "agg-having",
+      "question": "各区域的订单数量占比最高的区域？",
+      "gold_sql": "SELECT region, COUNT(*) AS cnt FROM orders GROUP BY region ORDER BY cnt DESC LIMIT 1",
+      "prompt_tokens": 1062,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT region, COUNT(*) AS cnt FROM orders GROUP BY region ORDER BY cnt DESC LIMIT 1",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          "华东",
+          3478
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 99,
+      "layer": "aggregation",
+      "category": "agg-multigroup",
+      "question": "已发货订单中各类目的销售金额占比？",
+      "gold_sql": "SELECT p.category, SUM(i.amount) AS total_amount FROM order_items i JOIN orders o ON i.order_no=o.order_no JOIN products p ON i.product_id=p.id WHERE o.status='shipped' GROUP BY p.category ORDER BY p.category",
+      "prompt_tokens": 1062,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT p.category, SUM(i.amount) AS category_amount, SUM(i.amount) * 100.0 / (SELECT SUM(i2.amount) FROM order_items i2 JOIN orders o2 ON i2.order_no = o2.order_no WHERE o2.status = 'shipped') AS pct FROM order_items i JOIN orders o ON i.order_no = o.order_no JOIN products p ON i.product_id = p.id WHERE o.status = 'shipped' GROUP BY p.category ORDER BY category_amount DESC LIMIT 200",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "category",
+        "category_amount",
+        "pct"
+      ],
+      "gen_rows": [
+        [
+          "机械配件",
+          140811455.8,
+          15.5382832
+        ],
+        [
+          "化工原料",
+          126124682.3,
+          13.9176249
+        ],
+        [
+          "办公用品",
+          124924758.5,
+          13.7852156
+        ],
+        [
+          "纺织辅料",
+          119036013.3,
+          13.1354035
+        ],
+        [
+          "仓储设备",
+          109366515.6,
+          12.0683923
+        ],
+        [
+          "电子元件",
+          102788866.1,
+          11.3425609
+        ],
+        [
+          "五金工具",
+          94620613.3,
+          10.4412093
+        ],
+        [
+          "包装材料",
+          88549836.5,
+          9.7713103
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 100,
+      "layer": "aggregation",
+      "category": "agg-top",
+      "question": "订单总金额最高的前5个区域？",
+      "gold_sql": "SELECT region, SUM(amount) AS total_amount FROM orders GROUP BY region ORDER BY total_amount DESC LIMIT 5",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT region, SUM(amount) AS total_amount FROM orders GROUP BY region ORDER BY total_amount DESC LIMIT 5",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          "华东",
+          793093807.4
+        ],
+        [
+          "华南",
+          578034247.8
+        ],
+        [
+          "华北",
+          567242679.9
+        ],
+        [
+          "西南",
+          333329273.5
+        ]
+      ],
+      "diffs": []
+    }
+  ],
+  "errors": [
+    {
+      "id": 38,
+      "layer": "single",
+      "category": "filter-delay-window",
+      "question": "近30天发货的延迟订单有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM shipments WHERE shipped_at >= '2026-07-19' AND delay_days > 0",
+      "prompt_tokens": 1060,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM shipments sh JOIN orders o ON sh.order_no = o.order_no WHERE o.created_at >= '2026-07-19' AND sh.delay_days > 0 LIMIT 200",
+      "status": "ok",
+      "correct": false,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          228
+        ]
+      ],
+      "diffs": [
+        {
+          "reason": "结果集不匹配",
+          "gold_first": [
+            [
+              248
+            ]
+          ],
+          "gen_first": [
+            [
+              228
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": 61,
+      "layer": "join",
+      "category": "join-topn",
+      "question": "各类目商品的销量最高的前5个商品？",
+      "gold_sql": "SELECT p.name, SUM(i.quantity) AS total_amount FROM order_items i JOIN products p ON i.product_id=p.id GROUP BY p.name ORDER BY total_amount DESC LIMIT 5",
+      "prompt_tokens": 1062,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT p.category, p.name, SUM(i.quantity) AS total_qty FROM order_items i JOIN products p ON i.product_id = p.id GROUP BY p.category, p.name ORDER BY p.category, total_qty DESC LIMIT 200",
+      "status": "ok",
+      "correct": false,
+      "gen_columns": [
+        "category",
+        "name",
+        "total_qty"
+      ],
+      "gen_rows": [
+        [
+          "五金工具",
+          "扳手 260号",
+          2348.0
+        ],
+        [
+          "五金工具",
+          "螺丝批 62号",
+          2152.0
+        ],
+        [
+          "五金工具",
+          "螺丝批 153号",
+          2148.0
+        ],
+        [
+          "五金工具",
+          "钢丝钳 403号",
+          2116.0
+        ],
+        [
+          "五金工具",
+          "卷尺 329号",
+          2060.0
+        ],
+        [
+          "五金工具",
+          "钢丝钳 181号",
+          2052.0
+        ],
+        [
+          "五金工具",
+          "钢丝钳 423号",
+          2040.0
+        ],
+        [
+          "五金工具",
+          "钢丝钳 196号",
+          2038.0
+        ],
+        [
+          "五金工具",
+          "卷尺 163号",
+          2032.0
+        ],
+        [
+          "五金工具",
+          "螺丝批 376号",
+          2021.0
+        ],
+        [
+          "五金工具",
+          "美工刀 157号",
+          2005.0
+        ],
+        [
+          "五金工具",
+          "螺丝批 304号",
+          2001.0
+        ],
+        [
+          "五金工具",
+          "美工刀 343号",
+          1980.0
+        ],
+        [
+          "五金工具",
+          "卷尺 360号",
+          1980.0
+        ],
+        [
+          "五金工具",
+          "钢丝钳 49号",
+          1978.0
+        ],
+        [
+          "五金工具",
+          "卷尺 345号",
+          1975.0
+        ],
+        [
+          "五金工具",
+          "钢丝钳 285号",
+          1963.0
+        ],
+        [
+          "五金工具",
+          "扳手 442号",
+          1963.0
+        ],
+        [
+          "五金工具",
+          "美工刀 241号",
+          1942.0
+        ],
+        [
+          "五金工具",
+          "美工刀 466号",
+          1938.0
+        ],
+        [
+          "五金工具",
+          "螺丝批 143号",
+          1935.0
+        ],
+        [
+          "五金工具",
+          "螺丝批 213号",
+          1932.0
+        ],
+        [
+          "五金工具",
+          "卷尺 148号",
+          1905.0
+        ],
+        [
+          "五金工具",
+          "美工刀 124号",
+          1902.0
+        ],
+        [
+          "五金工具",
+          "美工刀 40号",
+          1896.0
+        ],
+        [
+          "五金工具",
+          "扳手 34号",
+          1892.0
+        ],
+        [
+          "五金工具",
+          "美工刀 393号",
+          1886.0
+        ],
+        [
+          "五金工具",
+          "卷尺 72号",
+          1876.0
+        ],
+        [
+          "五金工具",
+          "卷尺 274号",
+          1875.0
+        ],
+        [
+          "五金工具",
+          "扳手 499号",
+          1874.0
+        ],
+        [
+          "五金工具",
+          "钢丝钳 318号",
+          1873.0
+        ],
+        [
+          "五金工具",
+          "卷尺 222号",
+          1851.0
+        ],
+        [
+          "五金工具",
+          "螺丝批 65号",
+          1828.0
+        ],
+        [
+          "五金工具",
+          "钢丝钳 73号",
+          1815.0
+        ],
+        [
+          "五金工具",
+          "扳手 415号",
+          1814.0
+        ],
+        [
+          "五金工具",
+          "扳手 435号",
+          1811.0
+        ],
+        [
+          "五金工具",
+          "卷尺 98号",
+          1802.0
+        ],
+        [
+          "五金工具",
+          "钢丝钳 291号",
+          1793.0
+        ],
+        [
+          "五金工具",
+          "美工刀 70号",
+          1792.0
+        ],
+        [
+          "五金工具",
+          "卷尺 357号",
+          1779.0
+        ],
+        [
+          "五金工具",
+          "钢丝钳 236号",
+          1777.0
+        ],
+        [
+          "五金工具",
+          "扳手 235号",
+          1722.0
+        ],
+        [
+          "五金工具",
+          "螺丝批 220号",
+          1706.0
+        ],
+        [
+          "五金工具",
+          "美工刀 131号",
+          1699.0
+        ],
+        [
+          "五金工具",
+          "卷尺 444号",
+          1699.0
+        ],
+        [
+          "五金工具",
+          "扳手 88号",
+          1684.0
+        ],
+        [
+          "五金工具",
+          "美工刀 185号",
+          1673.0
+        ],
+        [
+          "五金工具",
+          "螺丝批 290号",
+          1659.0
+        ],
+        [
+          "五金工具",
+          "卷尺 191号",
+          1650.0
+        ],
+        [
+          "五金工具",
+          "扳手 223号",
+          1650.0
+        ],
+        [
+          "五金工具",
+          "卷尺 372号",
+          1641.0
+        ],
+        [
+          "五金工具",
+          "扳手 438号",
+          1641.0
+        ],
+        [
+          "五金工具",
+          "螺丝批 172号",
+          1629.0
+        ],
+        [
+          "五金工具",
+          "卷尺 245号",
+          1616.0
+        ],
+        [
+          "五金工具",
+          "扳手 230号",
+          1595.0
+        ],
+        [
+          "五金工具",
+          "卷尺 168号",
+          1544.0
+        ],
+        [
+          "五金工具",
+          "扳手 261号",
+          1439.0
+        ],
+        [
+          "五金工具",
+          "卷尺 169号",
+          1433.0
+        ],
+        [
+          "五金工具",
+          "美工刀 303号",
+          1427.0
+        ],
+        [
+          "五金工具",
+          "卷尺 365号",
+          1363.0
+        ],
+        [
+          "五金工具",
+          "螺丝批 226号",
+          1342.0
+        ],
+        [
+          "五金工具",
+          "钢丝钳 114号",
+          1311.0
+        ],
+        [
+          "五金工具",
+          "钢丝钳 462号",
+          1289.0
+        ],
+        [
+          "五金工具",
+          "扳手 78号",
+          1277.0
+        ],
+        [
+          "五金工具",
+          "扳手 57号",
+          871.0
+        ],
+        [
+          "仓储设备",
+          "标签纸 17号",
+          2138.0
+        ],
+        [
+          "仓储设备",
+          "周转箱 139号",
+          2129.0
+        ],
+        [
+          "仓储设备",
+          "标签纸 456号",
+          2127.0
+        ],
+        [
+          "仓储设备",
+          "塑料托盘 409号",
+          2120.0
+        ],
+        [
+          "仓储设备",
+          "标签纸 202号",
+          2104.0
+        ],
+        [
+          "仓储设备",
+          "周转箱 198号",
+          2080.0
+        ],
+        [
+          "仓储设备",
+          "周转箱 394号",
+          2048.0
+        ],
+        [
+          "仓储设备",
+          "标签纸 170号",
+          2047.0
+        ],
+        [
+          "仓储设备",
+          "仓储货架 105号",
+          2011.0
+        ],
+        [
+          "仓储设备",
+          "手持扫码枪 45号",
+          1991.0
+        ],
+        [
+          "仓储设备",
+          "塑料托盘 84号",
+          1988.0
+        ],
+        [
+          "仓储设备",
+          "周转箱 315号",
+          1976.0
+        ],
+        [
+          "仓储设备",
+          "周转箱 156号",
+          1967.0
+        ],
+        [
+          "仓储设备",
+          "手持扫码枪 487号",
+          1960.0
+        ],
+        [
+          "仓储设备",
+          "周转箱 399号",
+          1951.0
+        ],
+        [
+          "仓储设备",
+          "手持扫码枪 460号",
+          1935.0
+        ],
+        [
+          "仓储设备",
+          "手持扫码枪 429号",
+          1932.0
+        ],
+        [
+          "仓储设备",
+          "标签纸 327号",
+          1927.0
+        ],
+        [
+          "仓储设备",
+          "仓储货架 419号",
+          1909.0
+        ],
+        [
+          "仓储设备",
+          "周转箱 363号",
+          1891.0
+        ],
+        [
+          "仓储设备",
+          "塑料托盘 205号",
+          1888.0
+        ],
+        [
+          "仓储设备",
+          "塑料托盘 426号",
+          1886.0
+        ],
+        [
+          "仓储设备",
+          "周转箱 497号",
+          1876.0
+        ],
+        [
+          "仓储设备",
+          "仓储货架 197号",
+          1838.0
+        ],
+        [
+          "仓储设备",
+          "手持扫码枪 161号",
+          1827.0
+        ],
+        [
+          "仓储设备",
+          "标签纸 125号",
+          1817.0
+        ],
+        [
+          "仓储设备",
+          "手持扫码枪 325号",
+          1812.0
+        ],
+        [
+          "仓储设备",
+          "塑料托盘 421号",
+          1809.0
+        ],
+        [
+          "仓储设备",
+          "塑料托盘 271号",
+          1785.0
+        ],
+        [
+          "仓储设备",
+          "周转箱 179号",
+          1785.0
+        ],
+        [
+          "仓储设备",
+          "仓储货架 123号",
+          1777.0
+        ],
+        [
+          "仓储设备",
+          "塑料托盘 255号",
+          1770.0
+        ],
+        [
+          "仓储设备",
+          "标签纸 186号",
+          1745.0
+        ],
+        [
+          "仓储设备",
+          "手持扫码枪 36号",
+          1728.0
+        ],
+        [
+          "仓储设备",
+          "标签纸 373号",
+          1713.0
+        ],
+        [
+          "仓储设备",
+          "仓储货架 89号",
+          1690.0
+        ],
+        [
+          "仓储设备",
+          "仓储货架 418号",
+          1670.0
+        ],
+        [
+          "仓储设备",
+          "塑料托盘 280号",
+          1653.0
+        ],
+        [
+          "仓储设备",
+          "周转箱 412号",
+          1624.0
+        ],
+        [
+          "仓储设备",
+          "标签纸 184号",
+          1621.0
+        ],
+        [
+          "仓储设备",
+          "仓储货架 390号",
+          1607.0
+        ],
+        [
+          "仓储设备",
+          "塑料托盘 391号",
+          1591.0
+        ],
+        [
+          "仓储设备",
+          "塑料托盘 405号",
+          1572.0
+        ],
+        [
+          "仓储设备",
+          "仓储货架 127号",
+          1568.0
+        ],
+        [
+          "仓储设备",
+          "手持扫码枪 137号",
+          1559.0
+        ],
+        [
+          "仓储设备",
+          "仓储货架 471号",
+          1547.0
+        ],
+        [
+          "仓储设备",
+          "塑料托盘 485号",
+          1541.0
+        ],
+        [
+          "仓储设备",
+          "周转箱 42号",
+          1530.0
+        ],
+        [
+          "仓储设备",
+          "标签纸 134号",
+          1504.0
+        ],
+        [
+          "仓储设备",
+          "仓储货架 458号",
+          1499.0
+        ],
+        [
+          "仓储设备",
+          "周转箱 228号",
+          1495.0
+        ],
+        [
+          "仓储设备",
+          "周转箱 175号",
+          1494.0
+        ],
+        [
+          "仓储设备",
+          "塑料托盘 150号",
+          1470.0
+        ],
+        [
+          "仓储设备",
+          "手持扫码枪 475号",
+          1470.0
+        ],
+        [
+          "仓储设备",
+          "仓储货架 87号",
+          1444.0
+        ],
+        [
+          "仓储设备",
+          "仓储货架 252号",
+          1415.0
+        ],
+        [
+          "仓储设备",
+          "塑料托盘 151号",
+          1394.0
+        ],
+        [
+          "仓储设备",
+          "手持扫码枪 23号",
+          1377.0
+        ],
+        [
+          "仓储设备",
+          "标签纸 447号",
+          1366.0
+        ],
+        [
+          "仓储设备",
+          "标签纸 338号",
+          1133.0
+        ],
+        [
+          "办公用品",
+          "文件夹 136号",
+          2315.0
+        ],
+        [
+          "办公用品",
+          "文件夹 66号",
+          2256.0
+        ],
+        [
+          "办公用品",
+          "签字笔 111号",
+          2255.0
+        ],
+        [
+          "办公用品",
+          "订书机 7号",
+          2228.0
+        ],
+        [
+          "办公用品",
+          "硒鼓 2号",
+          2189.0
+        ],
+        [
+          "办公用品",
+          "文件夹 395号",
+          2158.0
+        ],
+        [
+          "办公用品",
+          "硒鼓 12号",
+          2107.0
+        ],
+        [
+          "办公用品",
+          "A4打印纸 481号",
+          2078.0
+        ],
+        [
+          "办公用品",
+          "订书机 165号",
+          2064.0
+        ],
+        [
+          "办公用品",
+          "文件夹 491号",
+          2053.0
+        ],
+        [
+          "办公用品",
+          "文件夹 54号",
+          2004.0
+        ],
+        [
+          "办公用品",
+          "订书机 219号",
+          1992.0
+        ],
+        [
+          "办公用品",
+          "硒鼓 27号",
+          1962.0
+        ],
+        [
+          "办公用品",
+          "文件夹 436号",
+          1952.0
+        ],
+        [
+          "办公用品",
+          "文件夹 164号",
+          1941.0
+        ],
+        [
+          "办公用品",
+          "硒鼓 498号",
+          1923.0
+        ],
+        [
+          "办公用品",
+          "订书机 192号",
+          1921.0
+        ],
+        [
+          "办公用品",
+          "签字笔 187号",
+          1912.0
+        ],
+        [
+          "办公用品",
+          "A4打印纸 189号",
+          1892.0
+        ],
+        [
+          "办公用品",
+          "文件夹 410号",
+          1887.0
+        ],
+        [
+          "办公用品",
+          "硒鼓 263号",
+          1871.0
+        ],
+        [
+          "办公用品",
+          "A4打印纸 479号",
+          1870.0
+        ],
+        [
+          "办公用品",
+          "订书机 142号",
+          1860.0
+        ],
+        [
+          "办公用品",
+          "A4打印纸 387号",
+          1852.0
+        ],
+        [
+          "办公用品",
+          "订书机 81号",
+          1840.0
+        ],
+        [
+          "办公用品",
+          "订书机 26号",
+          1834.0
+        ],
+        [
+          "办公用品",
+          "A4打印纸 110号",
+          1832.0
+        ],
+        [
+          "办公用品",
+          "硒鼓 309号",
+          1830.0
+        ],
+        [
+          "办公用品",
+          "签字笔 286号",
+          1827.0
+        ],
+        [
+          "办公用品",
+          "A4打印纸 140号",
+          1813.0
+        ],
+        [
+          "办公用品",
+          "硒鼓 75号",
+          1775.0
+        ],
+        [
+          "办公用品",
+          "文件夹 358号",
+          1760.0
+        ],
+        [
+          "办公用品",
+          "文件夹 334号",
+          1747.0
+        ],
+        [
+          "办公用品",
+          "订书机 484号",
+          1741.0
+        ],
+        [
+          "办公用品",
+          "订书机 218号",
+          1734.0
+        ],
+        [
+          "办公用品",
+          "硒鼓 486号",
+          1708.0
+        ],
+        [
+          "办公用品",
+          "硒鼓 200号",
+          1706.0
+        ],
+        [
+          "办公用品",
+          "签字笔 50号",
+          1691.0
+        ],
+        [
+          "办公用品",
+          "A4打印纸 118号",
+          1679.0
+        ],
+        [
+          "办公用品",
+          "文件夹 35号",
+          1650.0
+        ],
+        [
+          "办公用品",
+          "文件夹 144号",
+          1646.0
+        ],
+        [
+          "办公用品",
+          "签字笔 500号",
+          1632.0
+        ],
+        [
+          "办公用品",
+          "文件夹 490号",
+          1602.0
+        ],
+        [
+          "办公用品",
+          "硒鼓 258号",
+          1596.0
+        ],
+        [
+          "办公用品",
+          "订书机 99号",
+          1594.0
+        ],
+        [
+          "办公用品",
+          "签字笔 166号",
+          1594.0
+        ],
+        [
+          "办公用品",
+          "硒鼓 155号",
+          1547.0
+        ],
+        [
+          "办公用品",
+          "文件夹 464号",
+          1547.0
+        ],
+        [
+          "办公用品",
+          "A4打印纸 244号",
+          1517.0
+        ],
+        [
+          "办公用品",
+          "文件夹 5号",
+          1516.0
+        ],
+        [
+          "办公用品",
+          "签字笔 56号",
+          1516.0
+        ],
+        [
+          "办公用品",
+          "签字笔 306号",
+          1508.0
+        ],
+        [
+          "办公用品",
+          "签字笔 82号",
+          1507.0
+        ],
+        [
+          "办公用品",
+          "文件夹 21号",
+          1483.0
+        ],
+        [
+          "办公用品",
+          "A4打印纸 14号",
+          1466.0
+        ],
+        [
+          "办公用品",
+          "订书机 492号",
+          1466.0
+        ],
+        [
+          "办公用品",
+          "订书机 276号",
+          1428.0
+        ],
+        [
+          "办公用品",
+          "订书机 58号",
+          1370.0
+        ],
+        [
+          "办公用品",
+          "A4打印纸 132号",
+          1337.0
+        ],
+        [
+          "包装材料",
+          "防潮袋 102号",
+          2151.0
+        ],
+        [
+          "包装材料",
+          "瓦楞纸箱 408号",
+          2144.0
+        ],
+        [
+          "包装材料",
+          "封箱胶带 488号",
+          2108.0
+        ],
+        [
+          "包装材料",
+          "气泡膜 351号",
+          1997.0
+        ],
+        [
+          "包装材料",
+          "瓦楞纸箱 335号",
+          1994.0
+        ],
+        [
+          "包装材料",
+          "瓦楞纸箱 221号",
+          1990.0
+        ],
+        [
+          "包装材料",
+          "封箱胶带 248号",
+          1942.0
+        ],
+        [
+          "包装材料",
+          "气泡膜 52号",
+          1941.0
+        ],
+        [
+          "包装材料",
+          "缠绕膜 339号",
+          1937.0
+        ],
+        [
+          "包装材料",
+          "气泡膜 292号",
+          1904.0
+        ],
+        [
+          "包装材料",
+          "瓦楞纸箱 337号",
+          1896.0
+        ],
+        [
+          "包装材料",
+          "气泡膜 433号",
+          1891.0
+        ],
+        [
+          "包装材料",
+          "缠绕膜 362号",
+          1887.0
+        ],
+        [
+          "包装材料",
+          "封箱胶带 174号",
+          1872.0
+        ],
+        [
+          "包装材料",
+          "缠绕膜 296号",
+          1867.0
+        ],
+        [
+          "包装材料",
+          "防潮袋 480号",
+          1865.0
+        ]
+      ],
+      "diffs": [
+        {
+          "reason": "结果集不匹配",
+          "gold_first": [
+            [
+              "扳手 260号",
+              2348.0
+            ],
+            [
+              "文件夹 136号",
+              2315.0
+            ],
+            [
+              "无纺布 249号",
+              2441.0
+            ]
+          ],
+          "gen_first": [
+            [
+              "A4打印纸 110号",
+              1832.0
+            ],
+            [
+              "A4打印纸 118号",
+              1679.0
+            ],
+            [
+              "A4打印纸 132号",
+              1337.0
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": 64,
+      "layer": "join",
+      "category": "join-topn",
+      "question": "延迟发货天数最多的前5个订单？",
+      "gold_sql": "SELECT o.order_no, sh.delay_days FROM shipments sh JOIN orders o ON sh.order_no=o.order_no ORDER BY sh.delay_days DESC LIMIT 5",
+      "prompt_tokens": 1061,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT sh.order_no, sh.delay_days FROM shipments sh ORDER BY sh.delay_days DESC LIMIT 5",
+      "status": "ok",
+      "correct": false,
+      "gen_columns": [
+        "order_no",
+        "delay_days"
+      ],
+      "gen_rows": [
+        [
+          "SO-20260811-0019",
+          15
+        ],
+        [
+          "SO-20260814-0002",
+          15
+        ],
+        [
+          "SO-20260810-0003",
+          15
+        ],
+        [
+          "SO-20260226-0004",
+          15
+        ],
+        [
+          "SO-20260722-0006",
+          15
+        ]
+      ],
+      "diffs": [
+        {
+          "reason": "结果集不匹配",
+          "gold_first": [
+            [
+              "SO-20260616-0036",
+              15
+            ],
+            [
+              "SO-20260728-0131",
+              15
+            ],
+            [
+              "SO-20260810-0003",
+              15
+            ]
+          ],
+          "gen_first": [
+            [
+              "SO-20260226-0004",
+              15
+            ],
+            [
+              "SO-20260722-0006",
+              15
+            ],
+            [
+              "SO-20260810-0003",
+              15
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": 67,
+      "layer": "join",
+      "category": "join-window",
+      "question": "近30天发货订单的总金额是多少？",
+      "gold_sql": "SELECT SUM(o.amount) AS total_amount FROM shipments sh JOIN orders o ON sh.order_no=o.order_no WHERE sh.shipped_at >= '2026-07-19'",
+      "prompt_tokens": 1061,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT SUM(o.amount) AS total_amount FROM orders o JOIN shipments sh ON o.order_no = sh.order_no WHERE o.created_at >= '2026-07-19' AND o.status IN ('shipped', 'done') LIMIT 200",
+      "status": "ok",
+      "correct": false,
+      "gen_columns": [
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          661969912.1
+        ]
+      ],
+      "diffs": [
+        {
+          "reason": "结果集不匹配",
+          "gold_first": [
+            [
+              679074166.5
+            ]
+          ],
+          "gen_first": [
+            [
+              661969912.1
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": 78,
+      "layer": "join",
+      "category": "join-topn",
+      "question": "已完成订单中，各承运商的平均订单金额？",
+      "gold_sql": "SELECT sh.carrier, AVG(o.amount) AS avg_amount FROM shipments sh JOIN orders o ON sh.order_no=o.order_no WHERE o.status='done' GROUP BY sh.carrier ORDER BY avg_amount DESC LIMIT 3",
+      "prompt_tokens": 1063,
+      "prompt_version": "v1",
+      "recalled_tables": [],
+      "gen_sql": "SELECT sh.carrier, AVG(o.amount) AS avg_amount FROM orders o JOIN shipments sh ON o.order_no = sh.order_no WHERE o.status = 'done' GROUP BY sh.carrier ORDER BY avg_amount DESC LIMIT 200",
+      "status": "ok",
+      "correct": false,
+      "gen_columns": [
+        "carrier",
+        "avg_amount"
+      ],
+      "gen_rows": [
+        [
+          "中通",
+          228855.542208
+        ],
+        [
+          "圆通",
+          228379.253623
+        ],
+        [
+          "德邦",
+          227146.770968
+        ],
+        [
+          "顺丰",
+          225268.306807
+        ],
+        [
+          "京东物流",
+          224537.8744
+        ]
+      ],
+      "diffs": [
+        {
+          "reason": "结果集不匹配",
+          "gold_first": [
+            [
+              "中通",
+              228855.542208
+            ],
+            [
+              "圆通",
+              228379.253623
+            ],
+            [
+              "德邦",
+              227146.770968
+            ]
+          ],
+          "gen_first": [
+            [
+              "中通",
+              228855.542208
+            ],
+            [
+              "京东物流",
+              224537.8744
+            ],
+            [
+              "圆通",
+              228379.253623
+            ]
+          ]
+        }
+      ]
+    }
+  ]
+}

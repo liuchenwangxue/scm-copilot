@@ -25,7 +25,7 @@ COMPOSE := docker compose -f deploy/docker-compose.yml
 # alembic.ini 在 backend/ 下，须在此目录运行（env.py 经 pythonpath 兜底）
 BACKEND := backend
 
-.PHONY: up up-mysql down build migrate seed init-biz-db migrate-biz seed-biz reseed-biz check-biz test test-auth test-sql-validator test-executor test-nl2sql-e2e test-repair test-session-ctx gen-eval eval-nl2sql eval-repair eval-multiturn gen-multiturn test-integration check lint-fix format loadtest drill help
+.PHONY: up up-mysql down build migrate seed init-biz-db migrate-biz seed-biz reseed-biz check-biz test test-auth test-sql-validator test-executor test-nl2sql-e2e test-repair test-session-ctx gen-eval eval-nl2sql eval-repair eval-multiturn gen-multiturn eval-day6 test-integration check lint-fix format loadtest drill help
 
 ## 默认：显示帮助
 help:
@@ -53,6 +53,7 @@ help:
 	@echo "  make gen-multiturn      生成多轮评测集（Day5）"
 	@echo "  make eval-repair        修复救回率评测（Day5，30 条坏 SQL）"
 	@echo "  make eval-multiturn     多轮指代消解评测（Day5，10 条过 8）"
+	@echo "  make eval-day6          real 全量 100 条 v2（Day6，含 P95 + token/条）"
 	@echo "  make test-integration  集成回归"
 	@echo "  make check     ruff lint + mypy（0 error）"
 	@echo "  make loadtest  40 并发 × 200 压测（nginx :18000）"
@@ -163,6 +164,10 @@ eval-repair:
 ## ★ W24 Day5：多轮指代消解评测（10 条过 8；mock 测链路，real 测效果）
 eval-multiturn:
 	$(PY) -X utf8 backend/scripts/eval_multiturn.py
+
+## ★ W24 Day6：real 全量 100 条（v2 Schema Linking，含 P95 + token/条）
+eval-day6:
+	$(PY) -X utf8 backend/scripts/eval_nl2sql.py --prompt-version v2 --out reports/nl2sql_eval_day6_real_v2.json
 
 ## 双域集成回归（Day4 迁移自 stage3 的脚本；审批/幂等自动拉起 mock_biz）
 test-integration:

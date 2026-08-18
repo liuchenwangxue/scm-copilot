@@ -12,8 +12,9 @@ import numpy as np
 # ==================== FakeEmbedder（确定性向量，替代真实 bge） ====================
 
 # 关键词 → 类目索引：含关键词的句子对齐该类目 unit vector，路由结果可预测
-_CAT_KEYWORDS = {"rag": "采购", "tool": "订单", "chat": "你好"}
-_CAT_IDX = {"rag": 0, "tool": 1, "chat": 2}
+# ★ W24 Day6：新增 data 类目（查数类 → NL2SQL 域）
+_CAT_KEYWORDS = {"rag": "采购", "tool": "订单", "chat": "你好", "data": "延迟发货"}
+_CAT_IDX = {"rag": 0, "tool": 1, "chat": 2, "data": 3}
 _DIM = 8
 
 
@@ -65,6 +66,9 @@ def _make_sample_router():
             {"query": "生成上个月报表", "label": "tool"},
             {"query": "你好，很高兴认识你", "label": "chat"},
             {"query": "你是谁，能做什么", "label": "chat"},
+            # data 样本刻意避开 tool 关键词"订单"（FakeEmbedder 关键词顺序：订单先匹配）
+            {"query": "近30天延迟发货的数量", "label": "data"},
+            {"query": "各区域供应商的金额汇总", "label": "data"},
         ],
     }
     return SemanticRouter(embedder=FakeEmbedder(), samples_override=samples)
@@ -89,14 +93,14 @@ def test_router_empty_query_fallback():
     r = _make_router()
     res = r.route("")
     assert res["route"] == "rag" and res["source"] == "fallback"
-    assert r.routes == ["rag", "tool", "chat"]
+    assert r.routes == ["rag", "tool", "chat", "data"]
 
 
 def test_router_thresholds_configured():
-    """阈值配置化：三类各有阈值，rag 为默认域。"""
+    """阈值配置化：四类各有阈值，rag 为默认域。"""
     from app.domains.kb import config
     t = config.SEMANTIC_ROUTER_THRESHOLDS
-    assert set(t) == {"rag", "tool", "chat"}
+    assert set(t) == {"rag", "tool", "chat", "data"}
     assert config.SEMANTIC_ROUTER_FALLBACK == "rag"
 
 
@@ -105,7 +109,7 @@ def test_router_thresholds_configured():
 def test_router_samples_knn_votes():
     """样本路径：kNN 加权投票路由 + source=sample + matched 可解释。"""
     r = _make_sample_router()
-    assert r.routes == ["rag", "tool", "chat"]
+    assert r.routes == ["rag", "tool", "chat", "data"]
     res = r.route("采购申请需要审批吗")   # 与 rag 样本同关键词
     assert res["route"] == "rag" and res["source"] == "sample"
     assert res["matched"] and res["matched"][0]["label"] == "rag"
@@ -138,6 +142,43 @@ def test_router_rule_not_misclassify_rag():
     r = _make_router()
     res = r.route("物流运输损耗怎么赔付")
     assert res["route"] != "tool"  # 应走 embedding → rag（或 fallback rag）
+
+
+# ==================== 语义路由：data 分支（W24 Day6） ====================
+
+
+def test_router_rule_data_high_confidence():
+    """规则层：延迟/时间窗/分组/排行查数 → data（source=rule）。"""
+    r = _make_router()
+    assert r.route("近30天延迟发货的订单有多少")["route"] == "data"
+    assert r.route("延迟发货的订单占比是多少")["route"] == "data"
+    assert r.route("各区域的订单总金额是多少")["route"] == "data"
+    assert r.route("订单数量最多的前5个供应商")["route"] == "data"
+    assert r.route("近7天各状态的订单数量")["route"] == "data"
+
+
+def test_router_rule_data_not_misclassify_rag():
+    """★ 防回归：RAG 制度问题含"多少/占比"字样不能被 data 规则误杀。"""
+    r = _make_router()
+    # "采购金额超过多少必须招标采购"是制度问（含"多少"），不能拦成 data
+    res = r.route("采购金额超过多少必须招标采购")
+    assert res["route"] != "data"
+    # "库存盘点多久进行一次"是制度问，不能因"库存"被 data 规则命中
+    res2 = r.route("库存盘点多久进行一次")
+    assert res2["route"] != "data"
+
+
+def test_router_samples_data_knn():
+    """样本路径：含 data 关键词（延迟发货）→ 路由到 data + source=sample。
+
+    注意："近30天延迟发货的订单有多少"会命中规则层（source=rule）——规则优先于 embedding
+    是设计行为；这里用不含规则触发词的问题验证样本 kNN 路径。
+    """
+    r = _make_sample_router()
+    assert r.routes == ["rag", "tool", "chat", "data"]
+    res = r.route("延迟发货的明细情况")
+    assert res["route"] == "data" and res["source"] == "sample"
+    assert res["matched"] and res["matched"][0]["label"] == "data"
 
 
 # ==================== 语义缓存（双闸门 + 命中/失效） ====================

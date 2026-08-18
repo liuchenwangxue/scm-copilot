@@ -1,12 +1,13 @@
-"""NL2SQL 评测集 v1 生成器（W24 Day3）——50 条三层评测集，固定 gold SQL。
+"""NL2SQL 评测集 v1 生成器（W24 Day3 + Day6 演进）——100 条三层评测集，固定 gold SQL。
 
-对应《W24学习执行手册》Day3 下午：
-- 单表 30：过滤（区域/状态/时间窗）、排序 TOP N、去重计数
-- join 20：订单+明细金额汇总、订单+供应商按区域聚合、商品+库存低库存
+对应《W24学习执行手册》Day3 下午 + Day6 下午：
+- 单表 40：过滤（区域/状态/时间窗/价格区间/评分）、排序 TOP N（升/降）、去重计数、分组聚合
+- join 40：订单+明细金额汇总、订单+供应商按区域聚合、商品+库存低库存（Day4 补强至 40）
+- 聚合 20：HAVING / 多级分组 / 占比计算 / 时间窗聚合（Day4 新增）
 - 每条含 gold SQL（跑出的结果集即标准答案，固定 seed 数据保证稳定可复现）
 
 输出：backend/evals/nl2sql_eval_v1.jsonl（每行一条 JSON）
-字段：{id, layer: single|join, category, question, gold_sql}
+字段：{id, layer: single|join|aggregation, category, question, gold_sql}
 
 时间窗口径：数据基准 BASE_DATE=2026-08-18（scripts/seed_biz.py），
 "近7天/近30天" 用显式日期（>= '2026-08-11' / '2026-07-19'），避免运行日漂移。
@@ -88,6 +89,28 @@ SINGLE_CASES: list[tuple[str, str, str]] = [
      "SELECT COUNT(*) AS cnt FROM shipments WHERE delay_days > 0"),
     ("各承运商的发货数量？", "groupby",
      "SELECT carrier, COUNT(*) AS cnt FROM shipments GROUP BY carrier ORDER BY carrier"),
+    # ---- ★ W24 Day6：单表补强 31–40（评测集扩至 100 条三层）----
+    ("近7天华东区域创建了多少订单？", "filter-window-region",
+     "SELECT COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-08-11' AND region='华东'"),
+    ("草稿状态的订单有多少？", "filter-status",
+     "SELECT COUNT(*) AS cnt FROM orders WHERE status='draft'"),
+    ("金额最低的前5个订单的订单号和金额？", "topn-asc",
+     "SELECT order_no, amount FROM orders ORDER BY amount ASC LIMIT 5"),
+    ("各区域供应商的平均评分？", "groupby-agg",
+     "SELECT region, AVG(rating) AS avg_amount FROM suppliers GROUP BY region ORDER BY region"),
+    ("西南区域评分高于80的供应商有多少？", "filter-region-rating",
+     "SELECT COUNT(*) AS cnt FROM suppliers WHERE region='西南' AND rating > 80"),
+    ("单价在100到500之间的商品有多少？", "filter-price-range",
+     "SELECT COUNT(*) AS cnt FROM products WHERE unit_price >= 100 AND unit_price <= 500"),
+    ("各仓库低库存商品的数量？", "filter-lowstock-groupby",
+     "SELECT warehouse, COUNT(*) AS cnt FROM inventory WHERE qty < safety_qty "
+     "GROUP BY warehouse ORDER BY warehouse"),
+    ("近30天发货的延迟订单有多少？", "filter-delay-window",
+     "SELECT COUNT(*) AS cnt FROM shipments WHERE shipped_at >= '2026-07-19' AND delay_days > 0"),
+    ("已完成订单的总金额是多少？", "agg-sum-filter",
+     "SELECT SUM(amount) AS total_amount FROM orders WHERE status='done'"),
+    ("评分最低的前3个供应商的名称和评分？", "topn-asc",
+     "SELECT name, rating FROM suppliers ORDER BY rating ASC LIMIT 3"),
 ]
 
 # ---------------- join 20（layer=join） ----------------
@@ -176,10 +199,9 @@ JOIN_CASES: list[tuple[str, str, str]] = [
     ("各承运商的发货订单总金额？", "join-shipments-orders",
      "SELECT sh.carrier, SUM(o.amount) AS total_amount FROM shipments sh "
      "JOIN orders o ON sh.order_no=o.order_no GROUP BY sh.carrier ORDER BY sh.carrier"),
-    ("延迟发货天数最多的前5个订单？", "join-topn",
-     "SELECT o.order_no, sh.delay_days FROM shipments sh "
-     "JOIN orders o ON sh.order_no=o.order_no "
-     "ORDER BY sh.delay_days DESC LIMIT 5"),
+    ("延迟发货天数超过10天的订单有多少？", "join-shipments-orders",
+     "SELECT COUNT(*) AS cnt FROM shipments sh "
+     "JOIN orders o ON sh.order_no=o.order_no WHERE sh.delay_days > 10"),
     ("低库存商品最多的仓库是哪个？", "join-lowstock-top",
      "SELECT warehouse, COUNT(*) AS cnt FROM inventory "
      "WHERE qty < safety_qty GROUP BY warehouse ORDER BY cnt DESC LIMIT 1"),
@@ -230,7 +252,7 @@ JOIN_CASES: list[tuple[str, str, str]] = [
     ("已完成订单中，各承运商的平均订单金额？", "join-topn",
      "SELECT sh.carrier, AVG(o.amount) AS avg_amount FROM shipments sh "
      "JOIN orders o ON sh.order_no=o.order_no WHERE o.status='done' "
-     "GROUP BY sh.carrier ORDER BY avg_amount DESC LIMIT 3"),
+     "GROUP BY sh.carrier ORDER BY sh.carrier"),
     ("发货单数最多的前5个供应商？", "join-topn",
      "SELECT s.name, COUNT(*) AS cnt FROM shipments sh "
      "JOIN orders o ON sh.order_no=o.order_no "
@@ -293,8 +315,9 @@ AGG_CASES: list[tuple[str, str, str]] = [
     ("各状态订单的平均金额？", "agg-groupby-avg",
      "SELECT status, AVG(amount) AS avg_amount FROM orders "
      "GROUP BY status ORDER BY status"),
-    ("各区域订单总金额的合计是多少？", "agg-ratio",
-     "SELECT SUM(amount) AS total_amount FROM orders"),
+    ("各区域已支付订单的平均金额最高的前3个区域？", "agg-top-filter",
+     "SELECT region, AVG(amount) AS avg_amount FROM orders "
+     "WHERE status='paid' GROUP BY region ORDER BY avg_amount DESC LIMIT 3"),
     ("平均订单金额最高的前3个区域？", "agg-top",
      "SELECT region, AVG(amount) AS avg_amount FROM orders "
      "GROUP BY region ORDER BY avg_amount DESC LIMIT 3"),

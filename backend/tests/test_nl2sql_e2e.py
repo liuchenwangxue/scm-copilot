@@ -1,4 +1,4 @@
-"""NL2SQL 端到端链路测试（W24 Day3）——mock 全链路：generate → validate → execute → format。
+"""NL2SQL 端到端链路测试（W24 Day3 + Day6 演进）——mock 全链路：generate → validate → execute → format。
 
 覆盖 Day3 验收：
 - graph 完整链路：合法问题 → 表格结果（columns/rows/elapsed）
@@ -6,6 +6,11 @@
 - router API：POST /api/data/query 返回 {table, sql, columns, rows, elapsed}
 - 权限：无 `data:nl2sql` 权限 → 403
 - mock 生成器：评测集问题命中 gold SQL；未命中 → 默认安全 SQL
+
+★ Day6 演进：
+- service.run_nl2sql_query：统一编排（多轮消解→子图→洞察），router 与对话入口复用
+- insights 字段：结果洞察 ≤3 条（mock 确定性摘要，数字全部来自结果集）
+- 对话入口 /api/kb/chat 语义路由 data 分支：SSE data_table 事件（权限二次校验）
 
 依赖：MySQL + scm_biz seed + nl2sql_ro（make test-executor 同前置）。
 标签：integration（CI 有 MySQL service + seed 步骤，会跑）。
@@ -140,7 +145,10 @@ def test_data_query_requires_permission():
 
 @pytest.mark.asyncio
 async def test_api_query_success_with_token():
-    """带合法 token 的 /api/data/query 正例（需 scm_platform seed：analyst 用户）。"""
+    """带合法 token 的 /api/data/query 正例（需 scm_platform seed：analyst 用户）。
+
+    ★ Day6：响应含 insights（mock 确定性摘要，≤3 条）。
+    """
     from fastapi.testclient import TestClient
 
     from app.main import app
@@ -166,3 +174,104 @@ async def test_api_query_success_with_token():
         assert len(body["rows"]) == 1
         assert body["elapsed"] >= 0
         assert body["sql"].startswith("SELECT")
+        # ★ Day6：insights 字段（mock 确定性摘要，≤3 条）
+        assert isinstance(body["insights"], list)
+        assert len(body["insights"]) <= 3
+        assert body["insights"]  # 非空（查询成功必有行数/首行摘要）
+
+
+# ================= ★ W24 Day6：编排服务 + 对话入口 data 分支 =================
+
+
+@pytest.mark.asyncio
+async def test_service_run_nl2sql_returns_insights():
+    """service.run_nl2sql_query：统一编排返回 insights（mock 确定性摘要）。"""
+    from app.domains.data.service import run_nl2sql_query
+
+    res = await run_nl2sql_query(question="华东区域有多少订单？")
+    assert res["ok"] is True
+    assert res["table"] is True
+    assert res["columns"] == ["cnt"]
+    assert res["sql"].startswith("SELECT")
+    assert res["insights"]  # 非空
+    assert len(res["insights"]) <= 3
+
+
+@pytest.mark.asyncio
+async def test_service_run_nl2sql_rejected_has_no_insights():
+    """拒答/降级：无表格 → 无洞察（不硬编）。
+
+    mock 生成器对未命中问题返回默认安全 SQL（不会拒答），因此"无表格"只能在
+    graph 层用写 SQL 注入触发；service 层洞察生成逻辑对空 rows 返回空（已由
+    test_insight.py::test_generate_insights_empty_rows_returns_empty 覆盖）。
+    """
+    from app.domains.data.graph import data_graph
+
+    # graph 层：写 SQL 直接过闸 → 拒答（无表格）
+    state = await data_graph.ainvoke(
+        {"question": "删掉所有订单", "today": "2026-08-18",
+         "initial_sql": "DELETE FROM orders WHERE 1=1"}
+    )
+    assert state["rejected_reason"] is not None
+    assert not (state.get("result") or {}).get("columns")
+
+
+@pytest.mark.asyncio
+async def test_service_run_nl2sql_multiturn_resolve():
+    """多轮消解走统一服务：'那华南呢？' 继承上轮上下文。"""
+    from app.domains.data.service import run_nl2sql_query
+    from app.domains.data.session_ctx import clear_sessions
+
+    clear_sessions()
+    r1 = await run_nl2sql_query(question="华东区域有多少订单？", session_id="sess-d6")
+    assert r1["table"] is True
+    # 追问："那华南呢？"（mock 规则消解 → 华南区域有多少订单？）
+    r2 = await run_nl2sql_query(question="那华南呢？", session_id="sess-d6")
+    assert r2["table"] is True
+    assert r2["resolved_question"] != "那华南呢？"
+    assert "华南" in r2["resolved_question"]
+    clear_sessions()
+
+
+@pytest.mark.asyncio
+async def test_kb_chat_data_branch_streams_data_table():
+    """对话入口 /api/kb/chat 语义路由 data 分支 → SSE data_table 事件（需 seed 用户）。
+
+    用 analyst（有 data:nl2sql）验证；viewer 无权限 → 礼貌拒答（不含表格）。
+    """
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    with TestClient(app) as c:
+        login = c.post(
+            "/api/auth/login",
+            json={"username": "analyst_t_huadong", "password": "Passw0rd!"},
+        )
+        if login.status_code != 200:
+            pytest.skip("scm_platform 未 seed analyst 用户，跳过对话入口正例")
+        token = login.json()["access_token"]
+        resp = c.post(
+            "/api/kb/chat",
+            json={"message": "近30天延迟发货的订单有多少"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200, resp.text
+        events = [
+            line[6:] for line in resp.text.splitlines()
+            if line.startswith("data: ")
+        ]
+        types = []
+        data_table = None
+        for ev in events:
+            import json as _json
+
+            obj = _json.loads(ev)
+            types.append(obj["type"])
+            if obj["type"] == "data_table":
+                data_table = obj
+        assert "data_table" in types
+        assert data_table is not None
+        assert data_table["columns"]
+        assert data_table["sql"].startswith("SELECT")
+        assert data_table["insights"] is not None

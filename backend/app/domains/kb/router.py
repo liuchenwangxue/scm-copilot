@@ -209,8 +209,67 @@ async def chat(
                                "data": {"result": f"语义路由 → {route_res['route']}（score={route_res['score']}）"}})
                     if route_res["route"] == "chat":
                         answer = "你好呀！我是供应链知识库问答助手，专注制度条文解答。如需业务操作（查单/改单/报表），请前往业务助手；如需制度咨询，直接问我就好。"
-                    else:  # tool
-                        answer = "这是业务操作请求（查单/改单/报表），应转交业务助手（项目 B）处理。本知识库助手专注制度条文问答，如需制度条文请直接提问。"
+                        yield _ss({"type": "message", "role": "assistant", "content": answer,
+                                   "delta": False, "session_id": session_id})
+                        yield _ss({"type": "citations", "citations": [],
+                                   "retrieved_docs": [],
+                                   "validation": {"passed": True, "retries": 0,
+                                                  "degraded": False, "warning": ""},
+                                   "source": "route", "session_id": session_id})
+                        yield _ss({"type": "done"})
+                        return
+                    if route_res["route"] == "data":
+                        # ★ W24 Day6：data 分支打通——查数问题 → NL2SQL 域 → 流式 data_table 事件
+                        #   权限：NL2SQL 需要 data:nl2sql（analyst/admin）；此处对话入口已过 kb:chat，
+                        #   再按权限码二次校验（viewer 无 data:nl2sql → 礼貌拒答，不泄露 SQL）
+                        if "data:nl2sql" not in rbac.current_permissions(current):
+                            yield _ss({"type": "message", "role": "assistant",
+                                       "content": "查数（NL2SQL）需要数据查询权限，请联系管理员开通。",
+                                       "delta": False, "session_id": session_id})
+                            yield _ss({"type": "done"})
+                            return
+                        yield _ss({"type": "progress", "node": "nl2sql",
+                                   "data": {"result": "已转交数据分析域（NL2SQL），正在查询…"}})
+                        with contextlib.suppress(Exception):
+                            await _audit(request, "nl2sql_route", "语义路由 data 分支转 NL2SQL")
+
+                        async def _nl2sql_audit_sink(event: dict) -> None:
+                            """符合 data executor 审计回调契约（{event,sql,status,error,...}）→ 平台审计。"""
+                            with contextlib.suppress(Exception):
+                                await _audit(
+                                    request, event.get("event", "data:nl2sql:execute"),
+                                    f"sql={event.get('sql', '')[:200]} status={event.get('status')} "
+                                    f"rows={event.get('rows')}",
+                                )
+
+                        from app.domains.data.service import run_nl2sql_query
+
+                        res = await run_nl2sql_query(
+                            question=message,
+                            session_id=session_id,
+                            audit_sink=_nl2sql_audit_sink,
+                        )
+                        if res["table"]:
+                            yield _ss({
+                                "type": "data_table",
+                                "columns": res["columns"],
+                                "rows": res["rows"],
+                                "sql": res["sql"],
+                                "insights": res["insights"],
+                                "elapsed": res["elapsed"],
+                                "truncated": res["truncated"],
+                                "rejected_reason": res["rejected_reason"],
+                                "reply": res["reply"],
+                                "session_id": session_id,
+                            })
+                        else:
+                            yield _ss({"type": "message", "role": "assistant",
+                                       "content": res["reply"] or "暂时无法生成有效查询，请换一种问法。",
+                                       "delta": False, "session_id": session_id})
+                        yield _ss({"type": "done"})
+                        return
+                    # tool
+                    answer = "这是业务操作请求（查单/改单/报表），应转交业务助手（项目 B）处理。本知识库助手专注制度条文问答，如需制度条文请直接提问。"
                     yield _ss({"type": "message", "role": "assistant", "content": answer,
                                "delta": False, "session_id": session_id})
                     yield _ss({"type": "citations", "citations": [],

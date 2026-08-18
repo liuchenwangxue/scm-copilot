@@ -79,8 +79,10 @@ SEMANTIC_ROUTER_SAMPLES_FILE = os.getenv(
 SEMANTIC_ROUTER_VECTORS_FILE = os.getenv(
     "SEMANTIC_ROUTER_VECTORS_FILE", str(DATA_DIR / "semantic_router_vectors.json"))
 
-# ---- 语义路由（kb 域使用；阈值分开调：rag 宽容、tool/chat 从严）----
-SEMANTIC_ROUTER_THRESHOLDS = {"rag": 0.60, "tool": 0.80, "chat": 0.85}
+# ---- 语义路由（kb 域使用；阈值分开调：rag 宽容、tool/chat/data 从严）----
+# ★ W24 Day6：新增 data 分支类目（查数问题 → NL2SQL 域）。阈值从严（0.80）：
+#   误把"知识制度问"路由到 data = 答非所问（糟）；误把"查数问"路由到 rag = 白烧 token（可接受）。
+SEMANTIC_ROUTER_THRESHOLDS = {"rag": 0.60, "tool": 0.80, "chat": 0.85, "data": 0.80}
 SEMANTIC_ROUTER_FALLBACK = "rag"
 SEMANTIC_ROUTER_PROTOTYPES = {
     "rag": [
@@ -118,6 +120,22 @@ SEMANTIC_ROUTER_PROTOTYPES = {
         "周末愉快",
         "嗯，好的，知道了",
         "早上好",
+    ],
+    # ★ W24 Day6：data 分支——供应链查数类问题 → NL2SQL 域（问数字/统计/排行/延迟/库存）
+    "data": [
+        "近30天延迟发货的订单有多少",
+        "华东区域订单总金额是多少",
+        "各区域供应商的订单总金额",
+        "订单数量最多的前5个供应商",
+        "被订购次数最多的前5个商品",
+        "低库存商品有多少个",
+        "各仓库的库存总量",
+        "近7天创建了多少订单",
+        "各状态的订单数量",
+        "平均订单金额超过200000的区域",
+        "各区域各状态的订单数量",
+        "延迟发货订单占全部发货订单的比例",
+        "已完成订单中订单金额最高的前5个供应商",
     ],
 }
 
