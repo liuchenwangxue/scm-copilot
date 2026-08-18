@@ -81,14 +81,21 @@ services:
     container_name: scm-backend-a1
     restart: unless-stopped
     environment: &backend_env
+      # ★ W25 Day3 修复：backend 容器必须设 TZ=Asia/Shanghai——Python date.today() 走
+      #   容器 OS 时区（默认 UTC），daily_brief/eval_nightly 按日期归属会少一天
+      #   （实测容器手动触发 daily_brief 把 8/19 的日报写成了 8/18）。与 mysql 服务同款。
+      TZ: Asia/Shanghai
       SCM_PLATFORM_DSN: "mysql+asyncmy://root:root123@mysql:3306/scm_platform?charset=utf8mb4"
       SCM_BIZ_DSN: "mysql+asyncmy://root:root123@mysql:3306/scm_biz?charset=utf8mb4"
       SCM_JWT_SECRET: "dev-secret-change-me"
       REDIS_URL: "redis://redis:6379/0"
+      # ★ W25 Day3 修复：settings 字段 instance_id 对应环境变量前缀 SCM_（env_prefix="SCM_"），
+      #   旧值 INSTANCE_ID 读取不到 → 双实例 job_runs 的 instance 字段都是 "local"，
+      #   24h 零重复观测无法区分实例。改为 SCM_INSTANCE_ID 后 a1/a2 各留独立实例名。
+      SCM_INSTANCE_ID: "backend-a1"
       LLM_PROVIDER: "mock"                 # 压测零成本：mock LLM 兜底（真实 LLM 留 W24 采样）
       BIZ_BASE_URL: "http://mock-biz:8794" # 容器内互访走 compose 网络
       CHECKPOINTER_BACKEND: "mysql"        # AsyncMySaver（平台库 scm_platform）
-      INSTANCE_ID: "backend-a1"
       KB_DATA_DIR: "/data"
       REPORTS_DIR: "/reports"
       AUDIT_LOG: "/data/audit.log"
@@ -125,7 +132,7 @@ services:
     restart: unless-stopped
     environment:
       <<: *backend_env
-      INSTANCE_ID: "backend-a2"
+      SCM_INSTANCE_ID: "backend-a2"
     volumes:
       - runtime_data:/data
       - runtime_reports:/reports

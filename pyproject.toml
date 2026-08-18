@@ -22,6 +22,7 @@ dependencies = [
     "qdrant-client",         # kb 向量检索（Qdrant）
     "numpy",
     "jieba",                 # kb BM25 中文分词
+    "rank_bm25",             # kb 混合检索 BM25 索引（W25 Day3 eval_nightly 实测补齐）
     "pdfplumber",            # kb 文档解析（.pdf）
     "python-docx",           # kb 文档解析（.docx）
     # ---- W23 Day4 双域并入：ops（stage3-b）所需 ----

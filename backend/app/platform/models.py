@@ -328,3 +328,93 @@ class Conversation(Base):
         server_default=text("CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"),
     )
     est_cost: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
+# ==================== 伴随表：W25 Day3 调度产物 ====================
+
+
+class DailyBrief(Base):
+    """经营日报表（★ W25 Day3：daily_brief 工作日 08:00 的产出）。
+
+    - brief_date 唯一：同日只产一份（幂等键之外的数据库双保险）
+    - metrics：{gmv, delay_rate, top_suppliers:[{supplier, gmv}]} 关键数字
+    - sqls：三条模板问题的完整 SQL + 结果（SQL 可回溯，数字点开可见）
+    - notified_users：已推送订阅用户列表（站内通知，非目标清单不接邮件/IM）
+    """
+
+    __tablename__ = "daily_briefs"
+    __table_args__ = (
+        UniqueConstraint("brief_date"),
+        Index("idx_daily_brief_date", "brief_date"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    brief_date: Mapped[str] = mapped_column(
+        String(10), nullable=False, comment="日报归属日 YYYY-MM-DD（唯一）"
+    )
+    title: Mapped[str] = mapped_column(String(128), nullable=False)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metrics: Mapped[dict | None] = mapped_column(JSON, nullable=True, comment="GMV/延迟率/TOP5")
+    sqls: Mapped[dict | None] = mapped_column(JSON, nullable=True, comment="三条 SQL 原文+结果（可回溯）")
+    notified_users: Mapped[list | None] = mapped_column(JSON, nullable=True, comment="推送用户列表")
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default=text("'generated'"), comment="generated / pushed"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        _dt3(),
+        nullable=False,
+        server_default=text("CURRENT_TIMESTAMP(3)"),
+    )
+
+
+class EvalReport(Base):
+    """夜间质量回归报告表（★ W25 Day3：eval_nightly 每日 02:00 的产出）。
+
+    - (report_date, domain) 唯一：同日同域只产一份（幂等：结果快照）
+    - domain：rag / nl2sql
+    - metrics：各域指标（RAG: hit@1/recall@5/citation_acc/p95/error_rate；
+      NL2SQL: overall/single/join/aggregation accuracy + p95 + rejected/error）
+    - deviation：与近 7 日均值的偏离 {vs_7d_avg, delta_pp, degraded}（劣化 >5pp 标红）
+    """
+
+    __tablename__ = "eval_reports"
+    __table_args__ = (
+        UniqueConstraint("report_date", "domain"),
+        Index("idx_eval_report_domain_date", "domain", "report_date"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    report_date: Mapped[str] = mapped_column(String(10), nullable=False, comment="报告归属日")
+    domain: Mapped[str] = mapped_column(String(16), nullable=False, comment="rag / nl2sql")
+    metrics: Mapped[dict | None] = mapped_column(JSON, nullable=True, comment="各域指标")
+    deviation: Mapped[dict | None] = mapped_column(JSON, nullable=True, comment="与7日均值偏离")
+    regressed: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("0"), comment="1=劣化>5pp 标红"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        _dt3(),
+        nullable=False,
+        server_default=text("CURRENT_TIMESTAMP(3)"),
+    )
+
+
+class Notification(Base):
+    """站内通知表（★ W25 Day3：daily_brief 订阅推送落点；非目标清单不接邮件/IM）。"""
+
+    __tablename__ = "notifications"
+    __table_args__ = (Index("idx_notif_user_read", "user_id", "read"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    type: Mapped[str] = mapped_column(
+        String(32), nullable=False, comment="daily_brief / system"
+    )
+    title: Mapped[str] = mapped_column(String(128), nullable=False)
+    content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    link: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    read: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    created_at: Mapped[datetime] = mapped_column(
+        _dt3(),
+        nullable=False,
+        server_default=text("CURRENT_TIMESTAMP(3)"),
+    )

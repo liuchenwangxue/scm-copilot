@@ -25,7 +25,7 @@ COMPOSE := docker compose -f deploy/docker-compose.yml
 # alembic.ini 在 backend/ 下，须在此目录运行（env.py 经 pythonpath 兜底）
 BACKEND := backend
 
-.PHONY: up up-mysql down build migrate seed init-biz-db migrate-biz seed-biz reseed-biz check-biz test test-auth test-sql-validator test-executor test-nl2sql-e2e test-repair test-session-ctx test-scheduler test-kb-sync kb-sync-smoke gen-eval eval-nl2sql eval-repair eval-multiturn gen-multiturn eval-day6 test-integration check lint-fix format loadtest drill help
+.PHONY: up up-mysql down build migrate seed init-biz-db migrate-biz seed-biz reseed-biz check-biz test test-auth test-sql-validator test-executor test-nl2sql-e2e test-repair test-session-ctx test-scheduler test-kb-sync test-day3-tasks kb-sync-smoke gen-eval eval-nl2sql eval-repair eval-multiturn gen-multiturn eval-day6 test-integration check lint-fix format loadtest drill help
 
 ## 默认：显示帮助
 help:
@@ -163,6 +163,10 @@ test-scheduler:
 ## ★ W25 Day2：数据闭环三任务 + 调度面板 API（kb 增量/清理/归档/面板；纯逻辑 CI 可跑，全流程需 MySQL）
 test-kb-sync:
 	$(PYTEST) backend/tests/test_kb_increment_sync.py backend/tests/test_vector_cleanup.py backend/tests/test_audit_archive.py backend/tests/test_admin_scheduler_api.py -v
+
+## ★ W25 Day3：日报/夜间回归/预热三任务测试（daily_brief 纯逻辑 CI 可跑；全流程需 MySQL+Redis）
+test-day3-tasks:
+	$(PYTEST) backend/tests/test_daily_brief.py backend/tests/test_eval_nightly.py backend/tests/test_cache_warmup.py -v
 
 ## ★ W25 Day2：kb_increment_sync 真实环境验收（临时 docs 目录；隔离 collection，不碰正式数据）
 kb-sync-smoke:

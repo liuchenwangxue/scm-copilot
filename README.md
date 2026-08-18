@@ -188,7 +188,7 @@ make test-nl2sql-e2e      # NL2SQL e2e 链路测试
 |---|---|
 | `leader.py` | ★ 任务级互斥装饰器：`SET lock:job:{name} NX EX 300` + owner 校验 Lua 释放；Redis 挂 → fail-open 放行（任务幂等兜底） |
 | `__init__.py` | `AsyncIOScheduler` + MySQL job store（`scm_platform.apscheduler_jobs` 内建表）→ 重启任务定义不丢；六任务集中注册表 + `misfire_grace_time=300` + `coalesce=True`（错过补跑合并）；`_run_job` 模块级入口（★ MySQL job store pickle 要求回调可序列化，闭包会炸） |
-| `jobs/` | 六任务：kb_increment_sync `*/5` / vector_cleanup `0 3` / audit_archive `0 4 1` / daily_brief `0 8 1-5` / eval_nightly `0 2` / cache_warmup `0 7`（Day2 已实现前三个，Day3 填日报/回归/预热） |
+| `jobs/` | 六任务：kb_increment_sync `*/5` / vector_cleanup `0 3` / audit_archive `0 4 1` / daily_brief `0 8 1-5` / eval_nightly `0 2` / cache_warmup `0 7`（Day2 前三个 + Day3 后三个，**六任务全部实现**） |
 
 - **双实例防重**：调度器全实例跑（高可用）+ 任务级互斥（leader 锁，未抢到记 `skipped`）+ 任务幂等键双保险；
   每次执行写 `scheduler_job_runs`（running → success/failed/skipped + instance + duration_ms）——24h 零重复观测依据
@@ -205,14 +205,27 @@ make test-nl2sql-e2e      # NL2SQL e2e 链路测试
 | `vector_cleanup` `0 3` | scroll 全量 → payload `source_doc_id` 不在 docs 表（active）即孤儿向量 → 过滤删除；语义缓存 `scm:semcache:*:keys` 过期成员（TTL 漏网 + version 失效标记）清理 |
 | `audit_archive` `0 4 1` | 上月 `audit_logs` → `audit_logs_YYYYmm`（CTAS + 行数校验 + 删主表）；归档表存在即幂等跳过；Redis 批次锁仅防两段间并发（完成释放，失败不残留） |
 
+**业务与守护三任务（★ W25 Day3）**：
+
+| 任务 | 实现要点 |
+|---|---|
+| `daily_brief` `0 8 1-5` | 三条固定模板问题走 W24 NL2SQL 完整链路（四道闸 + 只读沙箱，mock 注册固定 SQL）→ 模板渲染（数字点开即 SQL 可回溯）→ `daily_briefs` 表（brief_date unique）+ 订阅用户站内通知（`notifications`，analyst/admin 前 3）；幂等：`brief:{date}` Redis SETNX（失败删键可重试）+ DB unique 双保险；昨日口径写死 `CURDATE() - INTERVAL 1 DAY`（跨月/年交给 MySQL） |
+| `eval_nightly` `0 2` | RAG 156 条（生产同款 HybridRetriever）+ NL2SQL 100 条（W24 评测逻辑）全 mock 守护"结构"（格式/延迟/报错率，非语义准确率）→ `eval_reports`（(report_date, domain) unique 幂等 + 7 日均值偏离 >5pp 标红）；逐条容错 error_rate 进指标 |
+| `cache_warmup` `0 7` | `conversations` 昨日标题频次 TOP100 → 生产同款检索 + mock 生成 → 语义缓存预写（已命中跳过）；`{candidates/hit/warmed/failed}` 可观测 |
+
 **调度面板 API**（`app/domains/admin/scheduler_api.py`，权限 `admin:scheduler:manage`）：
-- `GET /api/admin/scheduler/jobs`：六任务 cron/desc/enabled/next_run + 上次运行（job_runs 最近一条）
+- `GET /api/admin/scheduler/jobs`：六任务 cron/desc/enabled/next_run + `last_run` + `recent_runs`（最近 5 条运行历史）
 - `POST /api/admin/scheduler/jobs/{name}/trigger`：手动触发（独立一次性 job）+ 审计 `admin.scheduler.trigger`
 - scheduler 未启用 → 503（CI/单测环境属预期）
+
+**部署配置要点（★ W25 Day3 实测踩坑）**：
+- backend 容器必须设 `TZ: Asia/Shanghai`——否则 Python `date.today()` 走 UTC，daily_brief/eval_nightly 归属日少一天（实测容器把 8/19 日报写成 8/18）
+- 实例标识环境变量是 `SCM_INSTANCE_ID`（settings 前缀 SCM_），compose 旧值 `INSTANCE_ID` 读不到 → 双实例 job_runs 的 instance 全是 `local`，零重复观测无法区分实例
 
 ```bash
 make test-scheduler    # 调度基座测试（需 MySQL，Redis 可选）
 make test-kb-sync      # 数据闭环三任务 + 面板 API（Day2；纯逻辑 CI 可跑，全流程需 MySQL）
+make test-day3-tasks   # 日报/夜间回归/预热三任务（Day3；纯逻辑 CI 可跑，全流程需 MySQL+Redis）
 make kb-sync-smoke     # kb_increment_sync 真实环境验收（隔离 collection，不碰正式数据）
 ```
 

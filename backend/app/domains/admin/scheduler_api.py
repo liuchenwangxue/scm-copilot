@@ -43,8 +43,10 @@ async def list_scheduler_jobs(
     aps = scheduler.scheduler
     running_jobs = {j.id: j for j in aps.get_jobs()} if aps is not None else {}
 
-    # 每个任务最近一次运行（job_runs）
-    last_runs: dict[str, dict] = {}
+    # 每个任务最近运行历史（★ W25 Day3：面板展示最近 N 条，零重复观测依据）
+    # rows 按 id 降序 → 先到的即最近；每个 job_id 收集最近 RECENT_RUNS_LIMIT 条
+    RECENT_RUNS_LIMIT = 5
+    recent_runs: dict[str, list[dict]] = {}
     factory = request.app.state.session_factory
     async with factory() as session:
         rows = list(
@@ -53,8 +55,11 @@ async def list_scheduler_jobs(
             ).all()
         )
     for row in rows:
-        if row.job_id not in last_runs:
-            last_runs[row.job_id] = {
+        bucket = recent_runs.setdefault(row.job_id, [])
+        if len(bucket) >= RECENT_RUNS_LIMIT:
+            continue
+        bucket.append(
+            {
                 "status": row.status,
                 "started_at": row.started_at.isoformat() if row.started_at else None,
                 "finished_at": row.finished_at.isoformat() if row.finished_at else None,
@@ -63,10 +68,12 @@ async def list_scheduler_jobs(
                 "trigger": row.trigger,
                 "error": row.error,
             }
+        )
 
     jobs = []
     for spec in JOB_DEFS:
         aps_job = running_jobs.get(spec["name"])
+        runs = recent_runs.get(spec["name"], [])
         jobs.append(
             {
                 "name": spec["name"],
@@ -76,7 +83,8 @@ async def list_scheduler_jobs(
                 "next_run_time": aps_job.next_run_time.isoformat()
                 if aps_job is not None and aps_job.next_run_time
                 else None,
-                "last_run": last_runs.get(spec["name"]),
+                "last_run": runs[0] if runs else None,
+                "recent_runs": runs,
             }
         )
     return {
