@@ -35,15 +35,15 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Request
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.domains.data.graph import data_graph
 from app.domains.data.prompts import DATA_BASE_DATE
+from app.domains.data.schemas import DataFeedbackIn, DataFeedbackOut, Nl2SqlIn, Nl2SqlOut
 from app.platform import rbac
 from app.platform.models import User
 
-router = APIRouter(prefix="/api/data", tags=["data"])
+router = APIRouter(prefix="/api/v1/data", tags=["data"])
 
 
 def _audit_sink(request: Request, current: User) -> Any:
@@ -80,49 +80,52 @@ def _audit_sink(request: Request, current: User) -> Any:
     return sink
 
 
-@router.post("/query")
+@router.post(
+    "/query",
+    response_model=Nl2SqlOut,
+    summary="NL2SQL 查询",
+    description=(
+        "自然语言 →（多轮消解）→ SQL（sqlglot 四道闸 + 错误自修复）→ 只读沙箱执行 → 表格 + 洞察。"
+        "需要权限 data:nl2sql。返回契约见响应模型（含 insights 洞察摘要、repair_log 修复轨迹）。"
+    ),
+)
 async def data_query(
     request: Request,
     current: Annotated[User, Depends(rbac.require_permission("data:nl2sql"))],
-    body: dict,
-) -> Any:
-    """NL2SQL 查询：自然语言 →（多轮消解）→ SQL（四道闸 + 自修复）→ 只读沙箱 → 表格 + 洞察。
-
-    需要权限 `data:nl2sql`（analyst/admin 角色）。body: {question, today?, session_id?}
-    ★ Day6：业务编排收口到 `service.run_nl2sql_query`（与对话入口复用同一实现）；
-    返回契约见模块 docstring（含 insights 洞察摘要）。
-    """
+    body: Nl2SqlIn,
+) -> Nl2SqlOut:
+    """NL2SQL 查询：自然语言 →（多轮消解）→ SQL（四道闸 + 自修复）→ 只读沙箱 → 表格 + 洞察。"""
     from app.domains.data.service import run_nl2sql_query
 
-    question = (body.get("question") or "").strip()
+    question = body.question.strip()
     if not question:
-        return JSONResponse(
-            {"ok": False, "error": "question 不能为空"},
-            status_code=400,
-        )
-    today = body.get("today") or DATA_BASE_DATE.isoformat()
-    session_id = (body.get("session_id") or "").strip() or None
+        # ★ W25 Day4：业务校验错误走统一 Err 契约（BAD_REQUEST_400）
+        raise HTTPException(status_code=400, detail="question 不能为空")
+    today = body.today or DATA_BASE_DATE.isoformat()
+    session_id = (body.session_id or "").strip() or None
 
-    return await run_nl2sql_query(
+    result = await run_nl2sql_query(
         question=question,
         today=today,
         session_id=session_id,
         audit_sink=_audit_sink(request, current),
     )
+    return Nl2SqlOut.model_validate(result)
 
 
-@router.post("/query/{query_id}/feedback")
+@router.post(
+    "/query/{query_id}/feedback",
+    response_model=DataFeedbackOut,
+    summary="SQL 纠错样本回流",
+    description="SQL 纠错样本回流（feedback 表 fb_type='sql'）——W25 eval_nightly 回流评测集。",
+)
 async def data_feedback(
     query_id: str,
     request: Request,
     current: Annotated[User, Depends(rbac.require_permission("data:nl2sql"))],
-    body: dict,
-) -> dict:
-    """SQL 纠错样本回流（feedback 表，fb_type='sql'）——W25 eval_nightly 回流评测集。
-
-    body: {sql, question, correction, is_correct}
-    返回 {ok: true, feedback_id}（落库失败则返回 ok=false 但不抛错——反馈尽力而为）。
-    """
+    body: DataFeedbackIn,
+) -> DataFeedbackOut:
+    """SQL 纠错样本回流（feedback 表，fb_type='sql'）——W25 eval_nightly 回流评测集。"""
     session_factory = request.app.state.session_factory
     from app.platform.models import Feedback
 
@@ -131,13 +134,13 @@ async def data_feedback(
             fb = Feedback(
                 fb_type="sql",
                 conversation_id=query_id,
-                content=(body.get("sql") or "")[:5000],
-                correction=(body.get("correction") or body.get("question") or "")[:5000],
+                content=(body.sql or "")[:5000],
+                correction=(body.correction or body.question or "")[:5000],
                 status="open",
                 created_by=current.username,
             )
             session.add(fb)
             await session.commit()
-            return {"ok": True, "feedback_id": fb.id}
+            return DataFeedbackOut(ok=True, feedback_id=fb.id)
     except Exception as exc:  # noqa: BLE001  # 反馈落库失败不影响主链路
-        return {"ok": False, "error": str(exc)}
+        return DataFeedbackOut(ok=False, error=str(exc))

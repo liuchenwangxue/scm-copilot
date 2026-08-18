@@ -61,6 +61,7 @@ dev = [
     "pytest",
     "pytest-asyncio",
     "pytest-cov",
+    "openapi-spec-validator",   # ★ W25 Day4：/openapi.json 契约校验（test_openapi_coverage）
 ]
 
 # 包发现：backend/ 下只有 app* 是可安装包（tests 不打包）；

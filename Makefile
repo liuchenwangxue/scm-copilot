@@ -168,6 +168,10 @@ test-kb-sync:
 test-day3-tasks:
 	$(PYTEST) backend/tests/test_daily_brief.py backend/tests/test_eval_nightly.py backend/tests/test_cache_warmup.py -v
 
+## ★ W25 Day4：OpenAPI 规范化自查（端点覆盖 100% + 统一 Err + /api/v1 版本化 + 契约校验）
+test-openapi:
+	$(PYTEST) backend/tests/test_openapi_coverage.py -v
+
 ## ★ W25 Day2：kb_increment_sync 真实环境验收（临时 docs 目录；隔离 collection，不碰正式数据）
 kb-sync-smoke:
 	$(PY) -X utf8 scripts/kb_sync_smoke.py

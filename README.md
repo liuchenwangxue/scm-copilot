@@ -140,7 +140,7 @@ scm-copilot/
 - `prompts.py`：v1 全 schema 注入 / v2 Schema Linking 召回注入，`PROMPT_VERSION=v1|v2` 环境变量切换；
   时间窗口径由 `today` 驱动生成显式日期（评测传 `BASE_DATE=2026-08-18` 固定 seed 基准，防运行日漂移）；
 - `graph.py`：LangGraph 子图 `generate→validate→execute→format`，SQL 被拒时条件路由到降级话术；
-- `router.py`：`POST /api/data/query`（JWT + `data:nl2sql` 权限），响应透出 `table/sql/columns/rows/elapsed/rejected_reason`；
+- `router.py`：`POST /api/v1/data/query`（JWT + `data:nl2sql` 权限），响应透出 `table/sql/columns/rows/elapsed/rejected_reason`；
 - `service.py`：`run_nl2sql_query` 统一编排（多轮消解→子图→洞察），router 与对话入口复用；
 - `schema_linker.py`：表/列双语料 + bge-small 向量召回 Top-3 → 按相对分数裁剪注入（≥0.75×top1）；
   精简 DDL 注入（省略低价值列）+ few-shot 与召回表联动、按重叠度动态排序；
@@ -175,7 +175,7 @@ make test-nl2sql-e2e      # NL2SQL e2e 链路测试
   （支持 %/万/千/亿 量纲换算 + 1% 容差），查无出处的整条丢弃；
 - 业务字符串中的数字可溯源（供应商名"华东宏图44"里的 44 合法）、日期字符串不溯源（防编造撞上）。
 
-**对话入口 data 分支**：`/api/kb/chat` 语义路由新增 `data` 类目（查数→NL2SQL 域）：
+**对话入口 data 分支**：`/api/v1/kb/chat` 语义路由新增 `data` 类目（查数→NL2SQL 域）：
 - 规则层 4 组高置信组合模式（延迟/发货+多少、近N天+订单+多少、各区域+订单/库存、TOP N+供应商）+ 样本 kNN；
 - data 分支权限二次校验（`data:nl2sql`，viewer 无权限礼貌拒答）→ `run_nl2sql_query` → SSE `data_table` 事件
   （columns/rows/sql/insights/elapsed，前端表格 + SQL 折叠面板 + 洞察 + 反馈按钮的数据源）。
@@ -214,8 +214,8 @@ make test-nl2sql-e2e      # NL2SQL e2e 链路测试
 | `cache_warmup` `0 7` | `conversations` 昨日标题频次 TOP100 → 生产同款检索 + mock 生成 → 语义缓存预写（已命中跳过）；`{candidates/hit/warmed/failed}` 可观测 |
 
 **调度面板 API**（`app/domains/admin/scheduler_api.py`，权限 `admin:scheduler:manage`）：
-- `GET /api/admin/scheduler/jobs`：六任务 cron/desc/enabled/next_run + `last_run` + `recent_runs`（最近 5 条运行历史）
-- `POST /api/admin/scheduler/jobs/{name}/trigger`：手动触发（独立一次性 job）+ 审计 `admin.scheduler.trigger`
+- `GET /api/v1/admin/scheduler/jobs`：六任务 cron/desc/enabled/next_run + `last_run` + `recent_runs`（最近 5 条运行历史）
+- `POST /api/v1/admin/scheduler/jobs/{name}/trigger`：手动触发（独立一次性 job）+ 审计 `admin.scheduler.trigger`
 - scheduler 未启用 → 503（CI/单测环境属预期）
 
 **部署配置要点（★ W25 Day3 实测踩坑）**：

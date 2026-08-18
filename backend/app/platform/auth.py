@@ -27,7 +27,7 @@ from app.platform.audit import write_audit
 from app.platform.models import TokenBlacklist, User
 from app.platform.settings import settings
 
-router = APIRouter(prefix="/api/auth", tags=["auth"])
+router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 # Bearer 提取器（带 401 语义；`auto_error=False` 时缺头也走 401 处理）
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -165,7 +165,12 @@ async def get_current_user(
 # ==================== 端点 ====================
 
 
-@router.post("/login", response_model=schemas.TokenOut)
+@router.post(
+    "/login",
+    response_model=schemas.TokenOut,
+    summary="登录（JWT 双令牌）",
+    description="bcrypt 校验用户名密码 → 签发 access（15min）+ refresh（24h）双令牌，登录成功/失败均写审计。",
+)
 async def login(
     body: schemas.LoginIn, session: AsyncSession = Depends(get_session)
 ) -> schemas.TokenOut:
@@ -182,7 +187,7 @@ async def login(
             session,
             event="auth.login.failed",
             actor=body.username,
-            target="/api/auth/login",
+            target="/api/v1/auth/login",
             status=status.HTTP_401_UNAUTHORIZED,
             detail={"reason": "bad_credentials"},
         )
@@ -201,7 +206,7 @@ async def login(
         session,
         event="auth.login.success",
         actor=str(user.id),
-        target="/api/auth/login",
+        target="/api/v1/auth/login",
         status=status.HTTP_200_OK,
         detail={"username": user.username, "tenant": user.tenant_id},
     )
@@ -213,7 +218,12 @@ async def login(
     )
 
 
-@router.post("/refresh", response_model=schemas.TokenOut)
+@router.post(
+    "/refresh",
+    response_model=schemas.TokenOut,
+    summary="刷新令牌（rotation）",
+    description="refresh token 换取新双令牌；旧 refresh 立即吊销（rotation），回放旧 refresh 应 401。",
+)
 async def refresh(
     body: schemas.RefreshIn, session: AsyncSession = Depends(get_session)
 ) -> schemas.TokenOut:
@@ -245,7 +255,7 @@ async def refresh(
         session,
         event="auth.refresh",
         actor=str(user.id),
-        target="/api/auth/refresh",
+        target="/api/v1/auth/refresh",
         status=status.HTTP_200_OK,
     )
     await session.commit()
@@ -256,12 +266,17 @@ async def refresh(
     )
 
 
-@router.post("/logout")
+@router.post(
+    "/logout",
+    response_model=schemas.LogoutOut,
+    summary="登出（吊销当前 token）",
+    description="吊销当前 access token（jti 落名单，剩余生命周期内不可再用），写审计。",
+)
 async def logout(
     current: User = Depends(get_current_user),
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     session: AsyncSession = Depends(get_session),
-) -> dict:
+) -> schemas.LogoutOut:
     """登出：吊销当前 access token（jti 落名单，剩余生命周期内不可再用）。"""
     # `get_current_user` 已保证存在有效 token，故 credentials 必非 None（类型收窄）
     assert credentials is not None
@@ -271,8 +286,8 @@ async def logout(
         session,
         event="auth.logout",
         actor=str(current.id),
-        target="/api/auth/logout",
+        target="/api/v1/auth/logout",
         status=status.HTTP_200_OK,
     )
     await session.commit()
-    return {"detail": "logged out"}
+    return schemas.LogoutOut(detail="logged out")

@@ -55,7 +55,7 @@ def auth_headers(client):
 
     def _make(username: str | None = None):
         resp = client.post(
-            "/api/auth/login",
+            "/api/v1/auth/login",
             json={"username": username or tenant_user("admin"), "password": PLAIN_PASSWORD},
         )
         assert resp.status_code == 200, resp.text

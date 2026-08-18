@@ -20,7 +20,7 @@ def tenant_user(role: str, tenant: str = "t_huadong") -> str:
 
 def _login(client, username: str) -> dict:
     resp = client.post(
-        "/api/auth/login",
+        "/api/v1/auth/login",
         json={"username": username, "password": PLAIN_PASSWORD},
     )
     assert resp.status_code == 200, resp.text
@@ -30,10 +30,10 @@ def _login(client, username: str) -> dict:
 def test_scheduler_jobs_forbidden_for_operator(client):
     """非 admin（operator 无 admin:scheduler:manage）→ 403。"""
     headers = _login(client, tenant_user("operator"))
-    assert client.get("/api/admin/scheduler/jobs", headers=headers).status_code == 403
+    assert client.get("/api/v1/admin/scheduler/jobs", headers=headers).status_code == 403
     assert (
         client.post(
-            "/api/admin/scheduler/jobs/kb_increment_sync/trigger",
+            "/api/v1/admin/scheduler/jobs/kb_increment_sync/trigger",
             headers=headers,
         ).status_code
         == 403
@@ -43,10 +43,10 @@ def test_scheduler_jobs_forbidden_for_operator(client):
 def test_scheduler_jobs_503_when_scheduler_disabled(client):
     """调度器未启用（CI/单测环境）→ 503 而非 500（面板降级可预期）。"""
     headers = _login(client, tenant_user("admin"))
-    assert client.get("/api/admin/scheduler/jobs", headers=headers).status_code == 503
+    assert client.get("/api/v1/admin/scheduler/jobs", headers=headers).status_code == 503
     assert (
         client.post(
-            "/api/admin/scheduler/jobs/kb_increment_sync/trigger", headers=headers
+            "/api/v1/admin/scheduler/jobs/kb_increment_sync/trigger", headers=headers
         ).status_code
         == 503
     )
@@ -69,7 +69,7 @@ def test_scheduler_panel_with_real_scheduler(client):
         headers = _login(client, tenant_user("admin"))
 
         # ---- GET 面板 ----
-        resp = client.get("/api/admin/scheduler/jobs", headers=headers)
+        resp = client.get("/api/v1/admin/scheduler/jobs", headers=headers)
         assert resp.status_code == 200, resp.text
         body = resp.json()
         assert body["scheduler"]["running"] is True
@@ -88,7 +88,7 @@ def test_scheduler_panel_with_real_scheduler(client):
         }
 
         # ---- POST 手动触发（审计留痕） ----
-        resp = client.post("/api/admin/scheduler/jobs/kb_increment_sync/trigger", headers=headers)
+        resp = client.post("/api/v1/admin/scheduler/jobs/kb_increment_sync/trigger", headers=headers)
         assert resp.status_code == 200, resp.text
         assert resp.json()["ok"] is True
         assert resp.json()["audited"] is True

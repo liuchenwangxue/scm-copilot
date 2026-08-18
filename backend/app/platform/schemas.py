@@ -44,3 +44,17 @@ class UserOut(BaseModel):
     tenant_id: str
     permissions: list[str]
     model_config = {"from_attributes": True}
+
+
+class LogoutOut(BaseModel):
+    """登出响应（吊销当前 access token）。"""
+
+    detail: str
+
+
+class HealthOut(BaseModel):
+    """存活探针响应：服务与数据库连通状态 + 调度器状态。"""
+
+    status: str  # ok / degraded
+    db: str  # up / down
+    scheduler: str  # running / off

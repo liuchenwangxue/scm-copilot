@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """★ W23 Day6 压测工具：双实例 least_conn 无状态验证（登录 / kb 问答 mock / ops 查询）。
 
 相对 W22 Day5 的 load_test.py（stage3 双应用）改造点（面试可讲）：
@@ -51,9 +50,9 @@ OPS_SESSIONS = [f"ops-thread-{i:02d}" for i in range(20)]
 # ★ 反映真实平台流量（知识问答是主入口）：ops 受 checkpointer 单连接串行限制，
 #   并发下 P50~1.1s（已知设计限制，见 w23_report），故按真实占比压低其在混合流量中的份额
 SCENARIOS = [
-    ("ops_query", "/api/ops/chat", OPS_QUERY_MSGS, 0.20),
-    ("kb_tool", "/api/kb/chat", KB_TOOL_MSGS, 0.40),
-    ("kb_chat", "/api/kb/chat", KB_CHAT_MSGS, 0.40),
+    ("ops_query", "/api/v1/ops/chat", OPS_QUERY_MSGS, 0.20),
+    ("kb_tool", "/api/v1/kb/chat", KB_TOOL_MSGS, 0.40),
+    ("kb_chat", "/api/v1/kb/chat", KB_CHAT_MSGS, 0.40),
 ]
 
 
@@ -70,7 +69,7 @@ def pick_scenario(rng: random.Random):
 async def login(client: httpx.AsyncClient, base: str, username: str) -> str | None:
     """登录拿 access token（bcrypt + MySQL 校验真实链路）。失败返回 None。"""
     try:
-        r = await client.post(f"{base}/api/auth/login",
+        r = await client.post(f"{base}/api/v1/auth/login",
                               json={"username": username, "password": PLAIN_PASSWORD},
                               timeout=30)
         if r.status_code == 200:

@@ -18,8 +18,8 @@ from app.platform.models import AuditLog
 
 logger = logging.getLogger("scm.platform.audit")
 
-# 认证端点已自行落账，中间件跳过防重复
-SKIP_AUDIT_PATHS = {"/api/auth/login", "/api/auth/refresh", "/api/auth/logout"}
+# 认证端点已自行落账，中间件跳过防重复（★ W25 Day4：跟随 /api/v1 版本化前缀）
+SKIP_AUDIT_PATHS = {"/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/logout"}
 
 
 async def write_audit(

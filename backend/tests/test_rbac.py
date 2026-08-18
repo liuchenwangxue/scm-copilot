@@ -33,7 +33,7 @@ def _login_permissions(client, role: str) -> set[str]:
     from app.platform.settings import settings
 
     resp = client.post(
-        "/api/auth/login",
+        "/api/v1/auth/login",
         json={"username": tenant_user(role), "password": PLAIN_PASSWORD},
     )
     assert resp.status_code == 200, f"{role} 登录失败: {resp.text}"
@@ -103,7 +103,7 @@ def test_permission_gate_allow_deny(client, role, perm, expected):
 
     with TestClient(probe) as c:
         login = c.post(
-            "/api/auth/login",
+            "/api/v1/auth/login",
             json={"username": tenant_user(role), "password": PLAIN_PASSWORD},
         )
         headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
@@ -132,12 +132,12 @@ def test_require_any_of_admin_or_data(client):
 
     with TestClient(probe) as c:
         an = c.post(
-            "/api/auth/login",
+            "/api/v1/auth/login",
             json={"username": tenant_user("analyst"), "password": PLAIN_PASSWORD},
         )
         assert c.get("/probe/any", headers={"Authorization": f"Bearer {an.json()['access_token']}"}).status_code == 200
         vw = c.post(
-            "/api/auth/login",
+            "/api/v1/auth/login",
             json={"username": tenant_user("viewer"), "password": PLAIN_PASSWORD},
         )
         assert c.get("/probe/any", headers={"Authorization": f"Bearer {vw.json()['access_token']}"}).status_code == 403

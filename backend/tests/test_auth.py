@@ -23,7 +23,7 @@ ACCESS_TTL = 15 * 60
 def test_login_success_and_me(client):
     """admin 登录 → 双令牌 + /api/auth/me 200 返回身份。"""
     resp = client.post(
-        "/api/auth/login",
+        "/api/v1/auth/login",
         json={"username": tenant_user("admin"), "password": PLAIN_PASSWORD},
     )
     assert resp.status_code == 200
@@ -33,7 +33,7 @@ def test_login_success_and_me(client):
     assert body["expires_in"] == ACCESS_TTL
 
     headers = {"Authorization": f"Bearer {body['access_token']}"}
-    me = client.get("/api/auth/me", headers=headers)
+    me = client.get("/api/v1/auth/me", headers=headers)
     assert me.status_code == 200
     me_body = me.json()
     assert me_body["username"] == tenant_user("admin")
@@ -46,7 +46,7 @@ def test_all_tenants_can_login(client):
     """3 租户 × admin 都能登录（种子完整性）。"""
     for tenant in TENANTS:
         resp = client.post(
-            "/api/auth/login",
+            "/api/v1/auth/login",
             json={"username": tenant_user("admin", tenant), "password": PLAIN_PASSWORD},
         )
         assert resp.status_code == 200, f"{tenant} 登录失败: {resp.text}"
@@ -57,24 +57,24 @@ def test_all_tenants_can_login(client):
 
 @pytest.mark.integration
 def test_no_token_401(client):
-    resp = client.get("/api/auth/me")
+    resp = client.get("/api/v1/auth/me")
     assert resp.status_code == 401
 
 
 @pytest.mark.integration
 def test_bad_credentials_401(client):
     resp = client.post(
-        "/api/auth/login",
+        "/api/v1/auth/login",
         json={"username": tenant_user("admin"), "password": "WrongPassw0rd!"},
     )
     assert resp.status_code == 401
-    assert resp.json()["detail"] == "invalid credentials"
+    assert resp.json()["message"] == "invalid credentials"
 
 
 @pytest.mark.integration
 def test_unknown_user_401(client):
     resp = client.post(
-        "/api/auth/login", json={"username": "ghost_user", "password": "whatever"}
+        "/api/v1/auth/login", json={"username": "ghost_user", "password": "whatever"}
     )
     assert resp.status_code == 401
 
@@ -96,7 +96,7 @@ def test_tampered_token_401(client, auth_headers):
     tampered_signature = signature[:mid] + replacement + signature[mid + 1 :]
     tampered = f"{header}.{payload}.{tampered_signature}"
     assert tampered != token, "篡改后 token 不应与原文相同"
-    resp = client.get("/api/auth/me", headers={"Authorization": f"Bearer {tampered}"})
+    resp = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {tampered}"})
     assert resp.status_code == 401
 
 
@@ -110,34 +110,34 @@ def test_expired_token_401(client, auth_headers):
     payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
     payload["exp"] = -1  # 已过期
     expired = jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
-    resp = client.get("/api/auth/me", headers={"Authorization": f"Bearer {expired}"})
+    resp = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {expired}"})
     assert resp.status_code == 401
-    assert "expired" in resp.json()["detail"]
+    assert "expired" in resp.json()["message"]
 
 
 @pytest.mark.integration
 def test_refresh_token_not_valid_as_access_401(client):
     """refresh token 当 access 用应 401。"""
     login = client.post(
-        "/api/auth/login",
+        "/api/v1/auth/login",
         json={"username": tenant_user("admin"), "password": PLAIN_PASSWORD},
     )
     refresh = login.json()["refresh_token"]
-    resp = client.get("/api/auth/me", headers={"Authorization": f"Bearer {refresh}"})
+    resp = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {refresh}"})
     assert resp.status_code == 401
-    assert "not access" in resp.json()["detail"]
+    assert "not access" in resp.json()["message"]
 
 
 @pytest.mark.integration
 def test_logout_revokes_access_token(client, auth_headers):
     """登出后旧 access token 应 401（吊销名单生效）。"""
     headers = auth_headers()
-    logout = client.post("/api/auth/logout", headers=headers)
+    logout = client.post("/api/v1/auth/logout", headers=headers)
     assert logout.status_code == 200
     # 再访问受保护端点 → 已吊销
-    resp = client.get("/api/auth/me", headers=headers)
+    resp = client.get("/api/v1/auth/me", headers=headers)
     assert resp.status_code == 401
-    assert "revoked" in resp.json()["detail"]
+    assert "revoked" in resp.json()["message"]
 
 
 # ==================== 403 路径 ====================
@@ -171,13 +171,13 @@ def test_viewer_forbidden_on_admin_perm(client):
 
     with TestClient(probe) as c:
         viewer = c.post(
-            "/api/auth/login",
+            "/api/v1/auth/login",
             json={"username": tenant_user("viewer"), "password": PLAIN_PASSWORD},
         )
         vh = {"Authorization": f"Bearer {viewer.json()['access_token']}"}
         assert c.get("/probe/admin", headers=vh).status_code == 403
         # viewer 用 kb:chat 权限访问 -> 200
-        assert c.get("/api/auth/me", headers=vh).status_code == 200
+        assert c.get("/api/v1/auth/me", headers=vh).status_code == 200
 
 
 @pytest.mark.integration
@@ -206,7 +206,7 @@ def test_analyst_cannot_access_admin(client):
 
     with TestClient(probe) as c:
         an = c.post(
-            "/api/auth/login",
+            "/api/v1/auth/login",
             json={"username": tenant_user("analyst"), "password": PLAIN_PASSWORD},
         )
         ah = {"Authorization": f"Bearer {an.json()['access_token']}"}
@@ -221,20 +221,20 @@ def test_analyst_cannot_access_admin(client):
 def test_refresh_rotation_invalidates_old_refresh(client):
     """刷新后旧 refresh 作废（rotation），再用旧 refresh 应 401。"""
     login = client.post(
-        "/api/auth/login",
+        "/api/v1/auth/login",
         json={"username": tenant_user("admin"), "password": PLAIN_PASSWORD},
     )
     old_refresh = login.json()["refresh_token"]
 
-    refresh = client.post("/api/auth/refresh", json={"refresh_token": old_refresh})
+    refresh = client.post("/api/v1/auth/refresh", json={"refresh_token": old_refresh})
     assert refresh.status_code == 200
     new_tokens = refresh.json()
     assert new_tokens["access_token"]
 
     # 旧 refresh 已吊销
-    replay = client.post("/api/auth/refresh", json={"refresh_token": old_refresh})
+    replay = client.post("/api/v1/auth/refresh", json={"refresh_token": old_refresh})
     assert replay.status_code == 401
-    assert "revoked" in replay.json()["detail"]
+    assert "revoked" in replay.json()["message"]
 
 
 # ==================== 审计落库 ====================
@@ -250,12 +250,12 @@ async def test_login_audit_logged(client):
 
     # 成功登录
     client.post(
-        "/api/auth/login",
+        "/api/v1/auth/login",
         json={"username": tenant_user("admin"), "password": PLAIN_PASSWORD},
     )
     # 失败登录
     client.post(
-        "/api/auth/login",
+        "/api/v1/auth/login",
         json={"username": tenant_user("admin"), "password": "WrongPassw0rd!"},
     )
 
@@ -302,7 +302,7 @@ def test_audit_middleware_captures_non_get(client):
 
     with TestClient(probe) as c:
         admin = c.post(
-            "/api/auth/login",
+            "/api/v1/auth/login",
             json={"username": tenant_user("admin"), "password": PLAIN_PASSWORD},
         )
         headers = {"Authorization": f"Bearer {admin.json()['access_token']}"}

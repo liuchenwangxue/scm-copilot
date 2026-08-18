@@ -18,12 +18,13 @@ import json
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from app.domains.kb import config
 from app.domains.kb.agent.answer_validator import generate_with_validation
 from app.domains.kb.feedback.feedback_store import FeedbackStore
+from app.domains.kb.schemas import KbChatIn, KbFeedbackIn, KbFeedbackOut
 from app.domains.kb.security.input_sanitizer import InputSanitizer
 from app.platform import rbac
 from app.platform.audit import write_audit
@@ -33,7 +34,7 @@ from app.shared.obs import logger as obs_logger
 from app.shared.rag.semantic_cache import SemanticCache
 from app.shared.rag.semantic_router import SemanticRouter, log_route
 
-router = APIRouter(prefix="/api/kb", tags=["kb"])
+router = APIRouter(prefix="/api/v1/kb", tags=["kb"])
 
 # 结构化日志（平台 main 已统一初始化 obs，此处取 logger）
 _log = obs_logger.get_logger("kb")
@@ -129,15 +130,50 @@ def _ss(data: dict) -> str:
 # ==================== 路由 ====================
 
 
-@router.post("/chat")
+# ★ W25 Day4：SSE 端点的 200 响应描述经 `responses` 参数声明（FastAPI 合并时覆盖
+#   自动生成的默认 200，openapi_extra 的 responses 会被生成的覆盖——手册坑）
+_SSE_RESPONSES_200: dict = {
+    200: {
+        "description": (
+            "SSE 流（text/event-stream），事件协议：\n"
+            "- progress:  {type, node, data:{result}}——链路节点进展\n"
+            "- message:   {type, role, content, delta, session_id}——打字机增量\n"
+            "- citations: {type, citations, retrieved_docs, validation, source?, session_id}——引用溯源\n"
+            "- data_table:{type, columns, rows, sql, insights, ...}——★ W24 Day6 查数表格事件\n"
+            "- done:      {type}——流结束；error: {type, error}——链路异常"
+        ),
+        "content": {
+            "text/event-stream": {
+                "schema": {"type": "string"},
+                "example": (
+                    'data: {"type":"progress","node":"retrieve",'
+                    '"data":{"result":"混合检索命中 3 个候选"}}\n\n'
+                ),
+            }
+        },
+    }
+}
+
+
+@router.post(
+    "/chat",
+    response_class=StreamingResponse,
+    summary="知识问答（SSE 流式）",
+    description=(
+        "混合检索（BM25+向量+RRF+重排）→ 生成+双校验（CRAG/缺失回退）→ 流式回答 + 引用溯源。"
+        "事件协议见下方 200 响应描述（progress/message/citations/data_table/done/error）。"
+        "需要权限 kb:chat。"
+    ),
+    responses=_SSE_RESPONSES_200,
+)
 async def chat(
     request: Request,
     current: Annotated[User, Depends(rbac.require_permission("kb:chat"))],
+    body: KbChatIn,
 ):
     """SSE 流式问答（progress → message → citations → done）。需要权限 kb:chat。"""
-    body = await request.json()
-    message = (body.get("message") or "").strip()
-    session_id = body.get("session_id") or str(uuid.uuid4())
+    message = body.message.strip()
+    session_id = body.session_id or str(uuid.uuid4())
     if not message:
         return JSONResponse({"ok": False, "error": "message required"}, status_code=400)
     if len(message) > 2000:
@@ -328,7 +364,7 @@ async def chat(
             obs_logger.log_event(_log, "chat_error", level="error",
                                  request_id=request_id, session_id=session_id,
                                  error=f"{type(e).__name__}: {str(e)[:120]}")
-            print(f"[kb] /api/kb/chat 异常: {type(e).__name__}: {str(e)[:200]}")
+            print(f"[kb] /api/v1/kb/chat 异常: {type(e).__name__}: {str(e)[:200]}")
             yield _ss({"type": "error", "error": str(e)[:200]})
             yield _ss({"type": "done"})
 
@@ -338,28 +374,36 @@ async def chat(
     return response
 
 
-@router.post("/feedback")
+@router.post(
+    "/feedback",
+    response_model=KbFeedbackOut,
+    summary="引用纠错反馈",
+    description="点赞/纠错 → 待审核 → 管理员审核 → 回流评测集 v2。需要权限 kb:feedback。",
+)
 async def feedback(
     request: Request,
     current: Annotated[User, Depends(rbac.require_permission("kb:feedback"))],
-):
+    body: KbFeedbackIn,
+) -> KbFeedbackOut:
     """反馈闭环：点赞/纠错 → 待审核 → 管理员审核 → 回流评测集 v2。需要权限 kb:feedback。
 
     ★ 平台化：原 stage3 的 admin/operator 角色限制升级为权限码 `kb:feedback`
       （仅 admin/operator 拥有，viewer 403——RBAC 矩阵语义不变）。
     """
-    body = await request.json()
     try:
         rec = feedback_store.submit(
             user_id=current.username,  # 写操作身份来自 token（防伪造）
-            question=(body.get("question") or "").strip(),
-            action=body.get("action", "like"),
-            original_answer=body.get("original_answer", ""),
-            corrected_answer=body.get("corrected_answer", ""),
-            correct_doc_ids=body.get("correct_doc_ids") or [],
-            qa_id=body.get("qa_id", ""),
+            question=body.question.strip(),
+            action=body.action,
+            original_answer=body.original_answer,
+            corrected_answer=body.corrected_answer,
+            correct_doc_ids=body.correct_doc_ids,
+            qa_id=body.qa_id,
         )
         await _audit(request, "feedback_submitted", f"action={rec['action']}")
-        return {"ok": True, "feedback_id": rec["feedback_id"], "status": rec["status"]}
+        return KbFeedbackOut(
+            ok=True, feedback_id=rec["feedback_id"], status=rec["status"]
+        )
     except ValueError as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+        # ★ W25 Day4：业务校验错误走统一 Err 契约（BAD_REQUEST_400）
+        raise HTTPException(status_code=400, detail=str(e)) from e

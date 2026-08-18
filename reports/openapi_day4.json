@@ -1,0 +1,2713 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "SCM Copilot",
+    "version": "0.3.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "ops"
+        ],
+        "summary": "存活探针",
+        "description": "返回服务与数据库连通状态 + 调度器状态（deploy compose healthcheck 用）。",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证 / 凭证无效 / 过期 / 已吊销",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "已认证但权限码未命中",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "限流 / API Key 配额超限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "依赖服务不可用（如调度器）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Me",
+        "description": "返回当前登录用户（权限来自 JWT claims，不查库）——受保护端点示例。",
+        "operationId": "me_api_v1_auth_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证 / 凭证无效 / 过期 / 已吊销",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "已认证但权限码未命中",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "限流 / API Key 配额超限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "依赖服务不可用（如调度器）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "登录（JWT 双令牌）",
+        "description": "bcrypt 校验用户名密码 → 签发 access（15min）+ refresh（24h）双令牌，登录成功/失败均写审计。",
+        "operationId": "login_api_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证 / 凭证无效 / 过期 / 已吊销",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "已认证但权限码未命中",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "限流 / API Key 配额超限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "依赖服务不可用（如调度器）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "刷新令牌（rotation）",
+        "description": "refresh token 换取新双令牌；旧 refresh 立即吊销（rotation），回放旧 refresh 应 401。",
+        "operationId": "refresh_api_v1_auth_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证 / 凭证无效 / 过期 / 已吊销",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "已认证但权限码未命中",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "限流 / API Key 配额超限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "依赖服务不可用（如调度器）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "登出（吊销当前 token）",
+        "description": "吊销当前 access token（jti 落名单，剩余生命周期内不可再用），写审计。",
+        "operationId": "logout_api_v1_auth_logout_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证 / 凭证无效 / 过期 / 已吊销",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "已认证但权限码未命中",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "限流 / API Key 配额超限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "依赖服务不可用（如调度器）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/kb/chat": {
+      "post": {
+        "tags": [
+          "kb"
+        ],
+        "summary": "知识问答（SSE 流式）",
+        "description": "混合检索（BM25+向量+RRF+重排）→ 生成+双校验（CRAG/缺失回退）→ 流式回答 + 引用溯源。事件协议见下方 200 响应描述（progress/message/citations/data_table/done/error）。需要权限 kb:chat。",
+        "operationId": "chat_api_v1_kb_chat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KbChatIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "SSE 流（text/event-stream），事件协议：\n- progress:  {type, node, data:{result}}——链路节点进展\n- message:   {type, role, content, delta, session_id}——打字机增量\n- citations: {type, citations, retrieved_docs, validation, source?, session_id}——引用溯源\n- data_table:{type, columns, rows, sql, insights, ...}——★ W24 Day6 查数表格事件\n- done:      {type}——流结束；error: {type, error}——链路异常",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "data: {\"type\":\"progress\",\"node\":\"retrieve\",\"data\":{\"result\":\"混合检索命中 3 个候选\"}}\n\n"
+              }
+            }
+          },
+          "401": {
+            "description": "未认证 / 凭证无效 / 过期 / 已吊销",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "已认证但权限码未命中",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "限流 / API Key 配额超限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "依赖服务不可用（如调度器）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/kb/feedback": {
+      "post": {
+        "tags": [
+          "kb"
+        ],
+        "summary": "引用纠错反馈",
+        "description": "点赞/纠错 → 待审核 → 管理员审核 → 回流评测集 v2。需要权限 kb:feedback。",
+        "operationId": "feedback_api_v1_kb_feedback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KbFeedbackIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbFeedbackOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证 / 凭证无效 / 过期 / 已吊销",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "已认证但权限码未命中",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "限流 / API Key 配额超限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "依赖服务不可用（如调度器）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ops/chat": {
+      "post": {
+        "tags": [
+          "ops"
+        ],
+        "summary": "业务对话（SSE 流式）",
+        "description": "意图识别 → 审批门 → 执行 → 回答。高危操作在 approval_gate 中断并推送 approval_request 事件（HITL），前端展示审批表单后调 POST /api/v1/ops/approval 恢复。事件协议：progress / approval_request / message / done / error。需要权限 ops:tool:execute。",
+        "operationId": "chat_api_v1_ops_chat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpsChatIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "SSE 流（text/event-stream）：\n- progress:         {type, node, data:{result}}——intent/approval_gate/execute/respond 节点\n- approval_request: {type, approval_id, form, session_id}——HITL 审批表单\n- message:          {type, role, content, delta, session_id}——打字机增量\n- done / error:     流结束 / 链路异常",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "data: {\"type\":\"progress\",\"node\":\"intent\",\"data\":{\"result\":\"识别意图：改单\"}}\n\n"
+              }
+            }
+          },
+          "401": {
+            "description": "未认证 / 凭证无效 / 过期 / 已吊销",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "已认证但权限码未命中",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "限流 / API Key 配额超限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "依赖服务不可用（如调度器）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ops/approval": {
+      "post": {
+        "tags": [
+          "ops"
+        ],
+        "summary": "审批决策（HITL 恢复）",
+        "description": "批准/拒绝高危操作，Command(resume) 恢复 LangGraph 图继续执行。需要权限 ops:approval:manage。",
+        "operationId": "approval_action_api_v1_ops_approval_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApprovalIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证 / 凭证无效 / 过期 / 已吊销",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "已认证但权限码未命中",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "限流 / API Key 配额超限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "依赖服务不可用（如调度器）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ops/report": {
+      "post": {
+        "tags": [
+          "ops"
+        ],
+        "summary": "异步报表（入队削峰）",
+        "description": "立即返回 task_id，worker 后台生成；队列不可用 → 同步降级返回 result。需要权限 ops:tool:execute。",
+        "operationId": "report_async_api_v1_ops_report_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportEnqueueOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证 / 凭证无效 / 过期 / 已吊销",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "已认证但权限码未命中",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "限流 / API Key 配额超限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "依赖服务不可用（如调度器）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ops/report/sync": {
+      "post": {
+        "tags": [
+          "ops"
+        ],
+        "summary": "同步报表",
+        "description": "直接生成返回（不削峰，对比/调试用）。需要权限 ops:tool:execute。",
+        "operationId": "report_sync_api_v1_ops_report_sync_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportSyncOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证 / 凭证无效 / 过期 / 已吊销",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "已认证但权限码未命中",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "限流 / API Key 配额超限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "依赖服务不可用（如调度器）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ops/report/{task_id}": {
+      "get": {
+        "tags": [
+          "ops"
+        ],
+        "summary": "轮询异步报表结果",
+        "description": "finished → result（展开进顶层）；未完成 → {ready: false, status}。",
+        "operationId": "report_status_api_v1_ops_report__task_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportStatusOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证 / 凭证无效 / 过期 / 已吊销",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "已认证但权限码未命中",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "限流 / API Key 配额超限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "依赖服务不可用（如调度器）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data/query": {
+      "post": {
+        "tags": [
+          "data"
+        ],
+        "summary": "NL2SQL 查询",
+        "description": "自然语言 →（多轮消解）→ SQL（sqlglot 四道闸 + 错误自修复）→ 只读沙箱执行 → 表格 + 洞察。需要权限 data:nl2sql。返回契约见响应模型（含 insights 洞察摘要、repair_log 修复轨迹）。",
+        "operationId": "data_query_api_v1_data_query_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Nl2SqlIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Nl2SqlOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证 / 凭证无效 / 过期 / 已吊销",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "已认证但权限码未命中",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "限流 / API Key 配额超限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "依赖服务不可用（如调度器）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/data/query/{query_id}/feedback": {
+      "post": {
+        "tags": [
+          "data"
+        ],
+        "summary": "SQL 纠错样本回流",
+        "description": "SQL 纠错样本回流（feedback 表 fb_type='sql'）——W25 eval_nightly 回流评测集。",
+        "operationId": "data_feedback_api_v1_data_query__query_id__feedback_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "query_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Query Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataFeedbackIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataFeedbackOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证 / 凭证无效 / 过期 / 已吊销",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "已认证但权限码未命中",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "限流 / API Key 配额超限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "依赖服务不可用（如调度器）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/scheduler/jobs": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "调度任务面板",
+        "description": "六任务定义 + 调度状态 + 最近运行历史（job_runs；零重复观测依据）。需要 admin:scheduler:manage。",
+        "operationId": "list_scheduler_jobs_api_v1_admin_scheduler_jobs_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchedulerJobsOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证 / 凭证无效 / 过期 / 已吊销",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "已认证但权限码未命中",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "限流 / API Key 配额超限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "依赖服务不可用（如调度器）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/scheduler/jobs/{name}/trigger": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "手动触发调度任务",
+        "description": "手动触发任务（写审计；触发的是独立一次性 job，原 cron 不受影响）。需要 admin:scheduler:manage。",
+        "operationId": "trigger_scheduler_job_api_v1_admin_scheduler_jobs__name__trigger_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchedulerTriggerOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证 / 凭证无效 / 过期 / 已吊销",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "已认证但权限码未命中",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "限流 / API Key 配额超限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "依赖服务不可用（如调度器）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Err"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ApprovalIn": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "title": "Session Id",
+            "description": "HITL 会话标识"
+          },
+          "approval_id": {
+            "type": "string",
+            "title": "Approval Id",
+            "description": "审批单 ID（approval_request 事件下发）"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "approve",
+              "reject"
+            ],
+            "title": "Decision",
+            "description": "批准 / 拒绝"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "description": "审批意见",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "approval_id",
+          "decision"
+        ],
+        "title": "ApprovalIn",
+        "description": "HITL 审批决策请求体。"
+      },
+      "ApprovalOut": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "approval_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Id"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision"
+          },
+          "reply": {
+            "type": "string",
+            "title": "Reply",
+            "description": "执行后的自然语言回复",
+            "default": ""
+          },
+          "degraded": {
+            "type": "boolean",
+            "title": "Degraded",
+            "default": false
+          },
+          "tool_result": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Result"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok"
+        ],
+        "title": "ApprovalOut",
+        "description": "审批决策响应（resume LangGraph 图后的执行结果）。"
+      },
+      "DataFeedbackIn": {
+        "properties": {
+          "sql": {
+            "type": "string",
+            "title": "Sql",
+            "description": "实际执行/待纠错的 SQL"
+          },
+          "question": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question",
+            "description": "对应自然语言问题"
+          },
+          "correction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correction",
+            "description": "人工纠正说明"
+          },
+          "is_correct": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Correct",
+            "description": "SQL 是否正确"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sql"
+        ],
+        "title": "DataFeedbackIn",
+        "description": "SQL 纠错样本回流请求体。"
+      },
+      "DataFeedbackOut": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "feedback_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feedback Id"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok"
+        ],
+        "title": "DataFeedbackOut",
+        "description": "反馈回流响应（落库失败返回 ok=false + error，不阻断主链路）。"
+      },
+      "Err": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code",
+            "description": "机器可读错误码，如 AUTH_401 / QUOTA_429"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "人类可读错误说明"
+          },
+          "trace_id": {
+            "type": "string",
+            "title": "Trace Id",
+            "description": "贯穿一次请求的 request_id（排查定位用）"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "trace_id"
+        ],
+        "title": "Err",
+        "description": "统一错误响应体（OpenAPI `responses={401: {\"model\": Err}, ...}` 引用）。"
+      },
+      "HealthOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "db": {
+            "type": "string",
+            "title": "Db"
+          },
+          "scheduler": {
+            "type": "string",
+            "title": "Scheduler"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "db",
+          "scheduler"
+        ],
+        "title": "HealthOut",
+        "description": "存活探针响应：服务与数据库连通状态 + 调度器状态。"
+      },
+      "JobRunOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "success / skipped / failed"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          },
+          "instance": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instance",
+            "description": "执行实例（backend-a1/a2）"
+          },
+          "trigger": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trigger",
+            "description": "cron / manual"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "JobRunOut",
+        "description": "单次任务运行记录（job_runs 一行，零重复观测依据）。"
+      },
+      "KbChatIn": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "用户问题（服务端限制 ≤2000 字符）"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id",
+            "description": "会话标识；缺省服务端生成"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "KbChatIn",
+        "description": "知识问答请求体（SSE 流式）。\n\n长度限制由服务端显式校验（空消息/超 2000 字符 → 400），不在模型层强制\n（保持与既有行为一致；模型层只做结构契约）。"
+      },
+      "KbFeedbackIn": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "title": "Question",
+            "description": "原始问题"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "like",
+              "dislike",
+              "correct"
+            ],
+            "title": "Action",
+            "description": "反馈动作",
+            "default": "like"
+          },
+          "original_answer": {
+            "type": "string",
+            "title": "Original Answer",
+            "description": "原回答",
+            "default": ""
+          },
+          "corrected_answer": {
+            "type": "string",
+            "title": "Corrected Answer",
+            "description": "纠正后的回答",
+            "default": ""
+          },
+          "correct_doc_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Correct Doc Ids",
+            "description": "正确引用文档 id"
+          },
+          "qa_id": {
+            "type": "string",
+            "title": "Qa Id",
+            "description": "关联问答 id",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "title": "KbFeedbackIn",
+        "description": "引用纠错反馈请求体（点赞/纠错 → 待审核 → 回流评测集 v2）。"
+      },
+      "KbFeedbackOut": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "feedback_id": {
+            "type": "string",
+            "title": "Feedback Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "feedback_id",
+          "status"
+        ],
+        "title": "KbFeedbackOut",
+        "description": "反馈提交响应。"
+      },
+      "LoginIn": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 72,
+            "minLength": 1,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "LoginIn",
+        "description": "登录请求体。\n\n密码长度限制在 bcrypt 72 字节输入上限内（手册坑：超长会 silent truncate，\n登录校验前先拒绝，避免\"短密码能过、长密码被截断成同一 hash\"的时序风险）。"
+      },
+      "LogoutOut": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "LogoutOut",
+        "description": "登出响应（吊销当前 access token）。"
+      },
+      "Nl2SqlIn": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "title": "Question",
+            "description": "自然语言问题"
+          },
+          "today": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Today",
+            "description": "基准日期（YYYY-MM-DD）；缺省用评测基日，跨月/跨年交给 MySQL"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id",
+            "description": "多轮会话标识；携带则做指代消解"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "title": "Nl2SqlIn",
+        "description": "NL2SQL 查询请求体。\n\n空 question 由服务端显式校验 → 400（模型层不做长度强制，保持既有行为）。"
+      },
+      "Nl2SqlOut": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "default": true
+          },
+          "question": {
+            "type": "string",
+            "title": "Question",
+            "description": "原始问题"
+          },
+          "resolved_question": {
+            "type": "string",
+            "title": "Resolved Question",
+            "description": "指代消解后的完整问题（无会话 = 原问题）"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id",
+            "description": "多轮会话标识"
+          },
+          "table": {
+            "type": "boolean",
+            "title": "Table",
+            "description": "是否返回表格（false = 拒答/降级）"
+          },
+          "sql": {
+            "type": "string",
+            "title": "Sql",
+            "description": "实际执行的 SQL（100% 透出）"
+          },
+          "columns": {
+            "items": {},
+            "type": "array",
+            "title": "Columns",
+            "description": "列名"
+          },
+          "rows": {
+            "items": {},
+            "type": "array",
+            "title": "Rows",
+            "description": "行数据（已规范化类型）"
+          },
+          "elapsed": {
+            "type": "number",
+            "title": "Elapsed",
+            "description": "执行耗时 ms"
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated",
+            "description": "是否因行数/字节上限被截断"
+          },
+          "rejected_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejected Reason",
+            "description": "被四道闸拒绝的原因"
+          },
+          "reply": {
+            "type": "string",
+            "title": "Reply",
+            "description": "自然语言回复（摘要/拒答/降级话术）"
+          },
+          "insights": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Insights",
+            "description": "结果洞察摘要（≤3 条）"
+          },
+          "repair_attempts": {
+            "type": "integer",
+            "title": "Repair Attempts",
+            "description": "错误自修复次数（0 = 未修复）",
+            "default": 0
+          },
+          "repair_log": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Repair Log",
+            "description": "修复轨迹（generate→error→repair 可回放）"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question",
+          "resolved_question",
+          "table",
+          "sql",
+          "elapsed",
+          "truncated",
+          "reply"
+        ],
+        "title": "Nl2SqlOut",
+        "description": "NL2SQL 统一响应（表格 + SQL + 洞察；100% 透出 SQL 可审计可纠错）。"
+      },
+      "OpsChatIn": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "业务指令（查单/改单/报表等）"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id",
+            "description": "会话标识；缺省服务端生成"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "OpsChatIn",
+        "description": "业务对话请求体（SSE 流式）。"
+      },
+      "RefreshIn": {
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "refresh_token"
+        ],
+        "title": "RefreshIn",
+        "description": "refresh 请求体。"
+      },
+      "ReportEnqueueOut": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
+          },
+          "async": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Async",
+            "description": "是否异步入队"
+          },
+          "sync": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sync"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok"
+        ],
+        "title": "ReportEnqueueOut",
+        "description": "异步报表入队响应（队列不可用时同步降级返回 result）。"
+      },
+      "ReportIn": {
+        "properties": {
+          "report_type": {
+            "type": "string",
+            "enum": [
+              "inventory",
+              "reconciliation"
+            ],
+            "title": "Report Type",
+            "default": "inventory"
+          },
+          "from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From",
+            "description": "起始日期 YYYY-MM-DD"
+          },
+          "to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To",
+            "description": "截止日期 YYYY-MM-DD"
+          }
+        },
+        "type": "object",
+        "title": "ReportIn",
+        "description": "报表请求体（async / sync 共用）。"
+      },
+      "ReportStatusOut": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "default": true
+          },
+          "ready": {
+            "type": "boolean",
+            "title": "Ready",
+            "default": false
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "ReportStatusOut",
+        "description": "异步报表轮询响应（finished 时展开 result 字段，extra 放行）。"
+      },
+      "ReportSyncOut": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok"
+        ],
+        "title": "ReportSyncOut",
+        "description": "同步报表响应。"
+      },
+      "SchedulerJobOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "cron": {
+            "type": "string",
+            "title": "Cron",
+            "description": "cron 表达式"
+          },
+          "desc": {
+            "type": "string",
+            "title": "Desc"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "description": "是否已注册到调度器"
+          },
+          "next_run_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Run Time"
+          },
+          "last_run": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobRunOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recent_runs": {
+            "items": {
+              "$ref": "#/components/schemas/JobRunOut"
+            },
+            "type": "array",
+            "title": "Recent Runs",
+            "description": "最近 5 条运行"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "cron",
+          "desc",
+          "enabled"
+        ],
+        "title": "SchedulerJobOut",
+        "description": "调度任务定义 + 调度状态 + 最近运行。"
+      },
+      "SchedulerJobsOut": {
+        "properties": {
+          "scheduler": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Scheduler",
+            "description": "{running, instance, timezone}"
+          },
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/SchedulerJobOut"
+            },
+            "type": "array",
+            "title": "Jobs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scheduler",
+          "jobs"
+        ],
+        "title": "SchedulerJobsOut",
+        "description": "任务面板响应。"
+      },
+      "SchedulerTriggerOut": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "job": {
+            "type": "string",
+            "title": "Job"
+          },
+          "triggered": {
+            "type": "boolean",
+            "title": "Triggered"
+          },
+          "audited": {
+            "type": "boolean",
+            "title": "Audited"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "job",
+          "triggered",
+          "audited"
+        ],
+        "title": "SchedulerTriggerOut",
+        "description": "手动触发响应（触发的是独立一次性 job，不覆盖原 cron）。"
+      },
+      "TokenOut": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "default": "bearer"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "refresh_token",
+          "expires_in"
+        ],
+        "title": "TokenOut",
+        "description": "双令牌返回：短效 access + 长效 refresh（泄露窗口 vs 体验的平衡）。"
+      },
+      "UserOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "tenant_id": {
+            "type": "string",
+            "title": "Tenant Id"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Permissions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "tenant_id",
+          "permissions"
+        ],
+        "title": "UserOut",
+        "description": "受保护端点回显当前用户（权限来自 JWT claims，不查库）。"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

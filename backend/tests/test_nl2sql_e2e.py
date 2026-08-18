@@ -165,7 +165,7 @@ def test_data_query_requires_permission():
 
     with TestClient(app) as c:
         # 未登录 → 401（全局 JWT 门禁）
-        resp = c.post("/api/data/query", json={"question": "华东区域有多少订单？"})
+        resp = c.post("/api/v1/data/query", json={"question": "华东区域有多少订单？"})
         assert resp.status_code in (401, 403)
         # viewer 无 data:nl2sql → 403（seeded 环境）
         # analyst 有 data:nl2sql → 走 mock 链路返回表格（seeded 环境）
@@ -188,14 +188,14 @@ async def test_api_query_success_with_token():
 
     with TestClient(app) as c:
         login = c.post(
-            "/api/auth/login",
+            "/api/v1/auth/login",
             json={"username": "analyst_t_huadong", "password": "Passw0rd!"},
         )
         if login.status_code != 200:
             pytest.skip("scm_platform 未 seed analyst 用户，跳过 200 正例")
         token = login.json()["access_token"]
         resp = c.post(
-            "/api/data/query",
+            "/api/v1/data/query",
             json={"question": "华东区域有多少订单？"},
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -278,14 +278,14 @@ async def test_kb_chat_data_branch_streams_data_table():
 
     with TestClient(app) as c:
         login = c.post(
-            "/api/auth/login",
+            "/api/v1/auth/login",
             json={"username": "analyst_t_huadong", "password": "Passw0rd!"},
         )
         if login.status_code != 200:
             pytest.skip("scm_platform 未 seed analyst 用户，跳过对话入口正例")
         token = login.json()["access_token"]
         resp = c.post(
-            "/api/kb/chat",
+            "/api/v1/kb/chat",
             json={"message": "近30天延迟发货的订单有多少"},
             headers={"Authorization": f"Bearer {token}"},
         )

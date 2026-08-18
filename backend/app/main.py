@@ -24,6 +24,7 @@ from app.domains.kb import router as kb_router
 from app.domains.ops import router as ops_router
 from app.platform import auth, rbac, schemas
 from app.platform.audit import AuditMiddleware
+from app.platform.errors import Err, ErrorCode, register_error_handlers
 from app.platform.models import User
 from app.platform.scheduler import PlatformScheduler
 from app.platform.settings import settings
@@ -32,7 +33,8 @@ from app.platform.settings import settings
 WHITELIST_PREFIXES = ("/health", "/docs", "/redoc", "/openapi.json", "/metrics")
 
 # 认证端点自身不需要 access token（login 换取、refresh 用 refresh token），全局门禁跳过
-OPEN_AUTH_PATHS = ("/api/auth/login", "/api/auth/refresh")
+# ★ W25 Day4：API 版本化后全局放行路径跟随 /api/v1 前缀
+OPEN_AUTH_PATHS = ("/api/v1/auth/login", "/api/v1/auth/refresh")
 
 
 @asynccontextmanager
@@ -101,11 +103,24 @@ async def global_auth(request: Request) -> User | None:
 
 app = FastAPI(
     title=settings.app_name,
-    version="0.2.0",
+    version="0.3.0",
     lifespan=lifespan,
     # 全局门禁：除白名单外，所有请求必须有有效 access token
     dependencies=[Depends(global_auth)],
+    # ★ W25 Day4：OpenAPI 统一错误契约——所有 4xx/5xx 响应模型声明为 Err
+    responses={
+        401: {"model": Err, "description": "未认证 / 凭证无效 / 过期 / 已吊销"},
+        403: {"model": Err, "description": "已认证但权限码未命中"},
+        404: {"model": Err, "description": "资源不存在"},
+        422: {"model": Err, "description": "请求参数校验失败"},
+        429: {"model": Err, "description": "限流 / API Key 配额超限"},
+        500: {"model": Err, "description": "服务内部错误"},
+        503: {"model": Err, "description": "依赖服务不可用（如调度器）"},
+    },
 )
+
+# ★ W25 Day4：统一错误响应（code / message / trace_id）运行时格式化
+register_error_handlers(app)
 
 # ==================== 中间件 ====================
 
@@ -147,8 +162,14 @@ app.add_middleware(RequestIdMiddleware)
 # ==================== 路由 ====================
 
 
-@app.get("/health", tags=["ops"])
-async def health() -> dict:
+@app.get(
+    "/health",
+    response_model=schemas.HealthOut,
+    tags=["ops"],
+    summary="存活探针",
+    description="返回服务与数据库连通状态 + 调度器状态（deploy compose healthcheck 用）。",
+)
+async def health() -> schemas.HealthOut:
     """存活探针：返回服务与数据库连通状态 + 调度器状态（W25 Day1）。"""
     db_status = "up"
     try:
@@ -157,14 +178,14 @@ async def health() -> dict:
     except Exception:
         db_status = "down"
     scheduler = getattr(app.state, "scheduler", None)
-    return {
-        "status": "ok" if db_status == "up" else "degraded",
-        "db": db_status,
-        "scheduler": "running" if scheduler is not None and scheduler.running else "off",
-    }
+    return schemas.HealthOut(
+        status="ok" if db_status == "up" else "degraded",
+        db=db_status,
+        scheduler="running" if scheduler is not None and scheduler.running else "off",
+    )
 
 
-@app.get("/api/auth/me", response_model=schemas.UserOut, tags=["auth"])
+@app.get("/api/v1/auth/me", response_model=schemas.UserOut, tags=["auth"])
 async def me(current: User = Depends(rbac.require_permission("kb:chat"))) -> schemas.UserOut:
     """返回当前登录用户（权限来自 JWT claims，不查库）——受保护端点示例。"""
     return schemas.UserOut(

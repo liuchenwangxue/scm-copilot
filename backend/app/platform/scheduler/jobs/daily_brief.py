@@ -315,7 +315,7 @@ async def _push_to_subscribers(
                     type="daily_brief",
                     title=title,
                     content=summary[:500],
-                    link="/api/admin/scheduler/jobs/daily_brief",
+                    link="/api/v1/admin/scheduler/jobs/daily_brief",
                 )
             )
             notified.append(str(username))
