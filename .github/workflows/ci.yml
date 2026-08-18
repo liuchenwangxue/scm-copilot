@@ -59,6 +59,13 @@ jobs:
         run: |
           python -m pytest backend/tests/test_sql_validator.py backend/tests/test_attack_cases.py -q
 
+      # ★ W24 Day3：NL2SQL 生成链路快速验证（纯逻辑，无需 DB）：
+      #   prompt 模板可构建、mock 生成器可加载评测集
+      - name: nl2sql prompts + mock generator sanity
+        run: |
+          python -X utf8 -c "from app.domains.data.prompts import build_nl2sql_messages; msgs=build_nl2sql_messages('华东区域有多少订单？'); assert len(msgs)==2 and 'orders' in msgs[1]['content']"
+          python -X utf8 -c "from app.domains.data.mock_sql import MockSQLGenerator; g=MockSQLGenerator(); assert g.loaded_count>=50; print('mock gen loaded', g.loaded_count)"
+
       # 平台库 schema 合法 + 种子可重放（保证 PR 合并前 schema 一定可用）
       - name: alembic migrate + seed (platform)
         run: |

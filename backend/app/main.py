@@ -18,6 +18,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from starlette.datastructures import MutableHeaders
 
+from app.domains.data import router as data_router
 from app.domains.kb import router as kb_router
 from app.domains.ops import router as ops_router
 from app.platform import auth, rbac, schemas
@@ -149,3 +150,5 @@ app.include_router(auth.router)
 # 每个请求带身份（JWT）、每个状态有归宿（MySQL/Redis）、实例可替换（Day6 无状态）。
 app.include_router(kb_router.router)
 app.include_router(ops_router.router)
+# ==================== W24 Day3：数据分析域（NL2SQL） ====================
+app.include_router(data_router.router)

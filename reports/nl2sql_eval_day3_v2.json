@@ -1,0 +1,1395 @@
+{
+  "summary": {
+    "provider": "mock",
+    "base_date": "2026-08-18",
+    "total": 50,
+    "overall": {
+      "total": 50,
+      "correct": 48,
+      "accuracy": 0.96,
+      "rejected": 0,
+      "exec_error": 2
+    },
+    "single": {
+      "total": 30,
+      "correct": 30,
+      "accuracy": 1.0,
+      "rejected": 0,
+      "exec_error": 0
+    },
+    "join": {
+      "total": 20,
+      "correct": 18,
+      "accuracy": 0.9,
+      "rejected": 0,
+      "exec_error": 2
+    },
+    "elapsed_s": 0.93
+  },
+  "records": [
+    {
+      "id": 1,
+      "layer": "single",
+      "category": "filter-region",
+      "question": "华东区域有多少订单？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region='华东'",
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region='华东'",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          3478
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 2,
+      "layer": "single",
+      "category": "filter-region-status",
+      "question": "华北区域已支付的订单有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region='华北' AND status='paid'",
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region='华北' AND status='paid'",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          518
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 3,
+      "layer": "single",
+      "category": "filter-region-status",
+      "question": "华南区域已发货的订单有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region='华南' AND status='shipped'",
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region='华南' AND status='shipped'",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          1034
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 4,
+      "layer": "single",
+      "category": "filter-region-status",
+      "question": "西南区域已完成的订单有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region='西南' AND status='done'",
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE region='西南' AND status='done'",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          453
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 5,
+      "layer": "single",
+      "category": "filter-status",
+      "question": "已取消的订单有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE status='cancelled'",
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE status='cancelled'",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          532
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 6,
+      "layer": "single",
+      "category": "filter-window",
+      "question": "近7天创建了多少订单？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-08-11'",
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-08-11'",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          1067
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 7,
+      "layer": "single",
+      "category": "filter-window",
+      "question": "近30天创建了多少订单？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-07-19'",
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-07-19'",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          4163
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 8,
+      "layer": "single",
+      "category": "filter-window-region-status",
+      "question": "近30天华东区域已支付的订单有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-07-19' AND region='华东' AND status='paid'",
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-07-19' AND region='华东' AND status='paid'",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          257
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 9,
+      "layer": "single",
+      "category": "topn",
+      "question": "金额最高的前5个订单的订单号和金额？",
+      "gold_sql": "SELECT order_no, amount FROM orders ORDER BY amount DESC LIMIT 5",
+      "gen_sql": "SELECT order_no, amount FROM orders ORDER BY amount DESC LIMIT 5",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "order_no",
+        "amount"
+      ],
+      "gen_rows": [
+        [
+          "SO-20260605-0026",
+          869042.4
+        ],
+        [
+          "SO-20260423-0021",
+          805068.4
+        ],
+        [
+          "SO-20260817-0012",
+          761681.8
+        ],
+        [
+          "SO-20260510-0017",
+          760038.2
+        ],
+        [
+          "SO-20260321-0029",
+          758858.0
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 10,
+      "layer": "single",
+      "category": "distinct-count",
+      "question": "共有多少个不同的区域？",
+      "gold_sql": "SELECT COUNT(DISTINCT region) AS cnt FROM orders",
+      "gen_sql": "SELECT COUNT(DISTINCT region) AS cnt FROM orders",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          4
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 11,
+      "layer": "single",
+      "category": "groupby",
+      "question": "各区域的订单数量？",
+      "gold_sql": "SELECT region, COUNT(*) AS cnt FROM orders GROUP BY region ORDER BY region",
+      "gen_sql": "SELECT region, COUNT(*) AS cnt FROM orders GROUP BY region ORDER BY region",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          "华东",
+          3478
+        ],
+        [
+          "华北",
+          2482
+        ],
+        [
+          "华南",
+          2547
+        ],
+        [
+          "西南",
+          1493
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 12,
+      "layer": "single",
+      "category": "groupby",
+      "question": "各状态的订单数量？",
+      "gold_sql": "SELECT status, COUNT(*) AS cnt FROM orders GROUP BY status ORDER BY status",
+      "gen_sql": "SELECT status, COUNT(*) AS cnt FROM orders GROUP BY status ORDER BY status",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "status",
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          "draft",
+          484
+        ],
+        [
+          "paid",
+          2033
+        ],
+        [
+          "shipped",
+          3983
+        ],
+        [
+          "done",
+          2968
+        ],
+        [
+          "cancelled",
+          532
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 13,
+      "layer": "single",
+      "category": "groupby-window",
+      "question": "近30天各区域的订单数量？",
+      "gold_sql": "SELECT region, COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-07-19' GROUP BY region ORDER BY region",
+      "gen_sql": "SELECT region, COUNT(*) AS cnt FROM orders WHERE created_at >= '2026-07-19' GROUP BY region ORDER BY region",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          "华东",
+          1455
+        ],
+        [
+          "华北",
+          1029
+        ],
+        [
+          "华南",
+          1068
+        ],
+        [
+          "西南",
+          611
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 14,
+      "layer": "single",
+      "category": "agg-sum",
+      "question": "订单总金额是多少？",
+      "gold_sql": "SELECT SUM(amount) AS total_amount FROM orders",
+      "gen_sql": "SELECT SUM(amount) AS total_amount FROM orders",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          2271700008.6
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 15,
+      "layer": "single",
+      "category": "agg-sum-filter",
+      "question": "华东区域订单总金额是多少？",
+      "gold_sql": "SELECT SUM(amount) AS total_amount FROM orders WHERE region='华东'",
+      "gen_sql": "SELECT SUM(amount) AS total_amount FROM orders WHERE region='华东'",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          793093807.4
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 16,
+      "layer": "single",
+      "category": "agg-avg",
+      "question": "平均订单金额是多少？",
+      "gold_sql": "SELECT AVG(amount) AS avg_amount FROM orders",
+      "gen_sql": "SELECT AVG(amount) AS avg_amount FROM orders",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "avg_amount"
+      ],
+      "gen_rows": [
+        [
+          227170.00086
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 17,
+      "layer": "single",
+      "category": "topn-filter",
+      "question": "金额最高的前3个已完成订单的订单号和金额？",
+      "gold_sql": "SELECT order_no, amount FROM orders WHERE status='done' ORDER BY amount DESC LIMIT 3",
+      "gen_sql": "SELECT order_no, amount FROM orders WHERE status='done' ORDER BY amount DESC LIMIT 3",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "order_no",
+        "amount"
+      ],
+      "gen_rows": [
+        [
+          "SO-20260605-0026",
+          869042.4
+        ],
+        [
+          "SO-20260321-0029",
+          758858.0
+        ],
+        [
+          "SO-20260221-0041",
+          734283.7
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 18,
+      "layer": "single",
+      "category": "agg-sum-window",
+      "question": "近30天已支付的订单总金额是多少？",
+      "gold_sql": "SELECT SUM(amount) AS total_amount FROM orders WHERE created_at >= '2026-07-19' AND status='paid'",
+      "gen_sql": "SELECT SUM(amount) AS total_amount FROM orders WHERE created_at >= '2026-07-19' AND status='paid'",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          185261459.6
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 19,
+      "layer": "single",
+      "category": "groupby-agg",
+      "question": "各区域的订单总金额？",
+      "gold_sql": "SELECT region, SUM(amount) AS total_amount FROM orders GROUP BY region ORDER BY region",
+      "gen_sql": "SELECT region, SUM(amount) AS total_amount FROM orders GROUP BY region ORDER BY region",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          "华东",
+          793093807.4
+        ],
+        [
+          "华北",
+          567242679.9
+        ],
+        [
+          "华南",
+          578034247.8
+        ],
+        [
+          "西南",
+          333329273.5
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 20,
+      "layer": "single",
+      "category": "filter-amount",
+      "question": "金额大于5000的订单有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE amount > 5000",
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM orders WHERE amount > 5000",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          9993
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 21,
+      "layer": "single",
+      "category": "filter-region",
+      "question": "华东区域的供应商有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM suppliers WHERE region='华东'",
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM suppliers WHERE region='华东'",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          10
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 22,
+      "layer": "single",
+      "category": "groupby",
+      "question": "各区域的供应商数量？",
+      "gold_sql": "SELECT region, COUNT(*) AS cnt FROM suppliers GROUP BY region ORDER BY region",
+      "gen_sql": "SELECT region, COUNT(*) AS cnt FROM suppliers GROUP BY region ORDER BY region",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          "华东",
+          10
+        ],
+        [
+          "华北",
+          10
+        ],
+        [
+          "华南",
+          10
+        ],
+        [
+          "西南",
+          10
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 23,
+      "layer": "single",
+      "category": "topn",
+      "question": "评分最高的前5个供应商的名称和评分？",
+      "gold_sql": "SELECT name, rating FROM suppliers ORDER BY rating DESC LIMIT 5",
+      "gen_sql": "SELECT name, rating FROM suppliers ORDER BY rating DESC LIMIT 5",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "name",
+        "rating"
+      ],
+      "gen_rows": [
+        [
+          "华南利丰33有限公司",
+          95
+        ],
+        [
+          "华北宏图35有限公司",
+          95
+        ],
+        [
+          "西南恒远98有限公司",
+          94
+        ],
+        [
+          "华东利丰26有限公司",
+          94
+        ],
+        [
+          "华东启航30有限公司",
+          92
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 24,
+      "layer": "single",
+      "category": "filter-category",
+      "question": "电子元件类目有多少商品？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM products WHERE category='电子元件'",
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM products WHERE category='电子元件'",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          59
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 25,
+      "layer": "single",
+      "category": "groupby",
+      "question": "各类目的商品数量？",
+      "gold_sql": "SELECT category, COUNT(*) AS cnt FROM products GROUP BY category ORDER BY category",
+      "gen_sql": "SELECT category, COUNT(*) AS cnt FROM products GROUP BY category ORDER BY category",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "category",
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          "五金工具",
+          65
+        ],
+        [
+          "仓储设备",
+          60
+        ],
+        [
+          "办公用品",
+          59
+        ],
+        [
+          "包装材料",
+          48
+        ],
+        [
+          "化工原料",
+          64
+        ],
+        [
+          "机械配件",
+          75
+        ],
+        [
+          "电子元件",
+          59
+        ],
+        [
+          "纺织辅料",
+          70
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 26,
+      "layer": "single",
+      "category": "topn",
+      "question": "单价最高的前3个商品的名称和单价？",
+      "gold_sql": "SELECT name, unit_price FROM products ORDER BY unit_price DESC LIMIT 3",
+      "gen_sql": "SELECT name, unit_price FROM products ORDER BY unit_price DESC LIMIT 3",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "name",
+        "unit_price"
+      ],
+      "gen_rows": [
+        [
+          "纽扣 300号",
+          4983.5
+        ],
+        [
+          "仓储货架 471号",
+          4976.8
+        ],
+        [
+          "气泡膜 440号",
+          4967.5
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 27,
+      "layer": "single",
+      "category": "filter-lowstock",
+      "question": "库存低于安全库存的商品有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM inventory WHERE qty < safety_qty",
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM inventory WHERE qty < safety_qty",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          95
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 28,
+      "layer": "single",
+      "category": "groupby-agg",
+      "question": "各仓库的库存总量？",
+      "gold_sql": "SELECT warehouse, SUM(qty) AS total_amount FROM inventory GROUP BY warehouse ORDER BY warehouse",
+      "gen_sql": "SELECT warehouse, SUM(qty) AS total_amount FROM inventory GROUP BY warehouse ORDER BY warehouse",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "warehouse",
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          "华东仓",
+          47537.0
+        ],
+        [
+          "华北仓",
+          43766.0
+        ],
+        [
+          "华南仓",
+          42315.0
+        ],
+        [
+          "西南仓",
+          46406.0
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 29,
+      "layer": "single",
+      "category": "filter-delay",
+      "question": "延迟发货的订单有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM shipments WHERE delay_days > 0",
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM shipments WHERE delay_days > 0",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          545
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 30,
+      "layer": "single",
+      "category": "groupby",
+      "question": "各承运商的发货数量？",
+      "gold_sql": "SELECT carrier, COUNT(*) AS cnt FROM shipments GROUP BY carrier ORDER BY carrier",
+      "gen_sql": "SELECT carrier, COUNT(*) AS cnt FROM shipments GROUP BY carrier ORDER BY carrier",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "carrier",
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          "中通",
+          1413
+        ],
+        [
+          "京东物流",
+          1458
+        ],
+        [
+          "圆通",
+          1313
+        ],
+        [
+          "德邦",
+          1356
+        ],
+        [
+          "顺丰",
+          1411
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 31,
+      "layer": "join",
+      "category": "join-order-items",
+      "question": "金额最高的前5个订单分别有多少行明细？",
+      "gold_sql": "SELECT o.order_no, COUNT(i.id) AS item_cnt FROM orders o JOIN order_items i ON o.order_no=i.order_no GROUP BY o.order_no, o.amount ORDER BY o.amount DESC LIMIT 5",
+      "gen_sql": "SELECT o.order_no, COUNT(i.id) AS item_cnt FROM orders o JOIN order_items i ON o.order_no=i.order_no GROUP BY o.order_no, o.amount ORDER BY o.amount DESC LIMIT 5",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "order_no",
+        "item_cnt"
+      ],
+      "gen_rows": [
+        [
+          "SO-20260605-0026",
+          5
+        ],
+        [
+          "SO-20260423-0021",
+          5
+        ],
+        [
+          "SO-20260817-0012",
+          5
+        ],
+        [
+          "SO-20260510-0017",
+          5
+        ],
+        [
+          "SO-20260321-0029",
+          5
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 32,
+      "layer": "join",
+      "category": "join-items-products",
+      "question": "电子元件类目商品的累计销量（数量）是多少？",
+      "gold_sql": "SELECT SUM(i.quantity) AS total_amount FROM order_items i JOIN products p ON i.product_id=p.id WHERE p.category='电子元件'",
+      "gen_sql": "SELECT SUM(i.quantity) AS total_amount FROM order_items i JOIN products p ON i.product_id=p.id WHERE p.category='电子元件'",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          106458.0
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 33,
+      "layer": "join",
+      "category": "join-groupby",
+      "question": "各类目商品的累计销售金额？",
+      "gold_sql": "SELECT p.category, SUM(i.amount) AS total_amount FROM order_items i JOIN products p ON i.product_id=p.id GROUP BY p.category ORDER BY p.category",
+      "gen_sql": "SELECT p.category, SUM(i.amount) AS total_amount FROM order_items i JOIN products p ON i.product_id=p.id GROUP BY p.category ORDER BY p.category",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "category",
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          "五金工具",
+          245002571.6
+        ],
+        [
+          "仓储设备",
+          267878696.3
+        ],
+        [
+          "办公用品",
+          314822068.3
+        ],
+        [
+          "包装材料",
+          225833148.2
+        ],
+        [
+          "化工原料",
+          321179071.6
+        ],
+        [
+          "机械配件",
+          351305463.4
+        ],
+        [
+          "电子元件",
+          250985815.0
+        ],
+        [
+          "纺织辅料",
+          294693174.2
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 34,
+      "layer": "join",
+      "category": "join-orders-suppliers",
+      "question": "华东区域供应商的订单总金额是多少？",
+      "gold_sql": "SELECT SUM(o.amount) AS total_amount FROM orders o JOIN suppliers s ON o.supplier_id=s.id WHERE s.region='华东'",
+      "gen_sql": "SELECT SUM(o.amount) AS total_amount FROM orders o JOIN suppliers s ON o.supplier_id=s.id WHERE s.region='华东'",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          738555246.1
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 35,
+      "layer": "join",
+      "category": "join-groupby",
+      "question": "各区域供应商的订单总金额？",
+      "gold_sql": "SELECT s.region, SUM(o.amount) AS total_amount FROM orders o JOIN suppliers s ON o.supplier_id=s.id GROUP BY s.region ORDER BY s.region",
+      "gen_sql": "SELECT s.region, SUM(o.amount) AS total_amount FROM orders o JOIN suppliers s ON o.supplier_id=s.id GROUP BY s.region ORDER BY s.region",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          "华东",
+          738555246.1
+        ],
+        [
+          "华北",
+          573638389.0
+        ],
+        [
+          "华南",
+          568507823.6
+        ],
+        [
+          "西南",
+          390998549.9
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 36,
+      "layer": "join",
+      "category": "join-topn",
+      "question": "订单数量最多的前5个供应商？",
+      "gold_sql": "SELECT s.name, COUNT(o.id) AS cnt FROM orders o JOIN suppliers s ON o.supplier_id=s.id GROUP BY s.name ORDER BY cnt DESC LIMIT 5",
+      "gen_sql": "SELECT s.name, COUNT(o.id) AS cnt FROM orders o JOIN suppliers s ON o.supplier_id=s.id GROUP BY s.name ORDER BY cnt DESC LIMIT 5",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "name",
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          "华东宏图44有限公司",
+          361
+        ],
+        [
+          "华东众联95有限公司",
+          346
+        ],
+        [
+          "华东顺达45有限公司",
+          336
+        ],
+        [
+          "华东顺达14有限公司",
+          327
+        ],
+        [
+          "华东利丰16有限公司",
+          326
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 37,
+      "layer": "join",
+      "category": "join-lowstock",
+      "question": "低库存商品对应的类目分布？",
+      "gold_sql": "SELECT p.category, COUNT(*) AS cnt FROM inventory i JOIN products p ON i.product_id=p.id WHERE i.qty < i.safety_qty GROUP BY p.category ORDER BY p.category",
+      "gen_sql": "SELECT p.category, COUNT(*) AS cnt FROM inventory i JOIN products p ON i.product_id=p.id WHERE i.qty < i.safety_qty GROUP BY p.category ORDER BY p.category",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "category",
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          "五金工具",
+          16
+        ],
+        [
+          "仓储设备",
+          4
+        ],
+        [
+          "办公用品",
+          11
+        ],
+        [
+          "包装材料",
+          5
+        ],
+        [
+          "化工原料",
+          15
+        ],
+        [
+          "机械配件",
+          20
+        ],
+        [
+          "电子元件",
+          12
+        ],
+        [
+          "纺织辅料",
+          12
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 38,
+      "layer": "join",
+      "category": "join-inventory-products",
+      "question": "华东仓中各类目的库存总量？",
+      "gold_sql": "SELECT p.category, SUM(i.qty) AS total_amount FROM inventory i JOIN products p ON i.product_id=p.id WHERE i.warehouse='华东仓' GROUP BY p.category ORDER BY p.category",
+      "gen_sql": "SELECT p.category, SUM(i.qty) AS total_amount FROM inventory i JOIN products p ON i.product_id=p.id WHERE i.warehouse='华东仓' GROUP BY p.category ORDER BY p.category",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "category",
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          "五金工具",
+          6896.0
+        ],
+        [
+          "仓储设备",
+          6149.0
+        ],
+        [
+          "办公用品",
+          4926.0
+        ],
+        [
+          "包装材料",
+          6395.0
+        ],
+        [
+          "化工原料",
+          4107.0
+        ],
+        [
+          "机械配件",
+          6630.0
+        ],
+        [
+          "电子元件",
+          5827.0
+        ],
+        [
+          "纺织辅料",
+          6607.0
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 39,
+      "layer": "join",
+      "category": "join-shipments-orders",
+      "question": "延迟发货的订单分布在哪些区域？各有多少？",
+      "gold_sql": "SELECT o.region, COUNT(*) AS cnt FROM shipments s JOIN orders o ON s.order_no=o.order_no WHERE s.delay_days > 0 GROUP BY o.region ORDER BY o.region",
+      "gen_sql": "SELECT o.region, COUNT(*) AS cnt FROM shipments s JOIN orders o ON s.order_no=o.order_no WHERE s.delay_days > 0 GROUP BY o.region ORDER BY o.region",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "region",
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          "华东",
+          198
+        ],
+        [
+          "华北",
+          145
+        ],
+        [
+          "华南",
+          132
+        ],
+        [
+          "西南",
+          70
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 40,
+      "layer": "join",
+      "category": "join-window",
+      "question": "近30天延迟发货的订单有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM shipments s JOIN orders o ON s.order_no=o.order_no WHERE s.delay_days > 0 AND o.created_at >= '2026-07-19'",
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM shipments s JOIN orders o ON s.order_no=o.order_no WHERE s.delay_days > 0 AND o.created_at >= '2026-07-19'",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          228
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 41,
+      "layer": "join",
+      "category": "join-items-orders",
+      "question": "已支付订单的明细总数量是多少？",
+      "gold_sql": "SELECT SUM(i.quantity) AS total_amount FROM orders o JOIN order_items i ON o.order_no=i.order_no WHERE o.status='paid'",
+      "gen_sql": "SELECT SUM(i.quantity) AS total_amount FROM orders o JOIN order_items i ON o.order_no=i.order_no WHERE o.status='paid'",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          179144.0
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 42,
+      "layer": "join",
+      "category": "join-topn-filter",
+      "question": "已完成订单中订单金额最高的前5个供应商？",
+      "gold_sql": "SELECT s.name, SUM(o.amount) AS total_amount FROM orders o JOIN suppliers s ON o.supplier_id=s.id WHERE o.status='done' GROUP BY s.name ORDER BY total DESC LIMIT 5",
+      "gen_sql": "SELECT s.name, SUM(o.amount) AS total_amount FROM orders o JOIN suppliers s ON o.supplier_id=s.id WHERE o.status='done' GROUP BY s.name ORDER BY total DESC LIMIT 5",
+      "status": "exec-error",
+      "error": "OperationalError: (asyncmy.errors.OperationalError) (1054, \"Unknown column 'total' in 'order clause'\")\n[SQL: SELECT s.name, SUM(o.amount) AS total_amount FROM orders o JOIN suppliers s ON o.supplier_i"
+    },
+    {
+      "id": 43,
+      "layer": "join",
+      "category": "join-topn",
+      "question": "被订购次数最多的前5个商品？",
+      "gold_sql": "SELECT p.name, COUNT(i.id) AS cnt FROM order_items i JOIN products p ON i.product_id=p.id GROUP BY p.name ORDER BY cnt DESC LIMIT 5",
+      "gen_sql": "SELECT p.name, COUNT(i.id) AS cnt FROM order_items i JOIN products p ON i.product_id=p.id GROUP BY p.name ORDER BY cnt DESC LIMIT 5",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "name",
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          "轴承 3号",
+          92
+        ],
+        [
+          "涤纶纱线 95号",
+          90
+        ],
+        [
+          "周转箱 139号",
+          89
+        ],
+        [
+          "硒鼓 2号",
+          88
+        ],
+        [
+          "硒鼓 12号",
+          87
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 44,
+      "layer": "join",
+      "category": "join-groupby-agg",
+      "question": "各供应商的订单平均金额最高的前5个？",
+      "gold_sql": "SELECT s.name, AVG(o.amount) AS avg_amount FROM orders o JOIN suppliers s ON o.supplier_id=s.id GROUP BY s.name ORDER BY avg_amount DESC LIMIT 5",
+      "gen_sql": "SELECT s.name, AVG(o.amount) AS avg_amount FROM orders o JOIN suppliers s ON o.supplier_id=s.id GROUP BY s.name ORDER BY avg_amount DESC LIMIT 5",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "name",
+        "avg_amount"
+      ],
+      "gen_rows": [
+        [
+          "西南永盛71有限公司",
+          245086.074118
+        ],
+        [
+          "华南利丰97有限公司",
+          240112.463052
+        ],
+        [
+          "华北顺达21有限公司",
+          239699.50916
+        ],
+        [
+          "华东利丰16有限公司",
+          238271.657055
+        ],
+        [
+          "华南优品56有限公司",
+          236716.006719
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 45,
+      "layer": "join",
+      "category": "join-items-products",
+      "question": "办公用品类目商品的销售总金额是多少？",
+      "gold_sql": "SELECT SUM(i.amount) AS total_amount FROM order_items i JOIN products p ON i.product_id=p.id WHERE p.category='办公用品'",
+      "gen_sql": "SELECT SUM(i.amount) AS total_amount FROM order_items i JOIN products p ON i.product_id=p.id WHERE p.category='办公用品'",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          314822068.3
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 46,
+      "layer": "join",
+      "category": "join-topn",
+      "question": "延迟发货单数最多的前3个承运商？",
+      "gold_sql": "SELECT s.carrier, COUNT(*) AS cnt FROM shipments s JOIN orders o ON s.order_no=o.order_no WHERE s.delay_days > 0 GROUP BY s.carrier ORDER BY cnt DESC LIMIT 3",
+      "gen_sql": "SELECT s.carrier, COUNT(*) AS cnt FROM shipments s JOIN orders o ON s.order_no=o.order_no WHERE s.delay_days > 0 GROUP BY s.carrier ORDER BY cnt DESC LIMIT 3",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "carrier",
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          "京东物流",
+          126
+        ],
+        [
+          "德邦",
+          117
+        ],
+        [
+          "中通",
+          115
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 47,
+      "layer": "join",
+      "category": "join-inventory-products",
+      "question": "库存量最高的前5个商品的名称和库存量？",
+      "gold_sql": "SELECT p.name, i.qty FROM inventory i JOIN products p ON i.product_id=p.id ORDER BY i.qty DESC LIMIT 5",
+      "gen_sql": "SELECT p.name, i.qty FROM inventory i JOIN products p ON i.product_id=p.id ORDER BY i.qty DESC LIMIT 5",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "name",
+        "qty"
+      ],
+      "gen_rows": [
+        [
+          "法兰盘 439号",
+          798
+        ],
+        [
+          "涤纶纱线 95号",
+          797
+        ],
+        [
+          "标签纸 186号",
+          796
+        ],
+        [
+          "文件夹 334号",
+          795
+        ],
+        [
+          "稀释剂 259号",
+          794
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 48,
+      "layer": "join",
+      "category": "join-orders-suppliers",
+      "question": "华南区域供应商名下订单总金额是多少？",
+      "gold_sql": "SELECT SUM(o.amount) AS total_amount FROM orders o JOIN suppliers s ON o.supplier_id=s.id WHERE s.region='华南'",
+      "gen_sql": "SELECT SUM(o.amount) AS total_amount FROM orders o JOIN suppliers s ON o.supplier_id=s.id WHERE s.region='华南'",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "total_amount"
+      ],
+      "gen_rows": [
+        [
+          568507823.6
+        ]
+      ],
+      "diffs": []
+    },
+    {
+      "id": 49,
+      "layer": "join",
+      "category": "join-topn",
+      "question": "销售金额最高的商品是哪个？",
+      "gold_sql": "SELECT p.name, SUM(i.amount) AS total_amount FROM order_items i JOIN products p ON i.product_id=p.id GROUP BY p.name ORDER BY total DESC LIMIT 1",
+      "gen_sql": "SELECT p.name, SUM(i.amount) AS total_amount FROM order_items i JOIN products p ON i.product_id=p.id GROUP BY p.name ORDER BY total DESC LIMIT 1",
+      "status": "exec-error",
+      "error": "OperationalError: (asyncmy.errors.OperationalError) (1054, \"Unknown column 'total' in 'order clause'\")\n[SQL: SELECT p.name, SUM(i.amount) AS total_amount FROM order_items i JOIN products p ON i.produc"
+    },
+    {
+      "id": 50,
+      "layer": "join",
+      "category": "join-shipments-orders",
+      "question": "已完成订单中延迟发货的有多少？",
+      "gold_sql": "SELECT COUNT(*) AS cnt FROM shipments s JOIN orders o ON s.order_no=o.order_no WHERE o.status='done' AND s.delay_days > 0",
+      "gen_sql": "SELECT COUNT(*) AS cnt FROM shipments s JOIN orders o ON s.order_no=o.order_no WHERE o.status='done' AND s.delay_days > 0",
+      "status": "ok",
+      "correct": true,
+      "gen_columns": [
+        "cnt"
+      ],
+      "gen_rows": [
+        [
+          240
+        ]
+      ],
+      "diffs": []
+    }
+  ],
+  "errors": [
+    {
+      "id": 42,
+      "layer": "join",
+      "category": "join-topn-filter",
+      "question": "已完成订单中订单金额最高的前5个供应商？",
+      "gold_sql": "SELECT s.name, SUM(o.amount) AS total_amount FROM orders o JOIN suppliers s ON o.supplier_id=s.id WHERE o.status='done' GROUP BY s.name ORDER BY total DESC LIMIT 5",
+      "gen_sql": "SELECT s.name, SUM(o.amount) AS total_amount FROM orders o JOIN suppliers s ON o.supplier_id=s.id WHERE o.status='done' GROUP BY s.name ORDER BY total DESC LIMIT 5",
+      "status": "exec-error",
+      "error": "OperationalError: (asyncmy.errors.OperationalError) (1054, \"Unknown column 'total' in 'order clause'\")\n[SQL: SELECT s.name, SUM(o.amount) AS total_amount FROM orders o JOIN suppliers s ON o.supplier_i"
+    },
+    {
+      "id": 49,
+      "layer": "join",
+      "category": "join-topn",
+      "question": "销售金额最高的商品是哪个？",
+      "gold_sql": "SELECT p.name, SUM(i.amount) AS total_amount FROM order_items i JOIN products p ON i.product_id=p.id GROUP BY p.name ORDER BY total DESC LIMIT 1",
+      "gen_sql": "SELECT p.name, SUM(i.amount) AS total_amount FROM order_items i JOIN products p ON i.product_id=p.id GROUP BY p.name ORDER BY total DESC LIMIT 1",
+      "status": "exec-error",
+      "error": "OperationalError: (asyncmy.errors.OperationalError) (1054, \"Unknown column 'total' in 'order clause'\")\n[SQL: SELECT p.name, SUM(i.amount) AS total_amount FROM order_items i JOIN products p ON i.produc"
+    }
+  ]
+}

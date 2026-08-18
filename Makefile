@@ -25,7 +25,7 @@ COMPOSE := docker compose -f deploy/docker-compose.yml
 # alembic.ini 在 backend/ 下，须在此目录运行（env.py 经 pythonpath 兜底）
 BACKEND := backend
 
-.PHONY: up up-mysql down build migrate seed init-biz-db migrate-biz seed-biz reseed-biz check-biz test test-auth test-sql-validator test-executor test-integration check lint-fix format loadtest drill help
+.PHONY: up up-mysql down build migrate seed init-biz-db migrate-biz seed-biz reseed-biz check-biz test test-auth test-sql-validator test-executor test-nl2sql-e2e gen-eval eval-nl2sql test-integration check lint-fix format loadtest drill help
 
 ## 默认：显示帮助
 help:
@@ -114,6 +114,18 @@ test-sql-validator:
 ## ★ W24 Day2：只读沙箱执行器（需 MySQL + scm_biz seed + nl2sql_ro）
 test-executor:
 	$(PYTEST) backend/tests/test_executor.py -v
+
+## ★ W24 Day3：NL2SQL e2e 链路（mock 生成 + 四道闸 + 执行 + API 权限）
+test-nl2sql-e2e:
+	$(PYTEST) backend/tests/test_nl2sql_e2e.py -v
+
+## ★ W24 Day3：生成评测集 v1（50 条三层，固定 gold SQL）
+gen-eval:
+	$(PY) -X utf8 backend/scripts/gen_eval_set_v1.py
+
+## ★ W24 Day3：execution accuracy 评测（默认 mock 测链路；real 用 LLM_PROVIDER=real）
+eval-nl2sql:
+	$(PY) -X utf8 backend/scripts/eval_nl2sql.py
 
 ## 双域集成回归（Day4 迁移自 stage3 的脚本；审批/幂等自动拉起 mock_biz）
 test-integration:
