@@ -193,7 +193,17 @@ def _parse_usage(payload: dict) -> dict:
 
 
 def _log_cost(usage: dict, model: str, tag: str) -> None:
-    """成本/usage 记录：追加 JSON line（Day5 成本实测的数据源）。"""
+    """成本/usage 记录：追加 JSON line（Day5 成本实测的数据源）。
+
+    ★ W26 Day1：同步记录 Prometheus Counter（scm_llm_tokens_total /
+    scm_llm_cost_yuan_total，label=model）——Grafana "成本看板" 面板
+    token 用量按模型 / 单轮成本 / 日预算水位的数据源。
+    """
+    try:
+        cost_yuan = _estimate_cost_yuan(usage)
+        _inc_cost_metrics(model, usage, cost_yuan)
+    except Exception:
+        pass  # 指标旁路失败不影响业务
     try:
         f = config.REPORTS_DIR / "cost_usage.jsonl"
         with open(f, "a", encoding="utf-8") as fh:
@@ -207,6 +217,32 @@ def _log_cost(usage: dict, model: str, tag: str) -> None:
             }, ensure_ascii=False) + "\n")
     except Exception:
         pass  # 记录失败不影响业务
+
+
+def _estimate_cost_yuan(usage: dict) -> float:
+    """按单价估算本轮成本（¥/百万 token，W24 成本口径）。"""
+    try:
+        prompt = float(usage.get("prompt_tokens", 0) or 0)
+        completion = float(usage.get("completion_tokens", 0) or 0)
+        input_price = float(config.COST_PRICE_INPUT)
+        output_price = float(config.COST_PRICE_OUTPUT)
+        return round((prompt * input_price + completion * output_price) / 1_000_000, 6)
+    except Exception:
+        return 0.0
+
+
+def _inc_cost_metrics(model: str, usage: dict, cost_yuan: float) -> None:
+    """把 token/成本写入 Prometheus（fail-open，观测旁路）。"""
+    try:
+        from app.shared.obs.metrics import inc_llm_usage
+        inc_llm_usage(
+            model,
+            prompt_tokens=int(usage.get("prompt_tokens", 0) or 0),
+            completion_tokens=int(usage.get("completion_tokens", 0) or 0),
+            cost_yuan=cost_yuan,
+        )
+    except Exception:
+        pass
 
 
 class _Observability:

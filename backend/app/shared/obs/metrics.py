@@ -1,10 +1,13 @@
-"""Prometheus 指标（★ W22 Day2：Metrics 支柱，QPS / P95 / 成功率）。
+"""Prometheus 指标（★ W22 Day2：Metrics 支柱，QPS / P95 / 成功率；
+★ W26 Day1：业务指标五区——NL2SQL 分数 / 调度任务 / 语义缓存 / token 成本 / RQ 队列）。
 
 为什么（面试可讲）：
 - 光有日志能查单条，但"整体健康度"要看指标：QPS 多少、P95 延迟多少、成功率多少。
 - Prometheus 是业界标准监控（拉模型，15s 抓取一次），Grafana 画曲线。
 - 命名遵循规范：Counter 加 _total、Histogram 用 _seconds——否则 Prometheus 不认，
   面试被问"指标怎么命名"能直接答规范。
+- ★ W26 Day1：业务面板需要"指标会说话"——光有 HTTP 层 QPS 看不到业务健康度，
+  所以补五组业务指标（eval 分数趋势 / 任务成功率 / 缓存命中 / 成本水位 / 队列深度）。
 
 指标：
     http_requests_total{method, path, status}      QPS（Counter，rate() 取每秒）
@@ -12,9 +15,20 @@
     http_requests_success_total                    成功请求数（Counter，成功率=成功/总量）
     http_requests_failed_total                      失败请求数（5xx，Counter）
     http_request_in_flight{method, path}           在途请求（Gauge，观测并发）
+    # ---- W26 Day1 业务指标 ----
+    scm_nl2sql_eval_score{layer}                   NL2SQL 各层准确率（Gauge，夜间任务更新）
+    scm_rag_eval_score{metric}                     RAG 各指标分数（Gauge，夜间任务更新）
+    scm_job_success_total{job}                     调度任务成功次数（Counter，label=六任务名）
+    scm_job_failed_total{job}                      调度任务失败次数（Counter）
+    scm_semcache_hit_total                         语义缓存命中（Counter）
+    scm_semcache_miss_total                        语义缓存未命中（Counter）
+    scm_llm_tokens_total{model}                    LLM token 用量（Counter，按模型）
+    scm_llm_cost_yuan_total{model}                 LLM 成本（Counter，¥，按模型）
+    scm_rq_queue_depth{queue}                      RQ 报表队列深度（Gauge）
 
 设计原则（对应手册坑）：
 - 标签别太多：只按 method + path（归一化到 /api/{service} 避免高基数），不按 user/session。
+- ★ 手册坑：label 基数控制——job label 只有 6 个值，别把 trace_id/session_id 塞进 label。
 - fail-open：metrics 收集异常不影响主链路。
 - 用 Registry 隔离（不注册默认 registry），两 app 各自独立，避免冲突。
 - Bucket 设计覆盖真实延迟（毫秒到秒），压测/真实都能出 P95。
@@ -24,6 +38,12 @@
     render() -> str                                 生成 Prometheus 文本（给 /metrics 端点）
     observe(status, duration_ms, method, path)      手动记录（供非 HTTP 场景/测试）
     clear()                                         清空（测试用）
+    # W26 Day1 业务指标便捷函数（埋点侧调用，fail-open）：
+    set_nl2sql_eval_score(layer, value) / set_rag_eval_score(metric, value)
+    inc_job_success(job) / inc_job_failed(job)
+    inc_semcache_hit() / inc_semcache_miss()
+    inc_llm_usage(model, prompt_tokens, completion_tokens, cost_yuan)
+    set_rq_queue_depth(queue, depth)
 """
 import contextlib
 import os
@@ -35,13 +55,15 @@ from prometheus_client import Counter, Gauge, Histogram, generate_latest, regist
 
 
 # 归一化路径：去掉动态段（session_id/uuid 等），避免标签基数爆炸（手册坑）
-# 只保留前 2 段，/api/chat、/api/approval、/auth/login 等都是低频稳定标签
+# ★ W26 Day1：保留前 3 段（/api/v1/kb、/api/v1/ops、/api/v1/data、/api/v1/auth），
+#   这样 Grafana "流量健康" 面板可按域分组（kb/ops/data）——3 段内都是稳定值，
+#   不会引入动态段基数；不足 3 段（如 /health）按 2 段截断。
 def _norm_path(path: str) -> str:
     parts = [p for p in path.split("/") if p]
     if not parts:
         return "root"
-    # /api/chat -> api/chat；/api/approval -> api/approval；/health -> health
-    keep = "/" + "/".join(parts[:2])
+    # /api/v1/kb/chat -> api/v1/kb；/api/v1/ops/chat -> api/v1/ops；/health -> health
+    keep = "/" + "/".join(parts[:3] if len(parts) >= 3 else parts[:2])
     return keep
 
 
@@ -73,6 +95,43 @@ class _Metrics:
         self.in_flight = Gauge(
             "http_request_in_flight", "在途请求（并发观测）",
             ["method", "path"], registry=self._reg)
+
+        # ==================== W26 Day1：业务指标（五区面板数据源） ====================
+        # ★ 手册坑：label 基数控制——eval layer 固定 5 值（overall/single/join/aggregation/error_rate）、
+        #   rag metric 固定 6 值、job 固定 6 值、model 固定 3-5 值。绝不塞 trace_id/session_id。
+        # ① NL2SQL 质量区：夜间 eval_nightly 更新（分层准确率，Gauge 保留当前值）
+        self.nl2sql_eval_score = Gauge(
+            "scm_nl2sql_eval_score", "NL2SQL 各层执行准确率（夜间任务更新）",
+            ["layer"], registry=self._reg)
+        # RAG 质量区（同面板）：hit@1 / recall@5 / citation_accuracy / error_rate / p95_retrieve_ms
+        self.rag_eval_score = Gauge(
+            "scm_rag_eval_score", "RAG 各指标分数（夜间任务更新）",
+            ["metric"], registry=self._reg)
+        # ② 队列与调度区：六任务成功/失败 Counter（按 job_name label，label 基数=6）
+        #   ★ 手册坑：不要用 `job` 做 label 名——Prometheus 的 `job` 是抓取任务保留标签，
+        #   scrape 时会被 prometheus.yml 的 job_name 覆盖，导致六任务无法区分。
+        self.job_success_total = Counter(
+            "scm_job_success_total", "调度任务成功次数（label=job_name，六任务名）",
+            ["job_name"], registry=self._reg)
+        self.job_failed_total = Counter(
+            "scm_job_failed_total", "调度任务失败次数（label=job_name）",
+            ["job_name"], registry=self._reg)
+        # ② 语义缓存区：命中/未命中 Counter（命中率 = hit/(hit+miss)）
+        self.semcache_hit_total = Counter(
+            "scm_semcache_hit_total", "语义缓存命中次数", registry=self._reg)
+        self.semcache_miss_total = Counter(
+            "scm_semcache_miss_total", "语义缓存未命中次数", registry=self._reg)
+        # ⑤ 成本看板区：token 用量与成本（按模型 label，基数=模型池 3-5 个）
+        self.llm_tokens_total = Counter(
+            "scm_llm_tokens_total", "LLM token 总用量（按模型）",
+            ["model"], registry=self._reg)
+        self.llm_cost_yuan_total = Counter(
+            "scm_llm_cost_yuan_total", "LLM 成本（¥，按模型，日预算水位=rate[1d]）",
+            ["model"], registry=self._reg)
+        # ② 队列深度 Gauge：RQ 报表队列当前积压（enqueue 时更新）
+        self.rq_queue_depth = Gauge(
+            "scm_rq_queue_depth", "RQ 报表队列深度（当前积压 job 数）",
+            ["queue"], registry=self._reg)
 
     def observe(self, status: int, duration_ms: float, method: str, path: str) -> None:
         """记录一次请求的指标（中间件/测试调用）。"""
@@ -144,6 +203,85 @@ class MetricsMiddleware:
             if self.enabled:
                 self.metrics.observe(status_holder["code"], (time.time() - t0) * 1000,
                                      method, scope.get("path", ""))
+
+
+# ==================== W26 Day1：业务指标便捷函数（埋点侧调用，fail-open） ====================
+# 统一走 get_metrics()（SERVICE_NAME），与 /metrics 端点同 registry，Prometheus 可抓。
+
+
+def set_nl2sql_eval_score(layer: str, value: float) -> None:
+    """更新 NL2SQL 某层准确率（eval_nightly 夜间任务调用）。"""
+    try:
+        get_metrics().nl2sql_eval_score.labels(layer).set(float(value))
+    except Exception:
+        pass
+
+
+def set_rag_eval_score(metric: str, value: float) -> None:
+    """更新 RAG 某指标分数（eval_nightly 夜间任务调用）。"""
+    try:
+        get_metrics().rag_eval_score.labels(metric).set(float(value))
+    except Exception:
+        pass
+
+
+def inc_job_success(job: str) -> None:
+    """调度任务成功计数（scheduler _record 终态 success 时调用）。
+
+    label 名 job_name：避免与 Prometheus 保留标签 `job`（scrape job）冲突被覆盖。
+    """
+    try:
+        get_metrics().job_success_total.labels(job_name=job).inc()
+    except Exception:
+        pass
+
+
+def inc_job_failed(job: str) -> None:
+    """调度任务失败计数（scheduler _record 终态 failed 时调用）。"""
+    try:
+        get_metrics().job_failed_total.labels(job_name=job).inc()
+    except Exception:
+        pass
+
+
+def inc_semcache_hit() -> None:
+    """语义缓存命中计数（semantic_cache lookup 命中时调用）。"""
+    try:
+        get_metrics().semcache_hit_total.inc()
+    except Exception:
+        pass
+
+
+def inc_semcache_miss() -> None:
+    """语义缓存未命中计数（semantic_cache lookup 未命中/异常降级时调用）。"""
+    try:
+        get_metrics().semcache_miss_total.inc()
+    except Exception:
+        pass
+
+
+def inc_llm_usage(model: str, prompt_tokens: int, completion_tokens: int,
+                  cost_yuan: float = 0.0) -> None:
+    """LLM token 用量 + 成本累计（real_provider._log_cost 调用）。
+
+    cost_yuan 默认 0：mock 或未计费时只记 token（成本看板 token 曲线仍真实）。
+    """
+    try:
+        total = int(prompt_tokens or 0) + int(completion_tokens or 0)
+        m = get_metrics()
+        m.llm_tokens_total.labels(model).inc(total)
+        if cost_yuan:
+            m.llm_cost_yuan_total.labels(model).inc(float(cost_yuan))
+    except Exception:
+        pass
+
+
+def set_rq_queue_depth(queue: str, depth: int) -> None:
+    """RQ 报表队列深度（enqueue 时更新，队列积压观测）。"""
+    try:
+        get_metrics().rq_queue_depth.labels(queue).set(int(depth))
+    except Exception:
+        pass
 
 
 def render(service: str | None = None) -> str:

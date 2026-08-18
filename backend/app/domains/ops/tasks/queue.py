@@ -77,6 +77,12 @@ class ReportTaskQueue:
                             job_timeout=config.TASK_QUEUE_JOB_TIMEOUT,
                             result_ttl=config.TASK_QUEUE_RESULT_TTL,
                             failure_ttl=config.TASK_QUEUE_RESULT_TTL)
+            # ★ W26 Day1：入队成功即更新队列深度 Gauge（Grafana "队列与调度" 面板）
+            try:
+                from app.shared.obs.metrics import set_rq_queue_depth
+                set_rq_queue_depth(QUEUE_NAME, int(q.count or 0))
+            except Exception:
+                pass
             return {"task_id": job.id, "async": True, "sync": False, "result": None}
         except Exception as e:
             # 入队异常 → 同步降级

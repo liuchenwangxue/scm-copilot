@@ -11,6 +11,28 @@ import re
 
 from .base import LLMProvider
 
+# ★ W26 Day1：mock 也计 token（按字符/2 估算，成本=0）——开发期成本看板有曲线可讲
+_MOCK_ESTIMATE_MODEL = "mock"
+
+
+def _estimate_tokens(messages: list[dict]) -> int:
+    """粗略估算输入 token：中英文混排按字符数/2 估算（仅面板展示用，非精确计费）。"""
+    try:
+        return max(1, sum(len(m.get("content") or "") for m in messages) // 2)
+    except Exception:
+        return 1
+
+
+def _inc_mock_usage(messages: list[dict], completion: str) -> None:
+    """mock 调用记录 token 用量（成本=0，token 曲线反映调用量）。"""
+    try:
+        from app.shared.obs.metrics import inc_llm_usage
+        prompt = _estimate_tokens(messages)
+        completion_tokens = max(1, len(completion) // 2)
+        inc_llm_usage(_MOCK_ESTIMATE_MODEL, prompt, completion_tokens, cost_yuan=0.0)
+    except Exception:
+        pass
+
 # 冲突检测：同一 doc_id 前缀（主题）内出现不同数字口径
 _NUM_RE = re.compile(r"\d+(?:\.\d+)?(?:%|万元|元|天|个工作日|家|条|级|档)?")
 
@@ -80,16 +102,20 @@ class MockLLMProvider(LLMProvider):
 
     async def generate(self, messages, **kw):
         ctx = kw.get("retrieval_context", [])
-        return self._answer_from_context(ctx)["answer"]
+        answer = self._answer_from_context(ctx)["answer"]
+        _inc_mock_usage(messages, answer)
+        return answer
 
     def stream(self, messages, **kw):
         async def gen():
             r = self._answer_from_context(kw.get("retrieval_context", []))
+            _inc_mock_usage(messages, r["answer"])
             for ch in r["answer"]:
                 yield ch  # 逐字产出，模拟真实流式
         return gen()
 
     async def generate_json(self, messages, schema, **kw):
         r = self._answer_from_context(kw.get("retrieval_context", []))
+        _inc_mock_usage(messages, r["answer"])
         # 契约：返回 {"answer", "citations"}，与 schema 解耦（schema 校验留 W18 real 后统一）
         return {"answer": r["answer"], "citations": r["citations"]}

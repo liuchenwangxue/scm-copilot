@@ -103,6 +103,20 @@ class SemanticCache:
             old = self._order.pop(0)
             self._store.pop(old, None)
 
+    # ---- 指标埋点（W26 Day1，fail-open） ----
+
+    @staticmethod
+    def _inc_metric(kind: str) -> None:
+        """把 hit/miss 计数写入 Prometheus（观测旁路，失败静默）。"""
+        try:
+            from app.shared.obs.metrics import inc_semcache_hit, inc_semcache_miss
+            if kind == "hit":
+                inc_semcache_hit()
+            else:
+                inc_semcache_miss()
+        except Exception:
+            pass
+
     # ---- 命中搜索（双闸门） ----
 
     def _search(self, qv: np.ndarray, query: str,
@@ -165,9 +179,15 @@ class SemanticCache:
     # ---- 对外接口 ----
 
     def lookup(self, query: str) -> dict | None:
-        """语义查询：内存 → Redis 两级搜索，双闸门达标才命中。"""
+        """语义查询：内存 → Redis 两级搜索，双闸门达标才命中。
+
+        ★ W26 Day1：命中/未命中同步记录 Prometheus Counter
+        （scm_semcache_hit_total / scm_semcache_miss_total）——Grafana
+        "语义缓存" 面板命中率曲线数据源。
+        """
         if not query.strip():
             self._stats["misses"] += 1
+            self._inc_metric("miss")
             return None
         try:
             qv = self.embedder.embed_query(query)
@@ -175,6 +195,7 @@ class SemanticCache:
             hit = self._search(qv, query, self._store)
             if hit:
                 self._stats["hits"] += 1
+                self._inc_metric("hit")
                 return hit
             # 2) Redis 跨实例路径（其他实例写入的条目）
             redis_entries = self._redis_all()
@@ -182,14 +203,17 @@ class SemanticCache:
                 hit = self._search(qv, query, redis_entries)
                 if hit:
                     self._stats["hits"] += 1
+                    self._inc_metric("hit")
                     # 回填内存（后续同实例命中走快路径）
                     for k, e in redis_entries.items():
                         self._store.setdefault(k, e)
                     return hit
             self._stats["misses"] += 1
+            self._inc_metric("miss")
             return None
         except Exception as e:  # 缓存挂掉/embedding 失败 → fail-open，不阻塞主链路
             self._stats["error"] += 1
+            self._inc_metric("miss")  # 异常降级按 miss 计（面板口径：非命中=未命中）
             print(f"[semantic_cache] lookup 异常降级: {type(e).__name__}: {str(e)[:80]}")
             return None
 

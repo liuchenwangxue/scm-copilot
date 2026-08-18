@@ -34,10 +34,55 @@ logger = logging.getLogger("scm.scheduler.jobs.eval_nightly")
 
 CRON = "0 2 * * *"
 
-# 评测集目录：backend/evals/
-_EVAL_DIR = Path(__file__).resolve().parents[4] / "evals"
+
+def _find_eval_dir() -> Path:
+    """定位评测集目录（★ W26 Day1 修复：容器内 site-packages 部署时 __file__ 解析错位）。
+
+    Docker 镜像 `pip install .` 会把包装到 site-packages，此时
+    `Path(__file__).resolve().parents[4]` 指向 site-packages 而非源码 backend/——
+    评测文件找不到 → eval 秒回 error_rate=1.0（实测 job_runs duration=0ms）。
+
+    修复：多候选探测（源码路径 / 镜像内路径 / 环境变量显式覆盖）。
+    """
+    import os
+
+    env = os.getenv("SCM_EVAL_DIR")
+    if env:
+        p = Path(env)
+        if p.exists():
+            return p
+    candidates = [
+        Path(__file__).resolve().parents[4] / "evals",  # 本地源码：backend/evals
+        Path("/app/backend/evals"),                      # 容器镜像内 COPY 的源码目录
+    ]
+    for c in candidates:
+        if c.exists():
+            return c
+    return candidates[0]
+
+
+_EVAL_DIR = _find_eval_dir()
 _RAG_EVAL_FILE = _EVAL_DIR / "rag_eval_v2.json"  # 156 条（stage3 评测集过滤 feedback 后落库）
 _NL2SQL_EVAL_FILE = _EVAL_DIR / "nl2sql_eval_v1.jsonl"  # 100 条三层
+
+
+def _find_scripts_dir() -> Path:
+    """定位 scripts/ 目录（评测脚本模块导入源，与 _find_eval_dir 同源探测）。"""
+    import os
+
+    env = os.getenv("SCM_SCRIPTS_DIR")
+    if env:
+        p = Path(env)
+        if p.exists():
+            return p
+    candidates = [
+        Path(__file__).resolve().parents[4] / "scripts",  # 本地源码：backend/scripts
+        Path("/app/backend/scripts"),                     # 容器镜像内源码目录
+    ]
+    for c in candidates:
+        if c.exists():
+            return c
+    return candidates[0]
 
 # 劣化标红阈值（手册：>5pp 标红）
 DEGRADE_PP = 5.0
@@ -49,7 +94,11 @@ BASELINE_DAYS = 7
 
 
 async def run() -> dict:
-    """夜间全量回归：RAG 156 + NL2SQL 100（mock）→ eval_reports 落库 + 偏离标红。"""
+    """夜间全量回归：RAG 156 + NL2SQL 100（mock）→ eval_reports 落库 + 偏离标红。
+
+    ★ W26 Day1：任务完成即更新业务指标 Gauge（scm_nl2sql_eval_score / scm_rag_eval_score）
+    ——Grafana "NL2SQL 质量" 面板的分数趋势数据源。
+    """
     today = date.today().isoformat()
 
     rag_metrics, rag_dev = None, None
@@ -57,6 +106,9 @@ async def run() -> dict:
 
     rag_metrics = await _eval_rag(today)
     nl2sql_metrics = await _eval_nl2sql(today)
+
+    # ★ W26 Day1：分数上墙（即使评测异常也有数字——error_rate=1.0 也 set）
+    _push_eval_gauges(rag_metrics, nl2sql_metrics)
 
     rag_dev, nl2sql_dev = await _compute_and_store(today, rag_metrics, nl2sql_metrics)
 
@@ -67,6 +119,33 @@ async def run() -> dict:
         "rag": {"metrics": rag_metrics, "deviation": rag_dev},
         "nl2sql": {"metrics": nl2sql_metrics, "deviation": nl2sql_dev},
     }
+
+
+def _push_eval_gauges(rag_metrics: dict[str, Any] | None,
+                      nl2sql_metrics: dict[str, Any] | None) -> None:
+    """W26 Day1：把本轮评测分数写入 Prometheus Gauge（Grafana 面板数据源）。
+
+    label 基数控制（手册坑）：nl2sql layer 固定 5 值、rag metric 固定 5 值，
+    不塞 trace_id 等动态值。
+    """
+    from app.shared.obs.metrics import set_nl2sql_eval_score, set_rag_eval_score
+
+    if nl2sql_metrics:
+        for layer, key in (("overall", "overall"), ("single", "single"),
+                           ("join", "join"), ("aggregation", "aggregation")):
+            v = nl2sql_metrics.get(key)
+            if isinstance(v, (int, float)):
+                set_nl2sql_eval_score(layer, float(v))
+        # 拒答率 = rejected / count（质量面板"拒答率"曲线）
+        n = nl2sql_metrics.get("count") or 0
+        rejected = nl2sql_metrics.get("rejected") or 0
+        if n:
+            set_nl2sql_eval_score("rejected_rate", rejected / n)
+    if rag_metrics:
+        for metric in ("hit@1", "recall@5", "citation_accuracy", "error_rate"):
+            v = rag_metrics.get(metric)
+            if isinstance(v, (int, float)):
+                set_rag_eval_score(metric, float(v))
 
 
 # ==================== 各域评测 ====================
@@ -138,7 +217,9 @@ async def _eval_nl2sql(today: str) -> dict[str, Any]:
     from app.shared.llm import get_provider
 
     # scripts/ 下的评测脚本以模块导入（不复制逻辑；脚本自身会 sys.path 兜底 backend）
-    scripts_dir = Path(__file__).resolve().parents[4] / "scripts"
+    # ★ W26 Day1 修复：与 _find_eval_dir 同源——容器 site-packages 部署时
+    #   parents[4] 指向 site-packages，scripts 目录找不到 → import 失败。多候选探测。
+    scripts_dir = _find_scripts_dir()
     if str(scripts_dir) not in sys.path:
         sys.path.insert(0, str(scripts_dir))
     import eval_nl2sql as nl2sql_eval  # noqa: PLC0415

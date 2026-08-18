@@ -184,7 +184,22 @@ async def _record(
     finished_at: datetime | None = None,
     error: str | None = None,
 ) -> None:
-    """写 scheduler_job_runs：同 (job_id, run_id) 首插后 update（running → 终态）。"""
+    """写 scheduler_job_runs：同 (job_id, run_id) 首插后 update（running → 终态）。
+
+    ★ W26 Day1：终态 success/failed 同步记录 Prometheus Counter
+    （scm_job_success_total / scm_job_failed_total，label=job）——Grafana
+    "队列与调度" 面板 24h 成功率/失败曲线数据源。
+    """
+    # 业务指标埋点（观测旁路，fail-open）：终态才计数，running/skipped 不计
+    if status in ("success", "failed"):
+        try:
+            from app.shared.obs.metrics import inc_job_failed, inc_job_success
+            if status == "success":
+                inc_job_success(job_id)
+            else:
+                inc_job_failed(job_id)
+        except Exception:  # noqa: BLE001  # 指标旁路失败不影响任务记录
+            pass
     session_factory = _runtime["session_factory"]
     if session_factory is None:
         logger.warning("scheduler runtime not initialized, skip job_runs record for %s", job_id)
