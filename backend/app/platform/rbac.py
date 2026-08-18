@@ -3,7 +3,8 @@
 对应手册：`require_permission("ops:order:update")`——权限判定直接读 JWT claims 里的
 `permissions` 列表，零查库（Day2 面试题"三级模型多一次 join 的规避"落地）。
 
-依赖链：`get_current_user`（校验 token + 用户存活）→ 读 claims.permissions →
+依赖链（★ W25 Day5 双轨认证）：`api_key_or_jwt`（JWT 用户身份 或 API Key 机器身份
+校验）→ 读 `current_permissions`（JWT 静态 claims / API Key 动态加载 owner 权限）→
 命中返回 User；未命中抛 403。
 
 用法：
@@ -17,15 +18,21 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 
-from app.platform.auth import get_current_user
+from app.platform.apikeys import api_key_or_jwt
 from app.platform.models import User
 
 
 def require_permission(code: str) -> Callable:
-    """返回一个 FastAPI 依赖，校验当前用户拥有指定权限码。"""
+    """返回一个 FastAPI 依赖，校验当前身份拥有指定权限码。
+
+    ★ W25 Day5：认证入口升级为 `api_key_or_jwt`——JWT（用户身份）与
+    API Key（机器身份，SDK/集成方）双轨都经此判定权限；API Key 的权限
+    由 `authenticate_api_key` 动态加载 owner 用户权限塞进 `_jwt_permissions`，
+    与 JWT 静态 claims 走同一套 `current_permissions` 判定。
+    """
 
     async def dependency(
-        current: Annotated[User, Depends(get_current_user)],
+        current: Annotated[User, Depends(api_key_or_jwt)],
     ) -> User:
         perms = current_permissions(current)
         if code not in perms:
@@ -52,7 +59,7 @@ def require_any_of(*codes: str) -> Callable:
     """任一权限即可（如 admin 端点常放行 `admin:*` + 该域权限）。"""
 
     async def dependency(
-        current: Annotated[User, Depends(get_current_user)],
+        current: Annotated[User, Depends(api_key_or_jwt)],
     ) -> User:
         perms = current_permissions(current)
         if not perms.intersection(codes):

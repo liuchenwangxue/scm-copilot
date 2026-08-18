@@ -29,5 +29,9 @@ data/*.db
 data/*.log
 *.sqlite3
 
+# SDK 构建产物（python -m build；发布到 TestPyPI 时用 dist/ 交付）
+sdk/dist/
+sdk/build/
+
 # Docker 数据卷（命名卷不受影响，这里只防绑定挂载漏网）
 mysql_data/

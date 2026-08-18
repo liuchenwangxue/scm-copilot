@@ -32,8 +32,8 @@ class Settings(BaseSettings):
     jwt_access_minutes: int = 15
     jwt_refresh_minutes: int = 60 * 24
 
-    # ---- Redis（W24 前迁完缓存 keys，Day5 起强依赖）----
-    redis_url: str = "redis://127.0.0.1:16380/0"
+    # ---- Redis（W24 前迁完缓存 keys，Day5 起强依赖；★ W25 Day5 修正端口 16381）----
+    redis_url: str = "redis://127.0.0.1:16381/0"
 
     # ---- 调度器（W25 Day1：APScheduler + MySQL job store）----
     # job store 用【同步】SQLAlchemy engine（pymysql），与平台 asyncmy 连接池独立

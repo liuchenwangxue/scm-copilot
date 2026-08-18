@@ -60,6 +60,7 @@ PERMISSIONS: list[dict[str, Any]] = [
     {"code": "admin:user:manage", "domain": "admin", "name": "用户角色管理"},
     {"code": "admin:audit:read", "domain": "admin", "name": "审计日志查看"},
     {"code": "admin:scheduler:manage", "domain": "admin", "name": "调度任务管理"},
+    {"code": "admin:apikey:manage", "domain": "admin", "name": "API Key 机器身份管理"},  # ★ W25 Day5
 ]
 
 # 角色 → 权限码集合

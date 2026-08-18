@@ -25,7 +25,7 @@ COMPOSE := docker compose -f deploy/docker-compose.yml
 # alembic.ini 在 backend/ 下，须在此目录运行（env.py 经 pythonpath 兜底）
 BACKEND := backend
 
-.PHONY: up up-mysql down build migrate seed init-biz-db migrate-biz seed-biz reseed-biz check-biz test test-auth test-sql-validator test-executor test-nl2sql-e2e test-repair test-session-ctx test-scheduler test-kb-sync test-day3-tasks kb-sync-smoke gen-eval eval-nl2sql eval-repair eval-multiturn gen-multiturn eval-day6 test-integration check lint-fix format loadtest drill help
+.PHONY: up up-mysql down build migrate seed init-biz-db migrate-biz seed-biz reseed-biz check-biz test test-auth test-sql-validator test-executor test-nl2sql-e2e test-repair test-session-ctx test-scheduler test-kb-sync test-day3-tasks test-openapi test-apikeys test-sdk-unit test-sdk-integration kb-sync-smoke gen-eval eval-nl2sql eval-repair eval-multiturn gen-multiturn eval-day6 test-integration check lint-fix format loadtest drill help
 
 ## 默认：显示帮助
 help:
@@ -171,6 +171,18 @@ test-day3-tasks:
 ## ★ W25 Day4：OpenAPI 规范化自查（端点覆盖 100% + 统一 Err + /api/v1 版本化 + 契约校验）
 test-openapi:
 	$(PYTEST) backend/tests/test_openapi_coverage.py -v
+
+## ★ W25 Day5：API Key 机器身份 + 令牌桶 + 审批列表（纯逻辑 CI 可跑；集成需 MySQL+Redis）
+test-apikeys:
+	$(PYTEST) backend/tests/test_apikeys.py backend/tests/test_ops_approvals_api.py -v
+
+## ★ W25 Day5：SDK 单元测试（MockTransport 离线可跑，无需平台）
+test-sdk-unit:
+	cd sdk && ..\.venv\Scripts\python.exe -m pytest tests/test_sdk_units.py -v
+
+## ★ W25 Day5：SDK 集成测试（需真实平台：SCM_SDK_BASE_URL 默认 http://localhost:8000）
+test-sdk-integration:
+	cd sdk && ..\.venv\Scripts\python.exe -m pytest tests/test_sdk_integration.py -v
 
 ## ★ W25 Day2：kb_increment_sync 真实环境验收（临时 docs 目录；隔离 collection，不碰正式数据）
 kb-sync-smoke:

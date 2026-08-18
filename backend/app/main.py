@@ -12,17 +12,19 @@ W23 Day4：双域并入——挂载 /api/kb（知识问答域，承 stage3-a）�
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from starlette.datastructures import MutableHeaders
 
+from app.domains.admin import apikey_api as admin_apikey_api
 from app.domains.admin import scheduler_api as admin_scheduler_api
 from app.domains.data import router as data_router
 from app.domains.kb import router as kb_router
 from app.domains.ops import router as ops_router
 from app.platform import auth, rbac, schemas
+from app.platform.apikeys import API_KEY_PREFIX, authenticate_api_key
 from app.platform.audit import AuditMiddleware
 from app.platform.errors import Err, ErrorCode, register_error_handlers
 from app.platform.models import User
@@ -80,10 +82,13 @@ async def lifespan(app: FastAPI):
 
 
 async def global_auth(request: Request) -> User | None:
-    """全局 JWT 门禁（FastAPI 全局依赖，所有路由生效）。
+    """全局 JWT/API Key 门禁（FastAPI 全局依赖，所有路由生效）。
 
     - 白名单路径 / 认证端点 → 放行（返回 None）
-    - 其余路径 → 手动解析 Bearer 头 → 完整 JWT 校验（签名/类型/吊销/用户存活）
+    - 其余路径 → 手动解析 Bearer 头：
+      · `sk-` 前缀 → API Key 机器身份（sha256 查表 + owner 用户存活，★ W25 Day5；
+        限速在端点级 `api_key_or_jwt` 恰好一次，门禁只认证避免双计费）
+      · 否则 → 完整 JWT 校验（签名/类型/吊销/用户存活）
       失败抛 401；成功返回用户（丢弃，门禁只保证"有有效身份"）
     """
     path = request.url.path
@@ -98,6 +103,11 @@ async def global_auth(request: Request) -> User | None:
 
     factory = request.app.state.session_factory
     async with factory() as session:
+        if credentials is not None and credentials.credentials.startswith(API_KEY_PREFIX):
+            user = await authenticate_api_key(session, credentials.credentials)
+            if user is None:
+                raise HTTPException(status_code=401, detail="invalid api key")
+            return user
         return await auth.get_current_user(credentials=credentials, session=session)
 
 
@@ -207,3 +217,5 @@ app.include_router(ops_router.router)
 app.include_router(data_router.router)
 # ==================== W25 Day2：平台管理域（调度面板 API） ====================
 app.include_router(admin_scheduler_api.router)
+# ==================== W25 Day5：平台管理域（API Key 机器身份管理） ====================
+app.include_router(admin_apikey_api.router)

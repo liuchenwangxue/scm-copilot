@@ -113,3 +113,70 @@ jobs:
           name: coverage-reports
           path: coverage.xml
           if-no-files-found: error
+
+  # ★ W25 Day5：SDK job——装包 → 起平台 → 跑 SDK 单元 + 集成测试
+  #   - 集成测试需要真实平台（uvicorn 后台）与 MySQL（admin 凭证创建 API Key）
+  #   - 无 Redis → 限速 fail-open → 429 用例自动 skip（部署环境验证；与后端设计一致）
+  sdk:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root123
+          MYSQL_DATABASE: scm_platform
+          TZ: Asia/Shanghai
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[dev]"       # 平台依赖（唯一来源 = pyproject.toml）
+          pip install -e ./sdk          # SDK 可编辑安装（测试其真实导入路径）
+
+      - name: alembic migrate + seed (platform & biz)
+        run: |
+          SCM_PLATFORM_DSN="mysql+asyncmy://root:root123@127.0.0.1:3306/scm_platform?charset=utf8mb4" \
+            alembic -c backend/alembic.ini upgrade head
+          SCM_PLATFORM_DSN="mysql+asyncmy://root:root123@127.0.0.1:3306/scm_platform?charset=utf8mb4" \
+            python scripts/seed_platform.py
+          SCM_BIZ_DSN="mysql+asyncmy://root:root123@127.0.0.1:3306/scm_biz?charset=utf8mb4" \
+            python -X utf8 scripts/init_biz_db.py
+          SCM_BIZ_DSN="mysql+asyncmy://root:root123@127.0.0.1:3306/scm_biz?charset=utf8mb4" \
+            alembic -c backend/alembic_biz.ini upgrade head
+          SCM_BIZ_DSN="mysql+asyncmy://root:root123@127.0.0.1:3306/scm_biz?charset=utf8mb4" \
+            python -X utf8 scripts/seed_biz.py
+
+      - name: Start platform (uvicorn background)
+        run: |
+          cd backend
+          SCM_PLATFORM_DSN="mysql+asyncmy://root:root123@127.0.0.1:3306/scm_platform?charset=utf8mb4" \
+          SCM_BIZ_DSN="mysql+asyncmy://root:root123@127.0.0.1:3306/scm_biz?charset=utf8mb4" \
+          SCM_BIZ_RO_DSN="mysql+asyncmy://nl2sql_ro:ro_pass_2026_dev@127.0.0.1:3306/scm_biz?charset=utf8mb4" \
+          SCM_JWT_SECRET="test-secret-for-day3" \
+          SCM_SCHEDULER_ENABLED=0 \
+          nohup uvicorn app.main:app --host 127.0.0.1 --port 8000 > /tmp/uvicorn.log 2>&1 &
+          sleep 6
+          curl -sf http://127.0.0.1:8000/health || (echo "platform failed to start"; cat /tmp/uvicorn.log; exit 1)
+
+      - name: SDK unit tests (offline)
+        run: |
+          cd sdk && python -m pytest tests/test_sdk_units.py -v
+
+      - name: SDK integration tests (clean env vs real platform)
+        run: |
+          cd sdk && SCM_SDK_BASE_URL=http://127.0.0.1:8000 python -m pytest tests/test_sdk_integration.py -v

@@ -45,3 +45,46 @@ class SchedulerTriggerOut(BaseModel):
     job: str
     triggered: bool
     audited: bool
+
+
+class ApiKeyCreateIn(BaseModel):
+    """API Key 创建请求体（★ W25 Day5：机器身份）。"""
+
+    name: str = Field(..., min_length=1, max_length=64, description="Key 名称（如 data-pipeline / ci-bot）")
+    owner_username: str | None = Field(None, description="属主用户名；缺省=当前用户（服务账号继承 owner 权限）")
+
+
+class ApiKeyCreatedOut(BaseModel):
+    """API Key 创建响应（明文 key 只在创建时返回一次，之后仅展示前缀）。"""
+
+    key_id: int
+    name: str
+    key_prefix: str = Field(description="展示用前缀（sk- + 前 8 位）")
+    api_key: str = Field(description="完整 Key（明文，仅此一次！请立即保存）")
+    owner_username: str
+
+
+class ApiKeyOut(BaseModel):
+    """API Key 列表项（不返回哈希，不返回明文）。"""
+
+    key_id: int
+    name: str
+    key_prefix: str
+    owner_username: str | None
+    enabled: bool
+    created_at: str | None = None
+
+
+class ApiKeyListOut(BaseModel):
+    """API Key 列表响应。"""
+
+    api_keys: list[ApiKeyOut]
+    total: int
+
+
+class ApiKeyRevokeOut(BaseModel):
+    """API Key 吊销响应。"""
+
+    ok: bool
+    key_id: int
+    revoked: bool

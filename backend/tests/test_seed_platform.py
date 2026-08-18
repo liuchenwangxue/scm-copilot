@@ -1,9 +1,9 @@
 """W23 Day2 平台库种子数据验证（integration，需 MySQL）。
 
 验证点：
-- 4 角色 / 12 权限 / 25 角色-权限映射 / 12 用户（3 租户 × 4 角色）
+- 4 角色 / 13 权限（★ W25 Day5 新增 admin:apikey:manage）/ 26 角色-权限映射 / 12 用户
 - 幂等：连跑两遍 seed 行数一致
-- RBAC 矩阵：admin 全量 12 / operator 7 / analyst 4 / viewer 2
+- RBAC 矩阵：admin 全量 13 / operator 7 / analyst 4 / viewer 2
 - 测试密码 `Passw0rd!` 可被 bcrypt 校验（login 前置条件）
 """
 
@@ -21,8 +21,8 @@ TEST_DSN = os.environ.get(
 
 PLAIN_PASSWORD = "Passw0rd!"
 
-# 角色 → 期望权限数（与 seed_platform.ROLE_PERMISSION_MAP 一致）
-EXPECTED_ROLE_PERM_COUNT = {"admin": 12, "operator": 7, "analyst": 4, "viewer": 2}
+# 角色 → 期望权限数（与 seed_platform.ROLE_PERMISSION_MAP 一致；★ W25 Day5 admin 13）
+EXPECTED_ROLE_PERM_COUNT = {"admin": 13, "operator": 7, "analyst": 4, "viewer": 2}
 
 
 @pytest.mark.integration
@@ -36,8 +36,8 @@ async def test_roles_and_permissions_count():
             ur = await conn.scalar(text("SELECT COUNT(*) FROM user_roles"))
             users = await conn.scalar(text("SELECT COUNT(*) FROM users"))
         assert roles == 4
-        assert perms == 12
-        assert rp == 25
+        assert perms == 13
+        assert rp == 26
         assert ur == 12
         assert users == 12
     finally:

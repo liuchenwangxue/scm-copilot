@@ -1,0 +1,47 @@
+# scm-copilot-client：SCM Copilot 平台官方 SDK（★ W25 Day5）
+# 设计：薄封装 httpx（零重依赖）——三接口手写可控（ADR-08），端点增后再切
+# openapi-python-client 生成（OpenAPI 契约已就绪，演进路径见《04》ADR-08）。
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scm-copilot-client"
+version = "0.1.0"
+description = "SCM Copilot 供应链智能运营平台官方 Python SDK——chat_stream / nl2sql / approvals 三接口"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "httpx>=0.24",      # 唯一硬依赖：SSE stream 解析 + 连接池复用
+]
+
+[project.optional-dependencies]
+# as_dataframe=True 需要 pandas（可选：不为一个可选能力加硬依赖）
+dataframe = ["pandas"]
+dev = ["pytest", "ruff", "mypy"]
+
+[tool.setuptools.packages.find]
+include = ["scm_client*"]
+
+# ==================== 开发工具配置（SDK 独立仓库视角，CI 跑 sdk 测试用） ====================
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "UP", "B", "I", "SIM"]
+ignore = ["E501", "F401", "B008"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+markers = [
+    "integration: 需要真实平台（MySQL/Redis/uvicorn）——本地/CI 的 SDK job 才跑",
+]

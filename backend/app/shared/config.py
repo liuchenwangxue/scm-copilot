@@ -58,7 +58,9 @@ COST_PRICE_INPUT = float(os.getenv("COST_PRICE_INPUT", "2"))  # ¥/百万 token 
 COST_PRICE_OUTPUT = float(os.getenv("COST_PRICE_OUTPUT", "8"))  # ¥/百万 token 输出
 
 # ---- Redis（幂等 / 缓存 / 分布式锁；fail-open）----
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:16380/0")
+# ★ W25 Day5 修正：compose 宿主映射是 16381（本机 16380 被 stage3 占用），
+#   旧默认 16380 指向他项目 → 本地 Redis 一直连不上只能 fail-open（429 无法本地验证）。
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:16381/0")
 REDIS_ENABLED = os.getenv("REDIS_ENABLED", "1") == "1"
 REDIS_SOCKET_TIMEOUT = float(os.getenv("REDIS_SOCKET_TIMEOUT", "1.0"))
 REDIS_IDEM_TTL = int(os.getenv("REDIS_IDEM_TTL", "300"))

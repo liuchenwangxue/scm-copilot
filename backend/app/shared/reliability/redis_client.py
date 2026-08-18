@@ -170,6 +170,18 @@ class RedisClient:
             self._last_fail_ts = time.time()
             return 0
 
+    def eval(self, lua: str, numkeys: int, *keys_and_args) -> object:
+        """EVAL Lua 脚本（★ W25 Day5：API Key 令牌桶限速用）。
+
+        fail-open：异常返回 None——调用方按"Redis 不可用 → 放行"降级
+        （配额是软约束，Redis 抖动不拒绝请求；手册 fail-open 原则）。
+        """
+        try:
+            return self._connect().eval(lua, numkeys, *keys_and_args)
+        except Exception:
+            self._last_fail_ts = time.time()
+            return None
+
     def scan_keys(self, pattern: str, count: int = 500) -> list[str]:
         """SCAN 遍历匹配键（★ W25 Day2：vector_cleanup 语义缓存过期键扫描用）。
 

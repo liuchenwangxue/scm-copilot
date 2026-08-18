@@ -87,8 +87,8 @@ scm-copilot/
 | 会话 | `conversations` | 多轮会话历史 |
 
 **种子数据（`make seed`，幂等连跑两遍一致）**：
-- 4 角色：`admin`(12 权限) / `operator`(7) / `analyst`(4) / `viewer`(2)
-- 12 权限码：kb 3 + ops 4 + data 2 + admin 3
+- 4 角色：`admin`(13 权限) / `operator`(7) / `analyst`(4) / `viewer`(2)
+- 13 权限码：kb 3 + ops 4 + data 2 + admin 4（★ W25 Day5 新增 `admin:apikey:manage`）
 - 3 租户 × 4 角色测试用户：`<role>_<tenant>`，**明文密码统一 `Passw0rd!`**（仅开发环境，入库为 bcrypt 哈希）
   - 租户：`t_huadong` / `t_huabei` / `t_huanan`
   - 例：`admin_t_huadong` / `operator_t_huabei` / `analyst_t_huanan` / `viewer_t_huadong`
@@ -229,6 +229,37 @@ make test-day3-tasks   # 日报/夜间回归/预热三任务（Day3；纯逻辑 
 make kb-sync-smoke     # kb_increment_sync 真实环境验收（隔离 collection，不碰正式数据）
 ```
 
+## 六·九、开放生态：OpenAPI / SDK / API Key（W25 Day4–Day5）
+
+**OpenAPI 规范化（★ W25 Day4）**：`/api/v1` 版本化 + 三分组 tag（auth/kb/ops/data/admin）+ 统一错误码 `Err{code,message,trace_id}`（`app/platform/errors.py` 单一事实来源）+ 响应模型 100% 注解 + `openapi-spec-validator` 契约校验（`make test-openapi`）。
+
+**API Key 机器身份（★ W25 Day5）**：`app/platform/apikeys.py`
+- `sk-` 前缀 + secrets 生成（192bit 熵），**sha256 哈希落库**（高频路径不用 bcrypt——与密码策略分开的权衡），明文只在创建时返回一次
+- 双轨认证 `api_key_or_jwt`：Bearer `sk-` → API Key（动态加载 owner 用户权限），否则 JWT（静态 claims）——集成方无登录态也能调受保护端点
+- **Redis 令牌桶限速**（Lua 原子，容量 10 / 速率 5/min）→ 超额 `429 + Retry-After`；Redis 挂 → fail-open 放行（配额是软约束）
+- 管理 API：`POST/GET /api/v1/admin/apikeys` + `DELETE .../{id}`（吊销软删除保审计，权限 `admin:apikey:manage`）
+
+**官方 SDK `sdk/scm-copilot-client`（★ W25 Day5）**：薄封装 httpx 零重依赖（ADR-08：三接口手写可控，端点增后再切 openapi-python-client）
+```python
+from scm_client import ScmCopilot
+client = ScmCopilot("http://localhost:8000", api_key="sk-xxx")
+for event in client.chat_stream("供应商准入需要哪些资质？"):
+    print(event.delta, end="", flush=True)          # SSE 流式（四型事件迭代器）
+result = client.nl2sql("近30天延迟发货 TOP5 供应商", as_dataframe=True)
+print(result.sql)                                    # SQL 100% 透出可审计
+pending = client.approvals.list_pending()            # 审批（含 HITL 恢复上下文）
+client.approvals.decide(pending[0].approval_id, "approve", session_id=pending[0].session_id)
+```
+- 审批列表数据源：`GET /api/v1/ops/approvals`（★ W25 Day5 新增，含 session_id 断点恢复上下文）
+- 错误映射：`ScmAuthError`(401/403) / `ScmQuotaError`(429+Retry-After) / `ScmError`（对齐平台 Err 契约）
+- 发布：`cd sdk && python -m build && twine upload --repository testpypi dist/*`（备选名 `scm-copilot-client-dev`）
+
+```bash
+make test-apikeys        # API Key + 令牌桶 + 审批列表（纯逻辑 CI 可跑；集成需 MySQL+Redis）
+make test-sdk-unit       # SDK 单元测试（MockTransport 离线可跑）
+make test-sdk-integration  # SDK 集成测试（需真实平台：SCM_SDK_BASE_URL 默认 http://localhost:8000）
+```
+
 ## 七、非目标（scope 纪律，详见《06》第 5 节）
 
 等保正式化、OCR/Whisper、钉钉企微 IM、LoRA、多 GPU、BI 图表引擎、桌面客户端、行业多场景定制——一律进二期 backlog。
@@ -236,5 +267,7 @@ make kb-sync-smoke     # kb_increment_sync 真实环境验收（隔离 collectio
 ## 八、CI
 
 `.github/workflows/ci.yml`：push/PR → Python 3.12 → ruff → mypy → **★ W24-D2 sql_validator 四道闸 + 攻击用例（纯 AST 无 DB，安全第一道闸）** → **platform alembic migrate + seed（幂等两遍）** → **biz init_biz_db（建库+只读账号）→ alembic migrate + seed + 校验和** → pytest（含 MySQL service container 连通性、种子/只读沙箱/executor 用例）→ coverage 上传。
+
+**★ W25 Day5 新增 `sdk` job**：装包（`pip install -e ".[dev]"` + `pip install -e ./sdk`）→ migrate + seed → 后台起 uvicorn（`SCM_SCHEDULER_ENABLED=0`）→ SDK 单元测试（离线）→ SDK 集成测试（干净环境真实调平台，十行脚本 + 吊销 401；429 用例在无 Redis 的 CI 自动 skip，本地部署环境真跑）。
 
 > 教训（W24 Day1）：**不要用 volumes 把工作区子目录挂进 CI service 容器**——容器内 root 改写目录所有权，重跑时 checkout 清理工作区报 EACCES。建库/建用户改由 job 步骤显式执行 `scripts/init_biz_db.py`。

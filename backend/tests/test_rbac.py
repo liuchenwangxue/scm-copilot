@@ -10,12 +10,14 @@ import pytest
 from tests.conftest import PLAIN_PASSWORD, tenant_user
 
 # 与 scripts/seed_platform.py 的 ROLE_PERMISSION_MAP 逐字对齐（单一事实来源）
+# ★ W25 Day5：admin 新增 admin:apikey:manage（机器身份管理，全量 13 条）
 EXPECTED_PERMISSIONS = {
     "admin": {
         "kb:chat", "kb:read", "kb:feedback",
         "ops:order:read", "ops:order:update", "ops:approval:manage", "ops:tool:execute",
         "data:nl2sql", "data:feedback",
         "admin:user:manage", "admin:audit:read", "admin:scheduler:manage",
+        "admin:apikey:manage",
     },
     "operator": {"kb:chat", "kb:read", "kb:feedback", "ops:order:read",
                  "ops:order:update", "ops:approval:manage", "ops:tool:execute"},
@@ -56,10 +58,10 @@ def test_role_permission_matrix_from_claims(client, role):
 
 @pytest.mark.integration
 def test_all_permissions_seeded_unique(client):
-    """12 个权限码在 claims 层不重不漏（与 seed 对齐）。"""
+    """13 个权限码在 claims 层不重不漏（与 seed 对齐；★ W25 Day5 admin 13）。"""
     admin = _login_permissions(client, "admin")
     assert admin == ALL_PERMISSIONS
-    assert len(admin) == 12
+    assert len(admin) == 13
 
 
 # ==================== 越权拦截（有权限 200 / 无权限 403） ====================

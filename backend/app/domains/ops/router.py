@@ -26,7 +26,9 @@ from app.domains.ops import config
 from app.domains.ops.agent.graph import get_biz_graph
 from app.domains.ops.schemas import (
     ApprovalIn,
+    ApprovalListItemOut,
     ApprovalOut,
+    ApprovalsOut,
     OpsChatIn,
     ReportEnqueueOut,
     ReportIn,
@@ -175,6 +177,40 @@ async def chat(
     response = StreamingResponse(event_gen(), media_type="text/event-stream")
     response.headers["X-Session-Id"] = session_id
     return response
+
+
+@router.get(
+    "/approvals",
+    response_model=ApprovalsOut,
+    summary="审批列表（待审批）",
+    description=(
+        "列出待审批（含 HITL 断点恢复上下文 session_id）。★ W25 Day5：SDK "
+        "approvals.list_pending() 的数据源——进程重启后集成方从此找回挂起状态。"
+        "需要权限 ops:approval:manage。"
+    ),
+)
+async def list_approvals(
+    _: Annotated[User, Depends(rbac.require_permission("ops:approval:manage"))],
+) -> ApprovalsOut:
+    """审批列表：待审批优先（断点恢复：进程重启后从 approvals 表找回挂起状态）。
+
+    session_id = 审批发起时的 actor（LangGraph thread_id），decide 时回传即可 resume。
+    """
+    pending = approval_svc.list_pending()
+    items = [
+        ApprovalListItemOut(
+            approval_id=r.approval_id,
+            session_id=r.session_id,
+            operation=r.operation,
+            order_id=r.order_id,
+            diff=r.diff,
+            reason=r.reason,
+            status=r.status,
+            created_at=r.created_at,
+        )
+        for r in pending
+    ]
+    return ApprovalsOut(approvals=items, total=len(items))
 
 
 @router.post(

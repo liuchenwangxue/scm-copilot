@@ -42,6 +42,30 @@ class ApprovalOut(BaseModel):
     error: str | None = None
 
 
+class ApprovalListItemOut(BaseModel):
+    """审批列表项（★ W25 Day5：SDK approvals.list_pending 的数据源）。
+
+    session_id 承载审批发起时的会话标识（HITL 恢复上下文），
+    SDK decide(id, action) 时回传即可 resume LangGraph 图。
+    """
+
+    approval_id: str
+    session_id: str = Field(description="HITL 会话标识（decide 时回传）")
+    operation: str
+    order_id: str
+    diff: list[dict[str, Any]] = Field(default_factory=list, description="before/after 差异")
+    reason: str = ""
+    status: str
+    created_at: str | None = None
+
+
+class ApprovalsOut(BaseModel):
+    """审批列表响应（pending 优先，含断点恢复上下文）。"""
+
+    approvals: list[ApprovalListItemOut]
+    total: int
+
+
 class ReportIn(BaseModel):
     """报表请求体（async / sync 共用）。"""
 
