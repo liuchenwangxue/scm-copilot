@@ -16,6 +16,24 @@ pytestmark_pure = pytest.mark.filterwarnings("default")
 pytestmark = pytest.mark.integration
 
 
+# ==================== 跨 loop 防护 ====================
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _dispose_executor_engine():
+    """每个用例后释放只读沙箱 engine（防跨 loop 复用——CI pytest-asyncio 1.6.x 严格校验）。
+
+    ★ 与 test_executor.py 的 `_dispose_engine` 同模式：本文件的 integration 用例
+    （test_run_generates_brief_and_notifies）经 daily_brief → run_nl2sql_query → execute_sql
+    创建 `_ExecutorEngine` 模块级单例，若不释放，后续 test_executor 的用例在新 loop
+    复用旧 loop 的 engine → RuntimeError（CI 实测）。
+    """
+    yield
+    from app.domains.data.executor import dispose_engine
+
+    await dispose_engine()
+
+
 # ==================== 纯逻辑：指标提取 ====================
 
 
