@@ -71,17 +71,7 @@ jobs:
       - name: schema linker v2 prompt + eval set sanity
         run: |
           python -X utf8 -c "from app.domains.data.prompts import build_nl2sql_messages_v2; msgs=build_nl2sql_messages_v2('华东区域有多少订单？', tables=['orders']); assert len(msgs)==2 and 'orders' in msgs[1]['content'] and '示例（' in msgs[1]['content']; print('v2 prompt ok', len(msgs[1]['content']))"
-          python -X utf8 -c "
-import json
-from collections import Counter
-lines=[l for l in open('backend/evals/nl2sql_eval_v1.jsonl',encoding='utf-8') if l.strip()]
-assert len(lines)==90, len(lines)
-ids=[json.loads(l)['id'] for l in lines]
-assert ids==sorted(ids) and len(set(ids))==90
-layers=Counter(json.loads(l)['layer'] for l in lines)
-assert layers=={'single':30,'join':40,'aggregation':20}, layers
-print('eval set 90 ok', dict(layers))
-"
+          python -X utf8 -c "import json; from collections import Counter; lines=[l for l in open('backend/evals/nl2sql_eval_v1.jsonl',encoding='utf-8') if l.strip()]; assert len(lines)==90; ids=[json.loads(l)['id'] for l in lines]; assert ids==sorted(ids) and len(set(ids))==90; layers=Counter(json.loads(l)['layer'] for l in lines); assert layers=={'single':30,'join':40,'aggregation':20}; print('eval set 90 ok', dict(layers))"
 
       # 平台库 schema 合法 + 种子可重放（保证 PR 合并前 schema 一定可用）
       - name: alembic migrate + seed (platform)
