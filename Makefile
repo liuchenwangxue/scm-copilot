@@ -25,7 +25,7 @@ COMPOSE := docker compose -f deploy/docker-compose.yml
 # alembic.ini 在 backend/ 下，须在此目录运行（env.py 经 pythonpath 兜底）
 BACKEND := backend
 
-.PHONY: up up-mysql down build migrate seed init-biz-db migrate-biz seed-biz reseed-biz check-biz test test-auth test-sql-validator test-executor test-nl2sql-e2e test-repair test-session-ctx gen-eval eval-nl2sql eval-repair eval-multiturn gen-multiturn eval-day6 test-integration check lint-fix format loadtest drill help
+.PHONY: up up-mysql down build migrate seed init-biz-db migrate-biz seed-biz reseed-biz check-biz test test-auth test-sql-validator test-executor test-nl2sql-e2e test-repair test-session-ctx test-scheduler gen-eval eval-nl2sql eval-repair eval-multiturn gen-multiturn eval-day6 test-integration check lint-fix format loadtest drill help
 
 ## 默认：显示帮助
 help:
@@ -46,6 +46,7 @@ help:
 	@echo "  make test-executor      只读沙箱执行器（Day2，需 MySQL）"
 	@echo "  make test-repair        错误自修复测试（Day5）"
 	@echo "  make test-session-ctx   多轮会话测试（Day5）"
+	@echo "  make test-scheduler     调度基座测试（Day1：leader 锁互斥 + job_runs）"
 	@echo "  make gen-eval           生成评测集 v1（Day3）"
 	@echo "  make eval-nl2sql        execution accuracy 评测（Day3）"
 	@echo "  make eval-link-recall   Schema Linking 召回评测（Day4）"
@@ -152,6 +153,10 @@ test-repair:
 ## ★ W24 Day5：多轮会话测试（消解规则 mock 单测 + 全链路集成；需 MySQL+seed）
 test-session-ctx:
 	$(PYTEST) backend/tests/test_session_ctx.py -v
+
+## ★ W25 Day1：调度基座测试（leader 锁互斥纯逻辑无需 DB + job_runs 落库/重启持久性需 MySQL）
+test-scheduler:
+	$(PYTEST) backend/tests/test_scheduler_leader.py backend/tests/test_scheduler_jobs.py -v
 
 ## ★ W24 Day5：生成多轮评测集（10 条对话 × 2–3 轮，固定 gold SQL）
 gen-multiturn:

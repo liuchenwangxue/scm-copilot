@@ -180,6 +180,27 @@ make test-nl2sql-e2e      # NL2SQL e2e 链路测试
 - data 分支权限二次校验（`data:nl2sql`，viewer 无权限礼貌拒答）→ `run_nl2sql_query` → SSE `data_table` 事件
   （columns/rows/sql/insights/elapsed，前端表格 + SQL 折叠面板 + 洞察 + 反馈按钮的数据源）。
 
+## 六·八、调度域与六任务（W25 Day1）
+
+**调度基座 `app/platform/scheduler/`**（APScheduler 3.x 稳定线，锁死 <4）：
+
+| 组件 | 说明 |
+|---|---|
+| `leader.py` | ★ 任务级互斥装饰器：`SET lock:job:{name} NX EX 300` + owner 校验 Lua 释放；Redis 挂 → fail-open 放行（任务幂等兜底） |
+| `__init__.py` | `AsyncIOScheduler` + MySQL job store（`scm_platform.apscheduler_jobs` 内建表）→ 重启任务定义不丢；六任务集中注册表 + `misfire_grace_time=300` + `coalesce=True`（错过补跑合并）；`_run_job` 模块级入口（★ MySQL job store pickle 要求回调可序列化，闭包会炸） |
+| `jobs/` | 六任务：kb_increment_sync `*/5` / vector_cleanup `0 3` / audit_archive `0 4 1` / daily_brief `0 8 1-5` / eval_nightly `0 2` / cache_warmup `0 7`（Day1 占位，Day2/3 填实现） |
+
+- **双实例防重**：调度器全实例跑（高可用）+ 任务级互斥（leader 锁，未抢到记 `skipped`）+ 任务幂等键双保险；
+  每次执行写 `scheduler_job_runs`（running → success/failed/skipped + instance + duration_ms）——24h 零重复观测依据
+- **lifespan 集成**：startup `scheduler.start()` / shutdown `wait=False` 优雅停；启动失败 fail-open 降级（不阻塞主服务）；
+  `/health` 返回 `scheduler: running|off`
+- 测试：`make test-scheduler`（leader 锁互斥纯逻辑 + job_runs 落库/重启持久性 integration，需 MySQL）
+- 手动触发：`PlatformScheduler.trigger(job_name)`（独立一次性 job，不覆盖原 cron——reschedule 会吞掉 cron 定义的坑）
+
+```bash
+make test-scheduler    # 调度基座测试（需 MySQL，Redis 可选）
+```
+
 ## 七、非目标（scope 纪律，详见《06》第 5 节）
 
 等保正式化、OCR/Whisper、钉钉企微 IM、LoRA、多 GPU、BI 图表引擎、桌面客户端、行业多场景定制——一律进二期 backlog。

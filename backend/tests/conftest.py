@@ -21,6 +21,11 @@ TEST_JWT_SECRET = os.environ.get("SCM_JWT_SECRET", "test-secret-for-day3")
 # 必须在 import app.* 之前写入环境变量（settings 是模块级单例）
 os.environ["SCM_PLATFORM_DSN"] = TEST_DSN
 os.environ["SCM_JWT_SECRET"] = TEST_JWT_SECRET
+# ★ W25 Day1：测试环境默认关闭随应用启动的调度器——每个 TestClient 都起一个
+#   AsyncIOScheduler 会连 MySQL job store（建表 + 注册六任务 + 启动后台循环），
+#   既拖慢单测又往测试库写调度状态。调度器功能由 test_scheduler_jobs.py 专项
+#   integration 测试覆盖（手动构造 PlatformScheduler）；CI 部署环境默认开启。
+os.environ.setdefault("SCM_SCHEDULER_ENABLED", "0")
 
 # seed 用户的固定测试凭证（与 scripts/seed_platform.py 一致）
 PLAIN_PASSWORD = "Passw0rd!"

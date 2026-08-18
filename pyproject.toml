@@ -46,6 +46,11 @@ dependencies = [
     #   当前锁定 30.x（生产环境实测版本 30.17.0）。
     "sqlglot>=30,<31",       # SQL AST 校验四道闸（确定性解析，安全边界不依赖模型听话）
     "pandas",                # 种子生成 / 结果集 as_dataframe
+    # ---- W25：调度域 ----
+    # ★ APScheduler 锁死 3.x 稳定线：4.x 仍是 alpha（API 未冻结，跨版本升级代价未知）。
+    #   MySQLJobStore 走 SQLAlchemy 同步引擎（pymysql），与平台 asyncmy 连接独立——job store
+    #   表 apscheduler_jobs 建在 scm_platform 库（内建即可，无需 alembic 迁移）。
+    "apscheduler>=3.10,<4",  # 定时任务调度器（AsyncIOScheduler + MySQLJobStore）
 ]
 
 [project.optional-dependencies]

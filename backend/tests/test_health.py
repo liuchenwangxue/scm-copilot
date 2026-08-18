@@ -18,7 +18,11 @@ TEST_DSN = os.environ.get(
 
 
 def test_health_endpoint():
-    """/health 始终 200，结构正确；DB 状态随环境（无 DB 时应为 down/degraded）。"""
+    """/health 始终 200，结构正确；DB 状态随环境（无 DB 时应为 down/degraded）。
+
+    ★ W25 Day1：新增 scheduler 字段（running/off）——调度器随进程启动，
+    MySQL 不可用时 fail-open 降级为 off，health 仍 200 不阻塞主服务。
+    """
     from fastapi.testclient import TestClient
 
     from app.main import app
@@ -27,9 +31,10 @@ def test_health_endpoint():
         resp = client.get("/health")
         assert resp.status_code == 200
         body = resp.json()
-        assert set(body) == {"status", "db"}
+        assert set(body) == {"status", "db", "scheduler"}
         assert body["status"] in ("ok", "degraded")
         assert body["db"] in ("up", "down")
+        assert body["scheduler"] in ("running", "off")
 
 
 @pytest.mark.integration

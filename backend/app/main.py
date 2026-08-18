@@ -24,6 +24,7 @@ from app.domains.ops import router as ops_router
 from app.platform import auth, rbac, schemas
 from app.platform.audit import AuditMiddleware
 from app.platform.models import User
+from app.platform.scheduler import PlatformScheduler
 from app.platform.settings import settings
 
 # 全局放行路径（不校验 JWT）——对齐《02》4 节"放行清单：/health /docs /metrics"
@@ -48,7 +49,28 @@ async def lifespan(app: FastAPI):
     )
     app.state.engine = engine
     app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    # ★ W25 Day1：调度器随进程启动（双实例全跑，任务级互斥靠 leader 锁）。
+    #   job store 在 MySQL（任务定义重启不丢）；start() 失败 → fail-open 降级
+    #   （scheduler_enabled 默认开；CI 纯单测环境可用 SCM_SCHEDULER_ENABLED=0 关闭）
+    app.state.scheduler = None
+    if settings.scheduler_enabled:
+        scheduler = PlatformScheduler(
+            jobstore_dsn=settings.jobstore_dsn,
+            session_factory=app.state.session_factory,
+            instance_id=settings.instance_id,
+            timezone=settings.scheduler_timezone,
+        )
+        try:
+            scheduler.start()
+            app.state.scheduler = scheduler
+        except Exception:  # noqa: BLE001  # 调度是旁路能力，启动失败不阻塞主服务
+            import logging
+
+            logging.getLogger("scm.platform.scheduler").exception("scheduler start failed, degrade to no-scheduler")
     yield
+    if app.state.scheduler is not None:
+        app.state.scheduler.shutdown(wait=False)
     await engine.dispose()
 
 
@@ -122,14 +144,19 @@ app.add_middleware(RequestIdMiddleware)
 
 @app.get("/health", tags=["ops"])
 async def health() -> dict:
-    """存活探针：返回服务与数据库连通状态。"""
+    """存活探针：返回服务与数据库连通状态 + 调度器状态（W25 Day1）。"""
     db_status = "up"
     try:
         async with app.state.engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
     except Exception:
         db_status = "down"
-    return {"status": "ok" if db_status == "up" else "degraded", "db": db_status}
+    scheduler = getattr(app.state, "scheduler", None)
+    return {
+        "status": "ok" if db_status == "up" else "degraded",
+        "db": db_status,
+        "scheduler": "running" if scheduler is not None and scheduler.running else "off",
+    }
 
 
 @app.get("/api/auth/me", response_model=schemas.UserOut, tags=["auth"])
