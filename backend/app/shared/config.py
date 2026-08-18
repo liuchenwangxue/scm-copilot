@@ -24,15 +24,20 @@ if _env_file.exists():
             os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
 
 # ---- 路径（指向 scm-copilot 根目录；数据目录可被 KB_DATA_DIR 覆盖指向旧库）----
-ROOT = Path(__file__).resolve().parents[3]               # scm-copilot/
+ROOT = Path(__file__).resolve().parents[3]  # scm-copilot/
 DATA_DIR = Path(os.getenv("KB_DATA_DIR", str(ROOT / "data")))
 REPORTS_DIR = Path(os.getenv("REPORTS_DIR", str(ROOT / "reports")))
 DOCS_DIR = DATA_DIR / "docs"
+# ★ W25 Day2：知识库文档源目录（kb_increment_sync 增量同步扫描的目标）。
+#   默认 scm-copilot/data/docs；可被 KB_DOCS_DIR 覆盖指向旧库
+#   （如 `KB_DOCS_DIR=f:/code/agent/learning-outputs/stage3-project-a/data/docs`，
+#   本地开发直接复用 stage3-a 的 57 篇制度文档，避免重复拷贝）。
+KB_DOCS_DIR = Path(os.getenv("KB_DOCS_DIR", str(DOCS_DIR)))
 
 # ---- LLM（mock | real，与 stage3 同构）----
 # ★ mock-first：默认 mock（无 Key 环境服务不崩）；配好 Key 后设 LLM_PROVIDER=real
 #   （stage3 默认 real 是因为其 .env 已配 Key；平台化后无 Key 自动降级为开发安全值）
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "mock")   # mock | real
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "mock")  # mock | real
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 LLM_MODEL = os.getenv("LLM_MODEL", "")
@@ -49,8 +54,8 @@ LANGFUSE_HOST = os.getenv("LANGFUSE_HOST", "http://localhost:3300")
 
 # ---- 成本预算（A3 超预算降级）----
 SESSION_BUDGET_YUAN = float(os.getenv("SESSION_BUDGET_YUAN", "0.5"))
-COST_PRICE_INPUT = float(os.getenv("COST_PRICE_INPUT", "2"))      # ¥/百万 token 输入
-COST_PRICE_OUTPUT = float(os.getenv("COST_PRICE_OUTPUT", "8"))    # ¥/百万 token 输出
+COST_PRICE_INPUT = float(os.getenv("COST_PRICE_INPUT", "2"))  # ¥/百万 token 输入
+COST_PRICE_OUTPUT = float(os.getenv("COST_PRICE_OUTPUT", "8"))  # ¥/百万 token 输出
 
 # ---- Redis（幂等 / 缓存 / 分布式锁；fail-open）----
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:16380/0")
@@ -75,9 +80,11 @@ CHUNKS_FILE = os.getenv("CHUNKS_FILE", str(DATA_DIR / "chunks_title.json"))
 BM25_CACHE_FILE = os.getenv("BM25_CACHE_FILE", str(DATA_DIR / "bm25_index_cache.json"))
 QA_EVAL_FILE = os.getenv("QA_EVAL_FILE", str(DATA_DIR / "qa_eval_set.json"))
 SEMANTIC_ROUTER_SAMPLES_FILE = os.getenv(
-    "SEMANTIC_ROUTER_SAMPLES_FILE", str(DATA_DIR / "semantic_router_samples.json"))
+    "SEMANTIC_ROUTER_SAMPLES_FILE", str(DATA_DIR / "semantic_router_samples.json")
+)
 SEMANTIC_ROUTER_VECTORS_FILE = os.getenv(
-    "SEMANTIC_ROUTER_VECTORS_FILE", str(DATA_DIR / "semantic_router_vectors.json"))
+    "SEMANTIC_ROUTER_VECTORS_FILE", str(DATA_DIR / "semantic_router_vectors.json")
+)
 
 # ---- 语义路由（kb 域使用；阈值分开调：rag 宽容、tool/chat/data 从严）----
 # ★ W24 Day6：新增 data 分支类目（查数问题 → NL2SQL 域）。阈值从严（0.80）：

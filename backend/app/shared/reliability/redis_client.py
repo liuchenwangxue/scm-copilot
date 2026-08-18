@@ -17,6 +17,7 @@
     .delete(key)                 -> bool
     .delete_if_equals(key, expected) -> bool  # 校验式删除（锁释放，防误删他人锁）
 """
+
 from __future__ import annotations
 
 import builtins
@@ -30,8 +31,9 @@ _AVAIL_COOLDOWN_S = 5.0
 
 
 class RedisClient:
-    def __init__(self, url: str | None = None, enabled: bool | None = None,
-                 timeout: float | None = None):
+    def __init__(
+        self, url: str | None = None, enabled: bool | None = None, timeout: float | None = None
+    ):
         self.url = url or config.REDIS_URL
         self.enabled = config.REDIS_ENABLED if enabled is None else enabled
         self.timeout = config.REDIS_SOCKET_TIMEOUT if timeout is None else timeout
@@ -46,6 +48,7 @@ class RedisClient:
         """懒创建 redis 客户端（decode_responses=True：值即 str，省手动解码）。"""
         if self._client is None:
             import redis
+
             self._client = redis.Redis.from_url(
                 self.url,
                 socket_connect_timeout=self.timeout,
@@ -166,6 +169,26 @@ class RedisClient:
         except Exception:
             self._last_fail_ts = time.time()
             return 0
+
+    def scan_keys(self, pattern: str, count: int = 500) -> list[str]:
+        """SCAN 遍历匹配键（★ W25 Day2：vector_cleanup 语义缓存过期键扫描用）。
+
+        fail-open：异常返回 []（清理是旁路，不因 Redis 抖动抛错）。
+        `count` 每轮迭代游标提示数；跨批游标由 redis-py 内部处理，循环直到游标归零。
+        """
+        try:
+            client = self._connect()
+            keys: list[str] = []
+            cursor = 0
+            while True:
+                cursor, batch = client.scan(cursor=cursor, match=pattern, count=count)
+                keys.extend(batch)
+                if cursor == 0:
+                    break
+            return keys
+        except Exception:
+            self._last_fail_ts = time.time()
+            return []
 
 
 # 模块级单例（进程内共享）

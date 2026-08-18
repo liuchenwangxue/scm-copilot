@@ -80,11 +80,27 @@ async def runtime():
 
 
 @pytest.mark.asyncio
-async def test_job_runs_written_on_execute(runtime):
-    """任务执行写 job_runs：running → success，字段完整（instance/trigger/时间）。"""
+async def test_job_runs_written_on_execute(runtime, monkeypatch):
+    """任务执行写 job_runs：running → success，字段完整（instance/trigger/时间）。
+
+    ★ W25 Day2 修正：Day1 时 kb_increment_sync 是 stub，直接 `_run_job` 无副作用；
+      现在它已是真实实现（会全量同步 57 篇文档 + 重建 Qdrant）。测试 job_runs 机制
+      用轻量 stub 替换业务回调——机制验证与业务实现解耦。
+    """
+    from app.platform.scheduler import _JOB_BY_NAME
+
+    async def _stub() -> dict:
+        return {"job": "kb_increment_sync", "status": "stub"}
+
+    monkeypatch.setitem(
+        _JOB_BY_NAME,
+        "kb_increment_sync",
+        {**_JOB_BY_NAME["kb_increment_sync"], "func": _stub},
+    )
+
     result = await _run_job("kb_increment_sync")
     assert result["job"] == "kb_increment_sync"
-    # 业务回调返回自身结果（Day1 stub）；job_runs 表里的状态才是 success（下方断言）
+    # 业务回调返回自身结果（stub）；job_runs 表里的状态才是 success（下方断言）
 
     from sqlalchemy import select
 
@@ -114,19 +130,26 @@ async def test_job_runs_written_on_execute(runtime):
 
 
 @pytest.mark.asyncio
-async def test_job_runs_skipped_when_lock_held(runtime):
+async def test_job_runs_skipped_when_lock_held(runtime, monkeypatch):
     """互斥场景：任务未抢到锁 → job_runs 记 skipped（零重复观测依据）。
 
     依赖真实 Redis（预置锁需要 SETNX；leader 锁 Redis 不可用会 fail-open 放行）。
     CI 无 Redis service → skip（互斥语义已由 test_scheduler_leader.py FakeRedis 覆盖）。
+    ★ W25 Day2：kb_increment_sync 已是真实实现，用 stub 替换避免触发全量同步副作用。
     """
     from sqlalchemy import select
 
     from app.platform.models import SchedulerJobRun
+    from app.platform.scheduler import _JOB_BY_NAME
     from app.platform.scheduler.leader import SkipResult
     from app.shared.reliability.redis_client import get_redis_client
 
     spec = JOB_DEFS[0]
+
+    async def _stub() -> dict:
+        return {"job": spec["name"], "status": "stub"}
+
+    monkeypatch.setitem(_JOB_BY_NAME, spec["name"], {**_JOB_BY_NAME[spec["name"]], "func": _stub})
 
     rc = get_redis_client()
     if not rc.available:

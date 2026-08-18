@@ -25,7 +25,7 @@ COMPOSE := docker compose -f deploy/docker-compose.yml
 # alembic.ini 在 backend/ 下，须在此目录运行（env.py 经 pythonpath 兜底）
 BACKEND := backend
 
-.PHONY: up up-mysql down build migrate seed init-biz-db migrate-biz seed-biz reseed-biz check-biz test test-auth test-sql-validator test-executor test-nl2sql-e2e test-repair test-session-ctx test-scheduler gen-eval eval-nl2sql eval-repair eval-multiturn gen-multiturn eval-day6 test-integration check lint-fix format loadtest drill help
+.PHONY: up up-mysql down build migrate seed init-biz-db migrate-biz seed-biz reseed-biz check-biz test test-auth test-sql-validator test-executor test-nl2sql-e2e test-repair test-session-ctx test-scheduler test-kb-sync kb-sync-smoke gen-eval eval-nl2sql eval-repair eval-multiturn gen-multiturn eval-day6 test-integration check lint-fix format loadtest drill help
 
 ## 默认：显示帮助
 help:
@@ -47,6 +47,8 @@ help:
 	@echo "  make test-repair        错误自修复测试（Day5）"
 	@echo "  make test-session-ctx   多轮会话测试（Day5）"
 	@echo "  make test-scheduler     调度基座测试（Day1：leader 锁互斥 + job_runs）"
+	@echo "  make test-kb-sync       数据闭环三任务+面板（Day2：kb增量/清理/归档/面板）"
+	@echo "  make kb-sync-smoke      kb_increment_sync 真实环境验收（隔离 collection）"
 	@echo "  make gen-eval           生成评测集 v1（Day3）"
 	@echo "  make eval-nl2sql        execution accuracy 评测（Day3）"
 	@echo "  make eval-link-recall   Schema Linking 召回评测（Day4）"
@@ -157,6 +159,14 @@ test-session-ctx:
 ## ★ W25 Day1：调度基座测试（leader 锁互斥纯逻辑无需 DB + job_runs 落库/重启持久性需 MySQL）
 test-scheduler:
 	$(PYTEST) backend/tests/test_scheduler_leader.py backend/tests/test_scheduler_jobs.py -v
+
+## ★ W25 Day2：数据闭环三任务 + 调度面板 API（kb 增量/清理/归档/面板；纯逻辑 CI 可跑，全流程需 MySQL）
+test-kb-sync:
+	$(PYTEST) backend/tests/test_kb_increment_sync.py backend/tests/test_vector_cleanup.py backend/tests/test_audit_archive.py backend/tests/test_admin_scheduler_api.py -v
+
+## ★ W25 Day2：kb_increment_sync 真实环境验收（临时 docs 目录；隔离 collection，不碰正式数据）
+kb-sync-smoke:
+	$(PY) -X utf8 scripts/kb_sync_smoke.py
 
 ## ★ W24 Day5：生成多轮评测集（10 条对话 × 2–3 轮，固定 gold SQL）
 gen-multiturn:

@@ -121,7 +121,9 @@ async def _run_job(job_name: str) -> Any:
     async def _guarded() -> Any:
         run_id = _make_run_id(job_name)
         started = datetime.now()
-        await _record(job_id=job_name, run_id=run_id, trigger="cron", status="running", started_at=started)
+        await _record(
+            job_id=job_name, run_id=run_id, trigger="cron", status="running", started_at=started
+        )
         try:
             result = await spec["func"]()
         except Exception as e:  # noqa: BLE001  # 任务失败不中断调度器，记 failed 下轮重试

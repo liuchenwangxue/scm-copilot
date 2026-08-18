@@ -244,6 +244,50 @@ class TokenBlacklist(Base):
     )
 
 
+class DocMeta(Base):
+    """知识库文档元数据登记表（★ W25 Day2：kb_increment_sync 增量同步的权威状态）。
+
+    设计（对照手册 Day2）：
+    - 作为"已入库文档登记表"：doc_id 唯一、file_mtime 是变更检测水位（`>` 严格比较）、
+      status 区分 active/deleted（删除文档保留记录便于审计与 vector_cleanup 孤儿判定）。
+    - 增量同步流程：扫描 docs 目录 → 表无此 doc_id = 新文档；mtime > 表记录 = 变更；
+      表有但目录无 = 删除（Qdrant 按 payload source_doc_id 删向量 + 标记 deleted）。
+    - content_hash 为文件内容 sha256（同 mtime 下内容变化的重建依据，实测增量验证用）。
+    """
+
+    __tablename__ = "docs"
+    __table_args__ = (
+        Index("idx_docs_status", "status"),
+        Index("idx_docs_mtime", "file_mtime"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    doc_id: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
+    file: Mapped[str] = mapped_column(String(255), nullable=False, comment="文件名（md）")
+    title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    topic: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    file_mtime: Mapped[datetime] = mapped_column(
+        _dt3(), nullable=False, comment="文件系统 mtime（增量检测水位）"
+    )
+    content_hash: Mapped[str] = mapped_column(
+        String(64), nullable=False, comment="文件内容 sha256（防 mtime 精度漏检）"
+    )
+    chunk_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default=text("'active'"), comment="active / deleted"
+    )
+    first_seen_at: Mapped[datetime] = mapped_column(
+        _dt3(),
+        nullable=False,
+        server_default=text("CURRENT_TIMESTAMP(3)"),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        _dt3(),
+        nullable=False,
+        server_default=text("CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)"),
+    )
+
+
 class SchedulerJobRun(Base):
     __tablename__ = "scheduler_job_runs"
     __table_args__ = (

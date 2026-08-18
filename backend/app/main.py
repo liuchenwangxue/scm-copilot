@@ -18,6 +18,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from starlette.datastructures import MutableHeaders
 
+from app.domains.admin import scheduler_api as admin_scheduler_api
 from app.domains.data import router as data_router
 from app.domains.kb import router as kb_router
 from app.domains.ops import router as ops_router
@@ -67,7 +68,9 @@ async def lifespan(app: FastAPI):
         except Exception:  # noqa: BLE001  # 调度是旁路能力，启动失败不阻塞主服务
             import logging
 
-            logging.getLogger("scm.platform.scheduler").exception("scheduler start failed, degrade to no-scheduler")
+            logging.getLogger("scm.platform.scheduler").exception(
+                "scheduler start failed, degrade to no-scheduler"
+            )
     yield
     if app.state.scheduler is not None:
         app.state.scheduler.shutdown(wait=False)
@@ -106,6 +109,7 @@ app = FastAPI(
 
 # ==================== 中间件 ====================
 
+
 class RequestIdMiddleware:
     """请求贯穿标识（★ W23 Day6）：响应头 X-Request-Id + scope['request_id']。
 
@@ -120,8 +124,9 @@ class RequestIdMiddleware:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
-        headers = {k.decode("latin1").lower(): v.decode("latin1")
-                   for k, v in scope.get("headers", [])}
+        headers = {
+            k.decode("latin1").lower(): v.decode("latin1") for k, v in scope.get("headers", [])
+        }
         rid = headers.get("x-request-id") or uuid4().hex[:12]
         scope["request_id"] = rid
 
@@ -179,3 +184,5 @@ app.include_router(kb_router.router)
 app.include_router(ops_router.router)
 # ==================== W24 Day3：数据分析域（NL2SQL） ====================
 app.include_router(data_router.router)
+# ==================== W25 Day2：平台管理域（调度面板 API） ====================
+app.include_router(admin_scheduler_api.router)

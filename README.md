@@ -188,7 +188,7 @@ make test-nl2sql-e2e      # NL2SQL e2e 链路测试
 |---|---|
 | `leader.py` | ★ 任务级互斥装饰器：`SET lock:job:{name} NX EX 300` + owner 校验 Lua 释放；Redis 挂 → fail-open 放行（任务幂等兜底） |
 | `__init__.py` | `AsyncIOScheduler` + MySQL job store（`scm_platform.apscheduler_jobs` 内建表）→ 重启任务定义不丢；六任务集中注册表 + `misfire_grace_time=300` + `coalesce=True`（错过补跑合并）；`_run_job` 模块级入口（★ MySQL job store pickle 要求回调可序列化，闭包会炸） |
-| `jobs/` | 六任务：kb_increment_sync `*/5` / vector_cleanup `0 3` / audit_archive `0 4 1` / daily_brief `0 8 1-5` / eval_nightly `0 2` / cache_warmup `0 7`（Day1 占位，Day2/3 填实现） |
+| `jobs/` | 六任务：kb_increment_sync `*/5` / vector_cleanup `0 3` / audit_archive `0 4 1` / daily_brief `0 8 1-5` / eval_nightly `0 2` / cache_warmup `0 7`（Day2 已实现前三个，Day3 填日报/回归/预热） |
 
 - **双实例防重**：调度器全实例跑（高可用）+ 任务级互斥（leader 锁，未抢到记 `skipped`）+ 任务幂等键双保险；
   每次执行写 `scheduler_job_runs`（running → success/failed/skipped + instance + duration_ms）——24h 零重复观测依据
@@ -197,8 +197,23 @@ make test-nl2sql-e2e      # NL2SQL e2e 链路测试
 - 测试：`make test-scheduler`（leader 锁互斥纯逻辑 + job_runs 落库/重启持久性 integration，需 MySQL）
 - 手动触发：`PlatformScheduler.trigger(job_name)`（独立一次性 job，不覆盖原 cron——reschedule 会吞掉 cron 定义的坑）
 
+**数据闭环三任务（★ W25 Day2）**：
+
+| 任务 | 实现要点 |
+|---|---|
+| `kb_increment_sync` `*/5` | docs 目录 vs `docs` 表（DocMeta）三集合扫描（new/变更/删除）；point id = `uuid5(内容)` 内容寻址幂等 upsert；变更/删除按 payload `source_doc_id` 过滤删向量（非 point id）；水位 `kb:sync:last_ts` 存 Redis，成功推进/失败不推进；collection 检测到 stage3 旧格式自动重建 |
+| `vector_cleanup` `0 3` | scroll 全量 → payload `source_doc_id` 不在 docs 表（active）即孤儿向量 → 过滤删除；语义缓存 `scm:semcache:*:keys` 过期成员（TTL 漏网 + version 失效标记）清理 |
+| `audit_archive` `0 4 1` | 上月 `audit_logs` → `audit_logs_YYYYmm`（CTAS + 行数校验 + 删主表）；归档表存在即幂等跳过；Redis 批次锁仅防两段间并发（完成释放，失败不残留） |
+
+**调度面板 API**（`app/domains/admin/scheduler_api.py`，权限 `admin:scheduler:manage`）：
+- `GET /api/admin/scheduler/jobs`：六任务 cron/desc/enabled/next_run + 上次运行（job_runs 最近一条）
+- `POST /api/admin/scheduler/jobs/{name}/trigger`：手动触发（独立一次性 job）+ 审计 `admin.scheduler.trigger`
+- scheduler 未启用 → 503（CI/单测环境属预期）
+
 ```bash
 make test-scheduler    # 调度基座测试（需 MySQL，Redis 可选）
+make test-kb-sync      # 数据闭环三任务 + 面板 API（Day2；纯逻辑 CI 可跑，全流程需 MySQL）
+make kb-sync-smoke     # kb_increment_sync 真实环境验收（隔离 collection，不碰正式数据）
 ```
 
 ## 七、非目标（scope 纪律，详见《06》第 5 节）
