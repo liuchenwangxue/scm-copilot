@@ -146,10 +146,11 @@ JOIN_CASES: list[tuple[str, str, str]] = [
     ("办公用品类目商品的销售总金额是多少？", "join-items-products",
      "SELECT SUM(i.amount) AS total_amount FROM order_items i "
      "JOIN products p ON i.product_id=p.id WHERE p.category='办公用品'"),
-    ("延迟发货单数最多的前3个承运商？", "join-topn",
-     "SELECT s.carrier, COUNT(*) AS cnt FROM shipments s "
-     "JOIN orders o ON s.order_no=o.order_no WHERE s.delay_days > 0 "
-     "GROUP BY s.carrier ORDER BY cnt DESC LIMIT 3"),
+    ("已发货订单中延迟发货单数最多的前3个承运商？", "join-topn",
+     "SELECT sh.carrier, COUNT(*) AS cnt FROM shipments sh "
+     "JOIN orders o ON sh.order_no=o.order_no "
+     "WHERE o.status='shipped' AND sh.delay_days > 0 "
+     "GROUP BY sh.carrier ORDER BY cnt DESC LIMIT 3"),
     ("库存量最高的前5个商品的名称和库存量？", "join-inventory-products",
      "SELECT p.name, i.qty FROM inventory i "
      "JOIN products p ON i.product_id=p.id ORDER BY i.qty DESC LIMIT 5"),
@@ -163,6 +164,151 @@ JOIN_CASES: list[tuple[str, str, str]] = [
     ("已完成订单中延迟发货的有多少？", "join-shipments-orders",
      "SELECT COUNT(*) AS cnt FROM shipments s "
      "JOIN orders o ON s.order_no=o.order_no WHERE o.status='done' AND s.delay_days > 0"),
+    # ---- ★ W24 Day4：join 补强 21–40（订单×供应商×发货×明细×库存组合）----
+    ("各类目商品的销量最高的前5个商品？", "join-topn",
+     "SELECT p.name, SUM(i.quantity) AS total_amount FROM order_items i "
+     "JOIN products p ON i.product_id=p.id GROUP BY p.name "
+     "ORDER BY total_amount DESC LIMIT 5"),
+    ("各供应商的发货单数？", "join-suppliers-shipments",
+     "SELECT s.name, COUNT(*) AS cnt FROM shipments sh "
+     "JOIN orders o ON sh.order_no=o.order_no "
+     "JOIN suppliers s ON o.supplier_id=s.id GROUP BY s.name ORDER BY s.name"),
+    ("各承运商的发货订单总金额？", "join-shipments-orders",
+     "SELECT sh.carrier, SUM(o.amount) AS total_amount FROM shipments sh "
+     "JOIN orders o ON sh.order_no=o.order_no GROUP BY sh.carrier ORDER BY sh.carrier"),
+    ("延迟发货天数最多的前5个订单？", "join-topn",
+     "SELECT o.order_no, sh.delay_days FROM shipments sh "
+     "JOIN orders o ON sh.order_no=o.order_no "
+     "ORDER BY sh.delay_days DESC LIMIT 5"),
+    ("低库存商品最多的仓库是哪个？", "join-lowstock-top",
+     "SELECT warehouse, COUNT(*) AS cnt FROM inventory "
+     "WHERE qty < safety_qty GROUP BY warehouse ORDER BY cnt DESC LIMIT 1"),
+    ("各仓库的库存商品覆盖了几个类目？", "join-inventory-products",
+     "SELECT i.warehouse, COUNT(DISTINCT p.category) AS cnt FROM inventory i "
+     "JOIN products p ON i.product_id=p.id GROUP BY i.warehouse ORDER BY i.warehouse"),
+    ("近30天发货订单的总金额是多少？", "join-window",
+     "SELECT SUM(o.amount) AS total_amount FROM shipments sh "
+     "JOIN orders o ON sh.order_no=o.order_no WHERE sh.shipped_at >= '2026-07-19'"),
+    ("已完成订单的明细总金额是多少？", "join-items-orders",
+     "SELECT SUM(i.amount) AS total_amount FROM orders o "
+     "JOIN order_items i ON o.order_no=i.order_no WHERE o.status='done'"),
+    ("各区域已发货订单的延迟发货单数？", "join-region-status",
+     "SELECT o.region, COUNT(*) AS cnt FROM shipments sh "
+     "JOIN orders o ON sh.order_no=o.order_no "
+     "WHERE o.status='shipped' AND sh.delay_days > 0 "
+     "GROUP BY o.region ORDER BY o.region"),
+    ("电子元件类目商品的库存总量是多少？", "join-inventory-products",
+     "SELECT SUM(i.qty) AS total_amount FROM inventory i "
+     "JOIN products p ON i.product_id=p.id WHERE p.category='电子元件'"),
+    ("被订购次数最多的前5个商品类目？", "join-topn",
+     "SELECT p.category, COUNT(*) AS cnt FROM order_items i "
+     "JOIN products p ON i.product_id=p.id GROUP BY p.category ORDER BY cnt DESC LIMIT 5"),
+    ("各供应商的延迟发货单数？", "join-supplier-delay",
+     "SELECT s.name, COUNT(*) AS cnt FROM shipments sh "
+     "JOIN orders o ON sh.order_no=o.order_no "
+     "JOIN suppliers s ON o.supplier_id=s.id "
+     "WHERE sh.delay_days > 0 GROUP BY s.name ORDER BY s.name"),
+    ("各仓库的库存总值是多少？", "join-inventory-value",
+     "SELECT i.warehouse, SUM(i.qty * p.unit_price) AS total_value FROM inventory i "
+     "JOIN products p ON i.product_id=p.id GROUP BY i.warehouse ORDER BY i.warehouse"),
+    ("华南区域供应商的订单有多少？", "join-orders-suppliers",
+     "SELECT COUNT(*) AS cnt FROM orders o "
+     "JOIN suppliers s ON o.supplier_id=s.id WHERE s.region='华南'"),
+    ("订购商品的类目平均单价最高的前5个类目？", "join-category-avg",
+     "SELECT p.category, AVG(p.unit_price) AS avg_amount FROM order_items i "
+     "JOIN products p ON i.product_id=p.id GROUP BY p.category "
+     "ORDER BY avg_amount DESC LIMIT 5"),
+    ("各区域已支付订单的明细行数？", "join-items-orders",
+     "SELECT o.region, COUNT(i.id) AS cnt FROM orders o "
+     "JOIN order_items i ON o.order_no=i.order_no WHERE o.status='paid' "
+     "GROUP BY o.region ORDER BY o.region"),
+    ("已完成订单中各类目的销量（数量）？", "join-done-category",
+     "SELECT p.category, SUM(i.quantity) AS total_amount FROM order_items i "
+     "JOIN orders o ON i.order_no=o.order_no "
+     "JOIN products p ON i.product_id=p.id WHERE o.status='done' "
+     "GROUP BY p.category ORDER BY p.category"),
+    ("已完成订单中，各承运商的平均订单金额？", "join-topn",
+     "SELECT sh.carrier, AVG(o.amount) AS avg_amount FROM shipments sh "
+     "JOIN orders o ON sh.order_no=o.order_no WHERE o.status='done' "
+     "GROUP BY sh.carrier ORDER BY avg_amount DESC LIMIT 3"),
+    ("发货单数最多的前5个供应商？", "join-topn",
+     "SELECT s.name, COUNT(*) AS cnt FROM shipments sh "
+     "JOIN orders o ON sh.order_no=o.order_no "
+     "JOIN suppliers s ON o.supplier_id=s.id GROUP BY s.name "
+     "ORDER BY cnt DESC LIMIT 5"),
+    ("各区域供应商名下订单的平均金额？", "join-groupby",
+     "SELECT s.region, AVG(o.amount) AS avg_amount FROM orders o "
+     "JOIN suppliers s ON o.supplier_id=s.id GROUP BY s.region ORDER BY s.region"),
+]
+
+# ---------------- 聚合 20（layer=aggregation，W24 Day4 新增） ----------------
+# 聚合含：HAVING 条件 / 多级分组 / 占比计算 / 时间窗聚合 / 跨表聚合
+# 注意：阈值类 HAVING 依固定 seed 数据设计（避免空结果），gold 列名与 few-shot 对齐。
+
+AGG_CASES: list[tuple[str, str, str]] = [
+    # (question, category, gold_sql)
+    ("平均订单金额超过200000的区域有哪些？", "agg-having",
+     "SELECT region, AVG(amount) AS avg_amount FROM orders "
+     "GROUP BY region HAVING AVG(amount) > 200000 ORDER BY region"),
+    ("订单数超过2000的区域有哪些？", "agg-having",
+     "SELECT region, COUNT(*) AS cnt FROM orders GROUP BY region "
+     "HAVING COUNT(*) > 2000 ORDER BY region"),
+    ("已支付订单总金额超过1500000的区域有哪些？", "agg-having-filter",
+     "SELECT region, SUM(amount) AS total_amount FROM orders WHERE status='paid' "
+     "GROUP BY region HAVING SUM(amount) > 1500000 ORDER BY region"),
+    ("各区域各状态的订单数量？", "agg-multigroup",
+     "SELECT region, status, COUNT(*) AS cnt FROM orders "
+     "GROUP BY region, status ORDER BY region, status"),
+    ("各区域各状态的订单总金额？", "agg-multigroup",
+     "SELECT region, status, SUM(amount) AS total_amount FROM orders "
+     "GROUP BY region, status ORDER BY region, status"),
+    ("各区域各状态的订单平均金额？", "agg-multigroup",
+     "SELECT region, status, AVG(amount) AS avg_amount FROM orders "
+     "GROUP BY region, status ORDER BY region, status"),
+    ("华东区域的订单占全部订单的比例（百分比）？", "agg-ratio",
+     "SELECT ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM orders), 2) AS pct "
+     "FROM orders WHERE region='华东'"),
+    ("已支付订单占总订单的比例（百分比）？", "agg-ratio",
+     "SELECT ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM orders), 2) AS pct "
+     "FROM orders WHERE status='paid'"),
+    ("延迟发货订单占全部发货订单的比例（百分比）？", "agg-ratio",
+     "SELECT ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM shipments), 2) AS pct "
+     "FROM shipments WHERE delay_days > 0"),
+    ("订单数量最多的区域？", "agg-top",
+     "SELECT region, COUNT(*) AS cnt FROM orders GROUP BY region "
+     "ORDER BY cnt DESC LIMIT 1"),
+    ("累计销售金额最高的商品类目？", "agg-top",
+     "SELECT p.category, SUM(i.amount) AS total_amount FROM order_items i "
+     "JOIN products p ON i.product_id=p.id GROUP BY p.category "
+     "ORDER BY total_amount DESC LIMIT 1"),
+    ("近30天各区域的订单总金额？", "agg-window",
+     "SELECT region, SUM(amount) AS total_amount FROM orders "
+     "WHERE created_at >= '2026-07-19' GROUP BY region ORDER BY region"),
+    ("近7天各状态的订单数量？", "agg-window",
+     "SELECT status, COUNT(*) AS cnt FROM orders "
+     "WHERE created_at >= '2026-08-11' GROUP BY status ORDER BY status"),
+    ("近30天各区域的订单平均金额？", "agg-window",
+     "SELECT region, AVG(amount) AS avg_amount FROM orders "
+     "WHERE created_at >= '2026-07-19' GROUP BY region ORDER BY region"),
+    ("各状态订单的平均金额？", "agg-groupby-avg",
+     "SELECT status, AVG(amount) AS avg_amount FROM orders "
+     "GROUP BY status ORDER BY status"),
+    ("各区域订单总金额的合计是多少？", "agg-ratio",
+     "SELECT SUM(amount) AS total_amount FROM orders"),
+    ("平均订单金额最高的前3个区域？", "agg-top",
+     "SELECT region, AVG(amount) AS avg_amount FROM orders "
+     "GROUP BY region ORDER BY avg_amount DESC LIMIT 3"),
+    ("各区域的订单数量占比最高的区域？", "agg-having",
+     "SELECT region, COUNT(*) AS cnt FROM orders "
+     "GROUP BY region ORDER BY cnt DESC LIMIT 1"),
+    ("已发货订单中各类目的销售金额占比？", "agg-multigroup",
+     "SELECT p.category, SUM(i.amount) AS total_amount FROM order_items i "
+     "JOIN orders o ON i.order_no=o.order_no "
+     "JOIN products p ON i.product_id=p.id "
+     "WHERE o.status='shipped' GROUP BY p.category ORDER BY p.category"),
+    ("订单总金额最高的前5个区域？", "agg-top",
+     "SELECT region, SUM(amount) AS total_amount FROM orders "
+     "GROUP BY region ORDER BY total_amount DESC LIMIT 5"),
 ]
 
 
@@ -175,6 +321,9 @@ def main() -> None:
     for q, cat, sql in JOIN_CASES:
         seq += 1
         cases.append({"id": seq, "layer": "join", "category": cat, "question": q, "gold_sql": sql})
+    for q, cat, sql in AGG_CASES:
+        seq += 1
+        cases.append({"id": seq, "layer": "aggregation", "category": cat, "question": q, "gold_sql": sql})
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     with OUT.open("w", encoding="utf-8") as fh:
@@ -183,8 +332,9 @@ def main() -> None:
 
     n_single = sum(1 for c in cases if c["layer"] == "single")
     n_join = sum(1 for c in cases if c["layer"] == "join")
+    n_agg = sum(1 for c in cases if c["layer"] == "aggregation")
     print(f"评测集已生成: {OUT}")
-    print(f"  共 {len(cases)} 条: 单表 {n_single} / join {n_join}")
+    print(f"  共 {len(cases)} 条: 单表 {n_single} / join {n_join} / 聚合 {n_agg}")
     from collections import Counter
     print("  类别分布:", dict(Counter(c["category"] for c in cases)))
 

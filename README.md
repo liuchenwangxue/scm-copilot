@@ -134,6 +134,34 @@ scm-copilot/
 
 > 纵深防御叙事：即使四道闸有未知绕过，MySQL 权限层兜底拒绝写操作（Day1 已实测 `ERROR 1142`）。
 
+## 六·六、NL2SQL 生成链路与 Schema Linking（W24 Day3–Day4）
+
+**生成链路**（`app/domains/data/`）：
+- `prompts.py`：v1 全 schema 注入 / v2 Schema Linking 召回注入，`PROMPT_VERSION=v1|v2` 环境变量切换；
+  时间窗口径由 `today` 驱动生成显式日期（评测传 `BASE_DATE=2026-08-18` 固定 seed 基准，防运行日漂移）；
+- `graph.py`：LangGraph 子图 `generate→validate→execute→format`，SQL 被拒时条件路由到降级话术；
+- `router.py`：`POST /api/data/query`（JWT + `data:nl2sql` 权限），响应透出 `table/sql/columns/rows/elapsed/rejected_reason`；
+- `schema_linker.py`：表/列双语料 + bge-small 向量召回 Top-3 → 按相对分数裁剪注入（≥0.75×top1）；
+  精简 DDL 注入（省略低价值列）+ few-shot 与召回表联动、按重叠度动态排序；
+- `mock_sql.py`：mock 生成器（从评测集取 gold SQL，只测链路不算效果）。
+
+**评测**（`backend/evals/` + `backend/scripts/`）：
+- `nl2sql_eval_v1.jsonl`：90 条三层（单表 30 / join 40 / 聚合 20），固定 seed 保证 gold 结果稳定；
+- `eval_nl2sql.py`：execution accuracy（**结果集比对非字符串比对**：类型归一 + 列子集/同义别名对齐 + 排序键统一）；
+  `--ab` 模式跑 v1 vs v2 A/B（准确率 + prompt token 降幅）；
+- `eval_link_recall.py`：召回准确率（gold 表 ⊆ Top-3，sqlglot 从 gold SQL 提取标注）；
+- `gen_eval_set_v1.py`：评测集生成（含冗余 join 检测，gold SQL 全部可执行且非空）。
+
+**验收数字**：召回准确率 1.000（90/90）；real A/B 50 条 v1 0.980 → v2 1.000，prompt token 降幅 53.5%。
+
+```bash
+make gen-eval             # 评测集 90 条
+make eval-nl2sql          # execution accuracy（默认 mock 测链路；LLM_PROVIDER=real 测效果）
+make eval-ab              # A/B 对比 v1 vs v2（token 降幅 ≥50% 验收）
+make eval-link-recall     # Schema Linking 召回准确率（≥90% 验收）
+make test-nl2sql-e2e      # NL2SQL e2e 链路测试
+```
+
 ## 七、非目标（scope 纪律，详见《06》第 5 节）
 
 等保正式化、OCR/Whisper、钉钉企微 IM、LoRA、多 GPU、BI 图表引擎、桌面客户端、行业多场景定制——一律进二期 backlog。

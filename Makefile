@@ -119,13 +119,21 @@ test-executor:
 test-nl2sql-e2e:
 	$(PYTEST) backend/tests/test_nl2sql_e2e.py -v
 
-## ★ W24 Day3：生成评测集 v1（50 条三层，固定 gold SQL）
+## ★ W24 Day3：生成评测集 v1（Day4 扩至 90 条：单表30/join40/聚合20，固定 gold SQL）
 gen-eval:
 	$(PY) -X utf8 backend/scripts/gen_eval_set_v1.py
 
 ## ★ W24 Day3：execution accuracy 评测（默认 mock 测链路；real 用 LLM_PROVIDER=real）
 eval-nl2sql:
 	$(PY) -X utf8 backend/scripts/eval_nl2sql.py
+
+## ★ W24 Day4：Schema Linking 召回准确率（gold 表 ⊆ Top-3，≥90% 达标）
+eval-link-recall:
+	$(PY) -X utf8 backend/scripts/eval_link_recall.py
+
+## ★ W24 Day4：A/B 基线对比 v1 vs v2（准确率 + prompt token 降幅 ≥50%）
+eval-ab:
+	$(PY) -X utf8 backend/scripts/eval_nl2sql.py --ab
 
 ## 双域集成回归（Day4 迁移自 stage3 的脚本；审批/幂等自动拉起 mock_biz）
 test-integration:
