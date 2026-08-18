@@ -18,6 +18,7 @@
 
 import os
 
+import numpy as np
 import pytest
 import pytest_asyncio
 
@@ -38,6 +39,38 @@ from app.domains.data.mock_sql import MockSQLGenerator  # noqa: E402
 from app.domains.data.prompts import DATA_BASE_DATE  # noqa: E402
 
 pytestmark = pytest.mark.integration
+
+
+class _FakeEmbedder:
+    """确定性向量替代真实 bge（CI 离线不下载模型纪律，同 test_kb_semantic_router）。
+
+    ★ W24 Day6 CI 修复：`sentence_transformers` 未在 pyproject.toml 声明（Dockerfile
+    明确"模型推理不在容器内做"，CI 从零安装没有该包）。多轮会话查询成功后
+    `linker.link_prompt_tables` 会触发真实 Embedder 加载 → CI 挂。注入 FakeEmbedder
+    让 e2e 只测链路不碰模型。
+    """
+
+    def __init__(self):
+        self._model = True
+
+    def embed_texts(self, texts: list[str]) -> np.ndarray:
+        return np.zeros((len(texts), 8), dtype=np.float32)
+
+    def embed_query(self, query: str) -> np.ndarray:
+        return np.zeros(8, dtype=np.float32)
+
+
+@pytest.fixture(autouse=True)
+def _fake_linker_embedder(monkeypatch):
+    """全局替换 schema_linker 单例的 embedder 为 FakeEmbedder（CI 离线可跑）。
+
+    只影响本文件（integration 标记，需要 MySQL）；链路测试不关心召回精度，
+    召回表名进 session_ctx.record 不影响断言。
+    """
+    from app.domains.data import schema_linker
+
+    monkeypatch.setattr(schema_linker.linker, "_embedder", _FakeEmbedder())
+    monkeypatch.setattr(schema_linker.linker, "_vectors", None)
 
 
 @pytest_asyncio.fixture(autouse=True)
