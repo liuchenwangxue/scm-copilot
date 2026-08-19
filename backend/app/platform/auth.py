@@ -137,6 +137,12 @@ async def get_current_user(
 
     注意返回的是轻量 ORM 对象（仅 id/username/tenant_id 被用到）；权限在
     claims 里，`require_permission` 直接读，不在这里查库。
+
+    ★ W26 Day2 故障演练修复（杀 MySQL 不雪崩）：
+    JWT 签名 + 过期校验是**纯本地**（HS256 + 时钟），不依赖 DB。吊销名单与
+    用户存活是"查库增强项"——MySQL 不可用时 fail-open 信任 claims（构造
+    轻量 User），而不是 500 拒绝全部请求。语义：已签发 token 在存储故障期间
+    仍可用（权限来自签名 claims，本来就是零查库设计）；存储恢复自动回查。
     """
     if credentials is None:
         raise HTTPException(
@@ -147,14 +153,31 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="token type not access"
         )
-    if await _is_blacklisted(session, payload["jti"]):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="token revoked"
+    try:
+        if await _is_blacklisted(session, payload["jti"]):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="token revoked"
+            )
+        user = await session.get(User, int(payload["sub"]))
+        if user is None or user.status != 1:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="user disabled or missing",
+            )
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001  # MySQL 不可用 → fail-open 信任 claims
+        import logging
+
+        logging.getLogger("scm.platform.auth").warning(
+            "auth DB unavailable, fail-open trust JWT claims: %s: %s",
+            type(e).__name__, str(e)[:120],
         )
-    user = await session.get(User, int(payload["sub"]))
-    if user is None or user.status != 1:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="user disabled or missing"
+        user = User(
+            id=int(payload["sub"]),
+            username=str(payload.get("username", "")),
+            tenant_id=str(payload.get("tenant_id", "")),
+            status=1,
         )
     # 权限放 claims，暂存到对象上供 `require_permission` 零查库读取。
     # `_jwt_permissions` 未在 ORM 模型声明（运行时附加），用 setattr 避免 mypy 报未知属性
@@ -178,8 +201,24 @@ async def login(
 
     actor 用 username（此刻还没有 user_id 对应的可审计身份之外的东西，
     claims 未签发，审计中间件跳过本端点，这里显式落账）。
+
+    ★ W26 Day2 故障演练修复：MySQL 不可用时登录属"依赖服务不可用"——
+    返回 503 SERVICE_UNAVAILABLE（明确提示），而非 500 内部错误。
     """
-    user = await session.scalar(select(User).where(User.username == body.username))
+    try:
+        user = await session.scalar(
+            select(User).where(User.username == body.username)
+        )
+    except Exception as e:  # noqa: BLE001  # MySQL 挂 → 503 明确提示
+        import logging
+
+        logging.getLogger("scm.platform.auth").warning(
+            "login DB unavailable -> 503: %s: %s", type(e).__name__, str(e)[:120]
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="认证服务暂不可用（存储依赖故障），请稍后重试",
+        ) from e
     if user is None or not bcrypt.checkpw(
         body.password.encode(), user.password_hash.encode()
     ):

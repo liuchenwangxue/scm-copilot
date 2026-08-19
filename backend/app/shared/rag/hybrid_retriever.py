@@ -180,12 +180,38 @@ class HybridRetriever:
                 for cid, sc in ordered]
 
     def retrieve(self, query: str, top_k: int = 5, topic: str | None = None) -> list[dict]:
-        """混合检索入口。有 reranker 时：融合 Top-20 → rerank → top_k。"""
+        """混合检索入口。有 reranker 时：融合 Top-20 → rerank → top_k。
+
+        ★ W26 Day2 故障演练修复（杀 Qdrant 不雪崩）：向量路（Qdrant）异常 → 捕获 →
+        降级 **BM25-only**，结果带 `degraded=True` 标记进响应/日志（召回降级可观测）；
+        恢复后（下次请求 store.query 成功）自动回混合检索，无需重启。
+        """
         qv = self.embedder.embed_query(query)
-        vec_hits = self.store.query(qv.tolist(), top_k=VEC_CANDIDATES, topic=topic)
+        try:
+            # ★ W26 Day2 演练优化：降级链要"快速失败"——retries=0 试一次，
+            #   Qdrant 挂时立即转 BM25-only（否则 30s 级重试拖垮响应）
+            vec_hits = self.store.query(qv.tolist(), top_k=VEC_CANDIDATES, topic=topic,
+                                        retries=0)
+            vec_ok = True
+        except Exception as e:  # noqa: BLE001  # Qdrant 挂 → BM25-only 降级
+            print(f"[hybrid] Qdrant 向量路不可用（{type(e).__name__}: {str(e)[:60]}）"
+                  f"→ 降级 BM25-only（degraded 标记进响应/日志）")
+            vec_hits = []
+            vec_ok = False
         vec_ranks = {h["chunk_id"]: i for i, h in enumerate(vec_hits)}
         bm25_hits = self.bm25.search(query, top_k=BM25_CANDIDATES)
         bm25_ranks = {h["chunk_id"]: i for i, h in enumerate(bm25_hits)}
+        if not vec_ok:
+            # 降级路径：只用 BM25 结果（绕过融合），每条带 degraded 标记
+            bm25_ordered = sorted(bm25_hits, key=lambda h: -h["score"])[:top_k]
+            out = []
+            for h in bm25_ordered:
+                meta = self._chunk_meta(h["chunk_id"])
+                meta["score"] = round(float(h["score"]), 4)
+                meta["source"] = "bm25-degraded"
+                meta["degraded"] = True
+                out.append(meta)
+            return out
 
         cand_k = self.top_candidates if self.reranker else top_k
         if self.fusion == "weighted":

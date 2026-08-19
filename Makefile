@@ -248,3 +248,23 @@ loadtest:
 ## ★ W23 Day6：杀实例演练（压测中段 stop backend-a1 → 5xx=0 → 自动恢复）
 drill:
 	$(PY) -X utf8 deploy/load_test.py --concurrency 30 --per 7 --kill-instance a1 --kill-at-pct 0.4
+
+## ★ W26 Day2：故障演练五连（对应 deploy/chaos/ 五脚本；报告见 reports/chaos_drill.md）
+# 用法：先 make up 全栈 → 逐个执行；每个演练后 docker start 恢复 + make seed-biz
+chaos-mysql:
+	powershell -ExecutionPolicy Bypass -File deploy/chaos/kill_mysql.ps1
+chaos-redis:
+	powershell -ExecutionPolicy Bypass -File deploy/chaos/kill_redis.ps1
+chaos-qdrant:
+	powershell -ExecutionPolicy Bypass -File deploy/chaos/kill_qdrant.ps1
+chaos-llm:
+	powershell -ExecutionPolicy Bypass -File deploy/chaos/llm_timeout.ps1
+chaos-instance:
+	powershell -ExecutionPolicy Bypass -File deploy/chaos/kill_instance.ps1
+chaos-probe:
+	powershell -ExecutionPolicy Bypass -File deploy/chaos/probe.ps1 -DurationSec 120
+
+## ★ W26 Day2：降级链验证（本地 venv，无需杀容器）
+chaos-verify:
+	$(PY) -X utf8 deploy/chaos/redis_idem_failopen_check.py
+	$(PY) -X utf8 deploy/chaos/prom_check.py

@@ -1,0 +1,41 @@
+{
+  "mode": "dual-instance-nginx",
+  "concurrency": 30,
+  "per": 7,
+  "total": 210,
+  "t_sec": 12.05,
+  "qps": 17.42,
+  "success": 210,
+  "success_rate": 100.0,
+  "p50_ms": 130.5,
+  "p95_ms": 2927.6,
+  "p99_ms": 5077.2,
+  "http_5xx": 0,
+  "errors": {},
+  "per_scene": {
+    "ops_query": {
+      "count": 42,
+      "ok": 42,
+      "p50": 1078.5,
+      "p95": 1381.4
+    },
+    "kb_tool": {
+      "count": 85,
+      "ok": 85,
+      "p50": 103.0,
+      "p95": 5051.7
+    },
+    "kb_chat": {
+      "count": 83,
+      "ok": 83,
+      "p50": 103.1,
+      "p95": 2927.6
+    }
+  },
+  "kill": {
+    "instance": "scm-backend-a1",
+    "at_pct": 0.4,
+    "fired": true,
+    "restart": true
+  }
+}

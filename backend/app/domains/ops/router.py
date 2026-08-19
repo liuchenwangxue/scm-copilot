@@ -18,7 +18,7 @@ import json
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from langgraph.types import Command
 
@@ -195,8 +195,16 @@ async def list_approvals(
     """审批列表：待审批优先（断点恢复：进程重启后从 approvals 表找回挂起状态）。
 
     session_id = 审批发起时的 actor（LangGraph thread_id），decide 时回传即可 resume。
+
+    ★ W26 Day2 故障演练修复：MySQL 不可用 → 503 明确提示（审批暂停，不雪崩）。
     """
-    pending = approval_svc.list_pending()
+    try:
+        pending = approval_svc.list_pending()
+    except Exception as e:  # noqa: BLE001  # 存储故障 → 明确 503
+        raise HTTPException(
+            status_code=503,
+            detail=f"审批服务暂不可用（审批存储依赖故障），请稍后重试：{type(e).__name__}",
+        ) from e
     items = [
         ApprovalListItemOut(
             approval_id=r.approval_id,
@@ -240,6 +248,8 @@ async def approval_action(
     audit.log("approval_action", user=current.username, role=current.tenant_id,
               approval_id=approval_id, decision=decision, reason=reason[:100])
     try:
+        # 审批动作由 graph 内 approval_gate 统一处理（approve/reject 落库 + HITL resume），
+        # 避免路由层重复调用造成"单向状态机 already"错误。
         biz_graph = await _get_graph()
         result = await biz_graph.ainvoke(
             Command(resume={"decision": decision, "reason": reason}),
@@ -252,7 +262,18 @@ async def approval_action(
             degraded=result.get("degraded", False),
             tool_result=result.get("tool_result"),
         )
+    except HTTPException:
+        raise
     except Exception as e:
+        # ★ W26 Day2 故障演练修复：MySQL 不可用时 approve/reject 抛存储异常 →
+        #   503 明确提示（审批暂停不雪崩）；业务错误（如单已审批）仍 200 ok=False
+        from pymysql import MySQLError
+
+        if isinstance(e, MySQLError) or "refused" in str(e).lower() or "closed" in str(e).lower():
+            raise HTTPException(
+                status_code=503,
+                detail=f"审批存储暂不可用，请稍后重试：{type(e).__name__}",
+            ) from e
         return ApprovalOut(ok=False, error=str(e), reply="")
 
 

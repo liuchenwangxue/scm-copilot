@@ -25,8 +25,12 @@ class SCMStore:
     def __init__(self, collection: str | None = None,
                  url: str | None = None, timeout: int | None = None):
         self.collection = collection or config.SCM_COLLECTION
+        # ★ W26 Day2 演练优化：check_compatibility=False——跳过每次查询前的
+        #   server version 检查。Qdrant 挂时该检查会先等待超时（拖慢降级链），
+        #   关闭后 query 直接失败 → 快速转 BM25-only 降级。
         self.client = QdrantClient(
-            url=url or config.QDRANT_URL, timeout=timeout or config.QDRANT_TIMEOUT)
+            url=url or config.QDRANT_URL, timeout=timeout or config.QDRANT_TIMEOUT,
+            check_compatibility=False)
 
     # ---------- collection 管理 ----------
 
@@ -118,13 +122,20 @@ class SCMStore:
     # ---------- 查询 ----------
 
     def query(self, query_vector: list[float], top_k: int = 5,
-              topic: str | None = None, tenant_id: str | None = None, **kw) -> list[dict]:
+              topic: str | None = None, tenant_id: str | None = None,
+              retries: int | None = None, **kw) -> list[dict]:
         """Top-K 查询。topic 非空时按 payload.topic 过滤；tenant_id 非空时按 payload.tenant_id 过滤
         （★ W18 Day6 多租户隔离：payload 过滤级，强制 must 条件）。
 
         可靠性：Qdrant 502/503（容器重启/瞬时抖动）→ 指数退避重试 3 次
         （W10 可靠性经验；实测 Docker Desktop 重启时 Qdrant 会短暂 502，
-         评测全程不应因单次抖动崩溃）。"""
+         评测全程不应因单次抖动崩溃）。
+
+        ★ W26 Day2 故障演练修复：`retries` 可配——HybridRetriever 降级路径传
+        retries=0（快速失败走 BM25-only），避免杀 Qdrant 时 30s 级重试拖垮
+        响应（"降级不雪崩"：向量路快速失败，检索降级链接管）。"""
+        if retries is None:
+            retries = 3
         must = []
         if topic:
             must.append(FieldCondition(key="topic", match=MatchValue(value=topic)))
@@ -138,7 +149,7 @@ class SCMStore:
         import time
 
         last_exc: BaseException | None = None
-        for attempt in range(4):  # 1 次 + 3 次重试
+        for attempt in range(retries + 1):  # 1 次 + retries 次重试
             try:
                 hits = self.client.query_points(
                     collection_name=self.collection,

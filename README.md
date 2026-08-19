@@ -285,6 +285,27 @@ make tls          # mkcert 本地 TLS 证书
 make monitor      # 起监控栈（node-exporter/cadvisor/prometheus/grafana）
 ```
 
+## 六·十一、故障演练五连（W26 Day2）
+
+**"敢上线"的实证日**：杀穿全家桶（MySQL/Redis/Qdrant/LLM 全超时/实例半瘫），验证降级链五连不雪崩。脚本在 `deploy/chaos/`，完整记录见 `reports/chaos_drill.md`：
+
+| 故障 | 预期降级 | 验证结论 |
+|---|---|---|
+| 杀 MySQL | 认证 fail-open（签名本地校验）+ 审批 503 + 写拒绝 | 已有 token 200、login 503 明确提示、恢复 HITL 续跑 ✅ |
+| 杀 Redis | fail-open 降 SQLite/内存（幂等/缓存/锁） | 同 key 只执行一次、锁放行、恢复无缝切回 ✅ |
+| 杀 Qdrant | 检索降级 BM25-only（degraded 标记） | 4.1s 返回、恢复混合检索自动回 ✅ |
+| LLM 全超时 | 模型池切换全失败 → mock 兜底 + usage 不重复 | `[WARNING]` 标记 + generate_json 守契约 ✅ |
+| 实例半瘫 | least_conn 摘除、5xx=0、流量集中 | 210/210、5xx=0、恢复自动回归 ✅ |
+
+```bash
+make chaos-mysql / chaos-redis / chaos-qdrant / chaos-llm / chaos-instance   # 五连注入
+make chaos-probe      # 探活观察（5xx < 5% 判定不雪崩）
+make chaos-verify     # 本地降级链验证（幂等/缓存/锁 fail-open + Prometheus 双实例）
+make drill            # 压测中段杀实例演练
+```
+
+> **演练修复闭环**：认证 fail-open（`auth.py`）、BM25-only 降级（`hybrid_retriever.py`）、generate_json 契约（`real_provider.py`）三处演练暴露的问题均已修复并新增测试（`test_chaos_degrades.py` / `test_hybrid_retriever_degrade.py` / `test_llm_degrades.py`）。
+
 ## 七、非目标（scope 纪律，详见《06》第 5 节）
 
 等保正式化、OCR/Whisper、钉钉企微 IM、LoRA、多 GPU、BI 图表引擎、桌面客户端、行业多场景定制——一律进二期 backlog。

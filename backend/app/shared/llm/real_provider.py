@@ -602,13 +602,26 @@ class RealLLMProvider(LLMProvider):
     async def _degrade_or_raise(self, exc: Exception, tag: str, msgs: list[dict], kw: dict) -> Any:
         """降级链：real 异常 → 打 WARNING → 返回 mock 结果（可开关）。
 
-        返回类型用 Any：mock 结果可能为 str（普通生成）或 dict（generate_json 的 mock 引用）；
-        调用方（generate/generate_json）按自己的返回类型收窄。"""
+        返回类型与调用接口对齐：
+        - tag=generate_json：mock 的 generate_json dict（{"answer","citations"}）+
+          `degraded=True` 标记（明确告知降级）；
+        - tag=generate/stream：`[WARNING]` 前缀 mock 文本。
+
+        ★ W26 Day2 演练四修复：原实现一律返回 str，generate_json 调用方拿到
+        str 会破坏 JSON 契约（下游 json 解析失败）——降级也必须守住接口契约。"""
         if _is_quota_error(exc):
             raise exc
         if self.degrade_to_mock:
             print(f"  [REAL-DEGRADE] {tag} 失败 ({_err_summary(exc)})，降级 mock（LLM_DEGRADE_TO_MOCK=1）")
-            mock_ans = await self._mock_async_answer(msgs, kw)
+            if self._mock is None:
+                self._mock = MockLLMProvider()
+            if tag == "generate_json":
+                js = await self._mock.generate_json(msgs, {}, **kw)
+                if isinstance(js, dict):
+                    js["degraded"] = True
+                    js["degrade_reason"] = _err_summary(exc)
+                return js
+            mock_ans = await self._mock.generate(msgs, **kw)
             return f"[WARNING] real 失败降级: {_err_summary(exc)}\n{mock_ans}"
         raise exc
 

@@ -28,6 +28,10 @@ reports/*.jsonl
 data/*.db
 data/*.log
 *.sqlite3
+# ★ W26 Day2：KB 语料（chunks/bm25 索引）为 stage3 数据副本，体积大不入库——
+#   本地演练/评测时从 stage3-project-a/data 复制（见 deploy/chaos/qdrant_deg_check.py）
+data/chunks_title.json
+data/bm25_index_cache.json
 
 # SDK 构建产物（python -m build；发布到 TestPyPI 时用 dist/ 交付）
 sdk/dist/
