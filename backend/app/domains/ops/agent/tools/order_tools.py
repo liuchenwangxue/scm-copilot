@@ -29,9 +29,38 @@ class OrderTools(BaseTool):
     def __init__(self, base_url: str, use_cache: bool = True, **kwargs):
         super().__init__(base_url, **kwargs)
         self._register_specs()
+        self._register_handlers()
         # ★ W21 Day3 查询缓存（Redis 优先 + 内存兜底）：TTL 内二次查询不落库
         # use_cache=False：熔断/降级链回归测试旁路缓存（缓存已由 day3 单独验证）
         self.query_cache = QueryCache() if use_cache else None
+
+    # ---- 执行分发器注册（★ W27-D6 B8：新增工具零改动图代码）----
+    def _register_handlers(self) -> None:
+        """把本实例的工具方法注册进 registry.dispatch，参数从 params dict 解包。
+
+        幂等：同工具名重复注册覆盖（多实例场景最后实例生效，生产单实例即可）。
+        """
+        registry.register_handler(
+            "query_order",
+            lambda p: self.query_order(str(p.get("order_id", ""))),
+        )
+        registry.register_handler(
+            "update_order",
+            lambda p: self.update_order(
+                str(p.get("order_id", "")),
+                amount=p.get("amount"),
+                delivery_date=p.get("delivery_date"),
+                idempotency_key=p.get("idempotency_key"),
+            ),
+        )
+        registry.register_handler(
+            "cancel_order",
+            lambda p: self.cancel_order(
+                str(p.get("order_id", "")),
+                reason=str(p.get("reason", "")),
+                idempotency_key=p.get("idempotency_key"),
+            ),
+        )
 
     # ---- 注册（幂等：多次实例化不重复注册）----
     @staticmethod

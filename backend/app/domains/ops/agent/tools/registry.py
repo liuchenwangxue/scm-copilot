@@ -15,6 +15,7 @@ import copy
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Any
 
 import httpx
 
@@ -78,16 +79,37 @@ class ToolResult:
 # ==================== 注册表 ====================
 
 class ToolRegistry:
-    """工具注册表：注册 + 查询 + 高危清单 + LLM function calling schema。"""
+    """工具注册表：注册 + 查询 + 高危清单 + LLM function calling schema + ★ 执行分发。"""
 
     def __init__(self):
         self._specs: dict[str, ToolSpec] = {}
+        # ★ W27-D6 (B8)：执行分发器注册表——图只依赖 registry.dispatch，新增工具零改图代码
+        self._handlers: dict[str, Callable[[dict], Any]] = {}
 
     def register(self, spec: ToolSpec):
         self._specs[spec.name] = spec
 
     def get(self, name: str) -> ToolSpec | None:
         return self._specs.get(name)
+
+    def register_handler(self, name: str, handler: Callable[[dict], Any]) -> None:
+        """注册执行分发器（params → 工具结果）。
+
+        由各工具实现类在实例化时调用（handler 绑定实例，取 params 所需字段）。
+        幂等：同工具名重复注册覆盖，语义为"最后实例生效"（生产单实例即可）。
+        """
+        self._handlers[name] = handler
+
+    def dispatch(self, name: str, params: dict) -> Any:
+        """按工具名分发到注册的执行器；未注册名抛 KeyError（调用方转明确错误）。
+
+        ★ W27-D6 (B8)：execute_node 从 if/elif 硬编码改为此处统一分发——
+        开闭原则实例：新增工具只需在 tools 层注册 handler，编排图代码零改动。
+        """
+        handler = self._handlers.get(name)
+        if handler is None:
+            raise KeyError(f"unregistered tool handler: {name}")
+        return handler(params)
 
     def names(self) -> list[str]:
         return list(self._specs.keys())

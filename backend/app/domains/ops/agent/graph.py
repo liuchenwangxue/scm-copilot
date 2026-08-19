@@ -192,29 +192,19 @@ def execute_node(state: BizState) -> dict:
             return {"tool_result": r.to_dict(), "degraded": False}
 
     # ---- 可靠层工具调用（Day3 熔断+降级链已内置） ----
-    result = None
+    # ★ W27-D6 (B8)：if/elif 硬编码改 registry.dispatch 统一分发——开闭原则实例，
+    #   新增工具只需在 tools 层注册 handler，本图代码零改动；未注册名 → 明确错误。
+    if tool_name in _WRITE_TOOLS:
+        # 写操作幂等键：审批发起时的 idem_key 优先，否则自动生成（防重）
+        params = dict(params)
+        params.setdefault("idempotency_key",
+                          approval.get("idem_key") or order_tools.new_idempotency_key())
     _t0 = time.time()
-    if tool_name == "query_order":
-        result = order_tools.query_order(params.get("order_id", ""))
-    elif tool_name == "update_order":
-        idem_key = approval.get("idem_key") or order_tools.new_idempotency_key()
-        result = order_tools.update_order(
-            params.get("order_id", ""),
-            amount=params.get("amount"),
-            delivery_date=params.get("delivery_date"),
-            idempotency_key=idem_key)
-    elif tool_name == "cancel_order":
-        idem_key = approval.get("idem_key") or order_tools.new_idempotency_key()
-        result = order_tools.cancel_order(
-            params.get("order_id", ""),
-            reason=params.get("reason", ""),
-            idempotency_key=idem_key)
-    elif tool_name == "generate_report":
-        result = report_tools.generate_report(
-            params.get("report_type", "inventory"),
-            from_date=params.get("from"), to_date=params.get("to"))
-    else:
-        return {"tool_result": {"success": False, "error": f"未知工具: {tool_name}"}}
+    try:
+        result = registry.dispatch(tool_name, params)
+    except KeyError:
+        return {"tool_result": {"success": False, "error": f"未知工具: {tool_name}"},
+                "degraded": False}
 
     # ★ W25 Day6：PostToolUse 钩子——结果审计（after 状态 + 耗时）+ 语义缓存失效
     hook_ctx.result = result

@@ -25,8 +25,20 @@ class ReportTools(BaseTool):
     def __init__(self, base_url: str, **kwargs):
         super().__init__(base_url, **kwargs)
         self._register_specs()
+        self._register_handlers()
         # ★ W21 Day3 查询缓存（Redis 优先 + 内存兜底）
         self.query_cache = QueryCache()
+
+    # ---- 执行分发器注册（★ W27-D6 B8：新增工具零改动图代码）----
+    def _register_handlers(self) -> None:
+        registry.register_handler(
+            "generate_report",
+            lambda p: self.generate_report(
+                str(p.get("report_type", "inventory")),
+                from_date=p.get("from"),
+                to_date=p.get("to"),
+            ),
+        )
 
     @staticmethod
     def _register_specs():
