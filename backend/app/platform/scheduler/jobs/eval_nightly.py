@@ -93,11 +93,26 @@ BASELINE_DAYS = 7
 # ==================== 核心流程 ====================
 
 
+def _is_failed(metrics: dict[str, Any] | None) -> bool:
+    """域级"假成功"判定（★ W27-D6 B16）：未运行 / error 键 / 全条失败。
+
+    链路坏了（评测文件缺失、初始化失败、100% 条失败）时 metrics 会带
+    error 键或 error_rate=1.0——此时不得落"正常报告"更不得返回 success。
+    """
+    if metrics is None:
+        return True
+    if metrics.get("error") is not None:
+        return True
+    n = metrics.get("n", 0)
+    return n > 0 and metrics.get("error_rate", 0.0) >= 1.0
+
+
 async def run() -> dict:
     """夜间全量回归：RAG 156 + NL2SQL 100（mock）→ eval_reports 落库 + 偏离标红。
 
     ★ W26 Day1：任务完成即更新业务指标 Gauge（scm_nl2sql_eval_score / scm_rag_eval_score）
     ——Grafana "NL2SQL 质量" 面板的分数趋势数据源。
+    ★ W27-D6 (B16)：报告行数 > 0 才算 SUCCESS——快失败必须落 FAILED。
     """
     today = date.today().isoformat()
 
@@ -111,6 +126,17 @@ async def run() -> dict:
     _push_eval_gauges(rag_metrics, nl2sql_metrics)
 
     rag_dev, nl2sql_dev = await _compute_and_store(today, rag_metrics, nl2sql_metrics)
+
+    # ★ W27-D6 (B16)："报告行数 > 0 才算 SUCCESS"校验——无任何有效报告行 → 抛异常，
+    #   由调度器 _run_job 记 FAILED（job_runs 可见，不再"假成功"）。幂等 skipped
+    #   不算新写行，但至少一个域真实落库才判定本轮成功。
+    wrote = sum(1 for d in (rag_dev, nl2sql_dev) if d and not d.get("skipped"))
+    if wrote == 0:
+        raise RuntimeError(
+            f"eval_nightly: 0 report rows written on {today} "
+            f"(rag_failed={_is_failed(rag_metrics)}, "
+            f"nl2sql_failed={_is_failed(nl2sql_metrics)})"
+        )
 
     return {
         "job": "eval_nightly",
@@ -260,15 +286,23 @@ async def _compute_and_store(
     rag_metrics: dict[str, Any] | None,
     nl2sql_metrics: dict[str, Any] | None,
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
-    """计算 7 日均值偏离并落库（(report_date, domain) 已存在则跳过——幂等）。"""
+    """计算 7 日均值偏离并落库（(report_date, domain) 已存在则跳过——幂等）。
+
+    ★ W27-D6 (B16)：失败域（_is_failed=True）不落库——避免"error_rate=1.0
+    也写行"的假成功污染 eval_reports 与 7 日均值基线。
+    """
     from app.platform.scheduler import _runtime
 
-    session_factory = _runtime["session_factory"]
+    session_factory = _runtime.session_factory  # ★ B10：RuntimeContext 显式字段
     if session_factory is None:
         raise RuntimeError("scheduler runtime not initialized (session_factory is None)")
 
-    rag_dev = await _store_domain(session_factory, today, "rag", rag_metrics)
-    nl2sql_dev = await _store_domain(session_factory, today, "nl2sql", nl2sql_metrics)
+    rag_dev = None
+    nl2sql_dev = None
+    if not _is_failed(rag_metrics):
+        rag_dev = await _store_domain(session_factory, today, "rag", rag_metrics)
+    if not _is_failed(nl2sql_metrics):
+        nl2sql_dev = await _store_domain(session_factory, today, "nl2sql", nl2sql_metrics)
     return rag_dev, nl2sql_dev
 
 
