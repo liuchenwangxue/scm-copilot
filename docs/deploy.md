@@ -1,142 +1,170 @@
-# SCM Copilot 部署手册
+# SCM Copilot 部署手册（30 分钟新成员版）
 
-> 覆盖：本地一键起栈 / HTTPS（TLS）/ 监控 / SDK 发布 / 故障排查
-> 更新：W25 Day6（三吸收项：Hooks + 基础监控 + TLS）
+> 定稿：W26 Day4（2026-09-10）｜ 目标：**新成员 30 分钟从裸机到可用**
+> 覆盖：前置依赖 → 一键起栈 → 初始化 → 冒烟验证清单 → HTTPS/监控 → 故障排查
+> 配套：README 快速开始 · architecture 架构文档
 
 ---
 
-## 一、快速启动
+## 〇、30 分钟时间预算
+
+| 阶段 | 耗时 | 说明 |
+|---|---|---|
+| 前置依赖检查 | 5min | Docker Desktop / Python 3.12 / git / mkcert |
+| 起全家桶 | 10min | `make tls && make up`（首次拉镜像 + 构建） |
+| 初始化 | 8min | migrate / seed / init-biz-db / seed-biz |
+| 冒烟验证 | 7min | `make smoke` 六域 14 项全过 |
+
+> 已有镜像/数据卷时整体可压缩到 **15 分钟**。
+
+---
+
+## 一、前置依赖
+
+| 依赖 | 版本要求 | 验证命令 |
+|---|---|---|
+| Docker Desktop（WSL2 backend） | ≥ 24 | `docker version`（Client+Server 都在） |
+| Python | 3.12 | `python --version` |
+| git | 任意 | `git --version` |
+| mkcert | 任意（本地 TLS 用） | `mkcert -version` |
+
+> Windows 注意：Docker 必须跑 **Linux 容器**；本机 3306/8000/16380/3001 等端口可能被其他项目占用，本项目全部走自定义端口（见 §三）。
+
+## 二、一键起栈
 
 ```bash
-cd F:\code\agent\learning-outputs\scm-copilot
+# 0) 取代码 + 进目录
+git clone <repo-url> scm-copilot
+cd scm-copilot
 
-# 1) 只起 MySQL + Redis（本地迁移/seed/单测用）
-make up-mysql
+# 1) 虚拟环境 + 依赖
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -e ".[dev]"
+pip install -e ./sdk
 
-# 2) 迁移 + 种子（平台库 + 业务库）
+# 2) 本地 TLS 证书（nginx 443 必需；无证书 nginx 起不来）
+make tls        # mkcert -install + 生成 deploy/nginx/certs/
+
+# 3) 起全家桶（10 容器：mysql/redis/mock-biz/backend-a1/a2/nginx + 监控 4）
+make up         # docker compose -f deploy/docker-compose.yml up -d --build
+
+# 4) 确认全部 healthy/running
+docker compose -f deploy/docker-compose.yml ps
+```
+
+**启动失败排查**：nginx 起不来 → 90% 是 TLS 证书缺失 → `make tls` 后 `docker compose up -d nginx`。
+
+## 三、初始化（幂等，可重跑）
+
+```bash
+# 平台库：12 表迁移 + 种子（4 角色 / 13 权限 / 3 租户 × 4 角色测试用户）
 make migrate && make seed
+
+# 业务库：六表迁移 + 万级固定 seed（suppliers 40 / orders 10000 / order_items ~35000）
 make init-biz-db && make migrate-biz && make seed-biz
+make check-biz      # 行数 + 校验和（重放一致性）
 
-# 3) 生成本地 TLS 证书（★ W25 Day6：nginx 443 需要；无证书 nginx 起不来）
-make tls
-
-# 4) 起全栈（mysql/redis/mock-biz/backend-a1/a2/nginx）
-make up
-
-# 5)（可选）起监控栈（node-exporter/cadvisor/prometheus/grafana）
+# （可选）监控栈：prometheus/grafana/node-exporter/cadvisor
 make monitor
 ```
 
-访问：
-- HTTP → https://localhost:18443（80 端口自动 301 跳转）
-- Prometheus：http://localhost:19090/targets（看抓取状态）
-- Grafana：http://localhost:13001（admin / admin123）
+> 所有 make 目标幂等：重复执行结果一致（seed 连跑两遍校验和不变）。
 
----
+### 访问入口
 
-## 二、HTTPS（本地 TLS，W25 Day6）
+| 入口 | 地址 | 凭证 |
+|---|---|---|
+| Swagger / 平台 API | https://localhost:18443/docs | 测试账号见下 |
+| Prometheus | http://localhost:19090/targets | — |
+| Grafana | http://localhost:13001 | `admin` / `admin123` |
+| nginx HTTP（301→HTTPS） | http://localhost:18000 | — |
 
-### 为什么本地也上 HTTPS
+测试账号（密码统一 `Passw0rd!`）：
 
-- SSE（EventSource）只认 http(s)——浏览器对 `http://` 的流式有混用限制，未来接前端联调必须 https
-- nginx 80 → 301 统一入口，避免"一个平台两个协议"的混合内容问题
+```text
+admin_t_huadong    operator_t_huabei    analyst_t_huanan    viewer_t_huadong
+```
 
-### 证书：mkcert（本地根 CA）
+## 四、冒烟验证清单（`make smoke`）
+
+`make smoke` 执行 `deploy/verify_e2e_day3.py`，六域 14 项端到端冒烟（真实 HTTPS 平台 + nginx LB），**全部 PASS 才算部署成功**：
+
+| # | 域 | 冒烟项 | 判定标准 |
+|---|---|---|---|
+| 1 | 认证 | 正确登录 200 | status=200 |
+| 2 | 认证 | 错误密码 401 | status=401 |
+| 3 | 认证 | 无 token 401 | status=401 |
+| 4 | 认证 | viewer 调 data 端点 403（RBAC） | status=403 |
+| 5 | kb | 多轮问答（首轮 SSE done） | `"type": "done"` |
+| 6 | kb | 同会话第二轮 SSE done | `"type": "done"` |
+| 7 | ops | 查单 SSE done | `"type": "done"` |
+| 8 | ops | 高危改单 → approval_request（HITL） | `"type": "approval_request"` |
+| 9 | data | NL2SQL 表格 + SQL 透出 | table 且 sql 非空 |
+| 10 | data | 攻击 SQL（堆叠注入）未穿透 | 返回 SQL 不含 DROP/堆叠 |
+| 11 | 调度 | 六任务面板可查 | jobs ≥ 6 |
+| 12 | SDK | chat_stream SSE done | events 含 done |
+| 13 | SDK | nl2sql 表格 + SQL | table 且 sql |
+| 14 | SDK | approvals.list_pending | list 类型 |
 
 ```bash
-make tls    # 内部执行：
-#   mkcert -install                          # 本地根 CA 装进系统信任库（首次）
-#   mkcert localhost scm.local               # 生成 CN 含两个 hostname 的证书
+make smoke   # 期望：===== 汇总：14/14 PASS =====（退出码 0）
 ```
 
-产物：`deploy/nginx/certs/`（`localhost+2.pem` + `localhost+2-key.pem`），
-nginx 443 挂载该目录（compose `./nginx/certs:/etc/nginx/certs:ro`）。
+### 深度验证（可选，超出 30 分钟预算）
 
-**坑（手册 Day6）**：
-1. 证书 CN 要含你实际访问的 hostname——`localhost + scm.local` 都生成（否则浏览器告警）
-2. 证书文件缺失时 nginx 启动失败 → 先 `make tls` 再 `make up`
+| 命令 | 内容 |
+|---|---|
+| `make test` | pytest 全量 344 passed + coverage |
+| `make check` | ruff + mypy 0 error |
+| `make loadtest` | 30 并发压测（正式 Gate，P95 ≈ 1.27s） |
+| `make chaos-probe` | 故障演练探活（杀容器前先起观察） |
+| `make drill` | 压测中段杀实例演练（5xx=0） |
 
-### 生产证书替换（重要）
+## 五、HTTPS（本地 TLS）
 
-**本证书只用于本地开发**。生产环境必须换正式证书（nginx 配置不用改，只换文件）：
+- **为什么本地也上 HTTPS**：SSE（EventSource）只认 http(s)；nginx 80 → 301 统一入口，避免"一个平台两个协议"
+- `make tls` 用 mkcert 生成 `localhost + scm.local` 证书到 `deploy/nginx/certs/`，nginx 443 挂载
+- **生产替换**：证书与配置解耦，只换文件不换配置（Let's Encrypt：`certbot --nginx -d scm.example.com`，或公司 CA 证书覆盖同名文件）
+
+## 六、监控（W25 Day6 三吸收项之一）
+
+```
+Prometheus (拉取 15s)
+  ├── backend-a1/a2 /metrics      应用指标：QPS/P95/成功率 + 9 个业务指标
+  ├── node-exporter :9100         宿主机（Docker 宿主 VM）
+  └── cadvisor :8080              容器指标
+          └──▶ Grafana :13001  →  SCM 业务五区面板（NL2SQL 质量/语义缓存/队列调度/流量健康/成本看板）
+```
+
+验证：`http://localhost:19090/targets` 4 个 job 全部 `UP` → Grafana → Dashboards → `SCM Business` / `SCM Platform 核心指标`。
+
+> Windows 坑：node-exporter 监控的是 Docker 宿主 VM（Linux）而非 Windows 真机；cAdvisor 对 Windows 容器无效（本项目全部是 linux 容器，不受影响）。
+
+## 七、卸载 / 重建（从零验证）
 
 ```bash
-# Let's Encrypt（推荐）：
-certbot --nginx -d scm.example.com
-# 或公司 CA：把正式证书/私钥放到 deploy/nginx/certs/，改名覆盖 localhost+2.pem/-key.pem
+docker compose -f deploy/docker-compose.yml down -v   # 清空数据卷（-v = 连数据一起删）
+# 然后重新执行 §二 §三 §四 → 从零到可用的完整闭环
 ```
 
-> 面试话术：TLS 配置与证书解耦——nginx.conf 只引用路径，换正式证书是"换文件"不是"改配置"。
+> W26 Day4 一键起验证记录见 [reports/w26_day4_doc.md](../reports/w26_day4_doc.md)。
 
----
-
-## 三、监控（W25 Day6）
-
-### 架构
-
-```
-                    ┌─────────────────────────────┐
-   Prometheus 拉取  │  backend-a1/a2  /metrics    │  应用指标（QPS/P95/成功率）
-   (15s)            │  node-exporter :9100         │  宿主机（Docker 宿主 VM）
-                    │  cadvisor :8080              │  容器（backend/mysql/redis）
-                    └─────────────────────────────┘
-                                   │
-                                   ▼
-                              Grafana :13001（预置 Prometheus 数据源 + SCM 面板）
-```
-
-### 验证
-
-1. `make up && make monitor`
-2. Prometheus Targets：http://localhost:19090/targets → 4 个 job 全部 `UP`
-3. Grafana：http://localhost:13001（admin/admin123）→ 左侧 Dashboards → `SCM Platform 核心指标`
-   - 有数据 = 周 Gate "双监控面板有数据" ✓
-4. 官方仪表盘导入（手册 Day6）：grafana.com 下载 Node Exporter Full（id=1860）/
-   cAdvisor（id=14282）JSON → 放入 `deploy/grafana/dashboards/` → 30s 内自动加载
-
-### 坑（手册 Day6）
-
-- **cAdvisor 在 Windows Docker Desktop 下对 Windows 容器无效**，只监控 linux 容器
-  （backend/mysql/redis 都是 linux，没问题）
-- node-exporter 在 Windows 下监控的是 Docker 宿主 VM（Linux），不是 Windows 真机；
-  容器资源占用看 cAdvisor 更直接
-
----
-
-## 四、工具调用 Hooks（W25 Day6）
-
-`backend/app/platform/hooks.py`：learn-claude-code s04 机制的实物落点。
-
-- **PreToolUse**：参数校验（ToolSpec 契约 required）+ 审计埋点（before 状态）
-- **PostToolUse**：结果审计（after + 耗时 + 熔断状态）+ 语义缓存失效（写类工具）
-- ops 域 4 个工具（query_order/update_order/cancel_order/generate_report）全接入
-  `execute_node`；`approval_gate` 复用 `make_after_state` 的 before/after diff
-
-验证：审计文件（`data/audit.log`）出现 `tool_pre_use` / `tool_post_use` 事件；
-`make test-hooks`（17 用例）。
-
----
-
-## 五、SDK 发布（W25 Day5）
-
-```bash
-cd sdk
-python -m build
-twine upload --repository testpypi dist/*          # TestPyPI（备选名 scm-copilot-client-dev）
-pip install --index-url https://test.pypi.org/simple scm-copilot-client
-```
-
-十行接入示例见 `reports/w25_day5_sdk.md` §2.1。
-
----
-
-## 六、常见故障排查
+## 八、常见故障排查
 
 | 现象 | 原因 | 解决 |
 |---|---|---|
-| nginx 起不来 | TLS 证书缺失 | `make tls` 后 `make up` |
+| nginx 起不来 | TLS 证书缺失 | `make tls` 后 `docker compose up -d nginx` |
+| backend 反复重启 | MySQL 未 healthy（backend depends_on healthy） | `docker compose ps` 看 mysql；首次拉镜像慢等 start_period 30s |
+| 登录 503 | MySQL 挂了（认证 fail-open 设计：已有 token 可用，login 拒绝） | `make up-mysql` 恢复 |
 | Grafana 面板无数据 | Prometheus targets 未 UP | 检查 `http://localhost:19090/targets` |
-| 双实例 job_runs instance 全是 local | 缺 `SCM_INSTANCE_ID` | compose 已配 a1/a2；本地 `export SCM_INSTANCE_ID=local-dev` |
-| daily_brief 归属日少一天 | 容器缺 TZ | backend 已配 `TZ: Asia/Shanghai` |
-| 429 用例 fail-open | Redis 端口连错 | 默认 16381（本机 16380 被 stage3 占用） |
-| /metrics 空 | METRICS_ENABLED=0 | 默认 1；容器内关（写盘慢）保留关闭 |
+| data 查询报 Connection refused | 容器内 `SCM_BIZ_RO_DSN` 指向 127.0.0.1（应为 mysql 服务名） | 检查 compose 环境变量 `SCM_BIZ_RO_DSN` |
+| daily_brief 归属日少一天 | 容器缺 TZ | backend 已配 `TZ: Asia/Shanghai`，勿删 |
+| 双实例 job_runs 全是 local | 缺 `SCM_INSTANCE_ID` | compose 已配 a1/a2；本地 `set SCM_INSTANCE_ID=local-dev` |
+| SDK 集成 429 未出现 | 无 Redis（配额 fail-open） | 本地部署环境必须起 Redis（`make up-mysql`） |
+| 压测 P95 长尾 | 容器内 STRUCT_LOG_ENABLED=1 写盘慢 | compose 已默认关（`STRUCT_LOG_ENABLED: "0"`） |
+| `pip install -e ".[dev]"` 失败 | Windows 缺 build 工具（bcrypt 编译） | 升级 pip + setuptools 后重试；或用预编译 wheel |
+
+---
+
+> 部署完成，下一步：看 [reports/demo_10min.md](../reports/demo_10min.md) 跟随 10 分钟 demo 走一遍五场景。

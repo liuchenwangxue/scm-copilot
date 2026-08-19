@@ -25,7 +25,7 @@ COMPOSE := docker compose -f deploy/docker-compose.yml
 # alembic.ini 在 backend/ 下，须在此目录运行（env.py 经 pythonpath 兜底）
 BACKEND := backend
 
-.PHONY: up up-mysql down build migrate seed init-biz-db migrate-biz seed-biz reseed-biz check-biz test test-auth test-sql-validator test-executor test-nl2sql-e2e test-repair test-session-ctx test-scheduler test-kb-sync test-day3-tasks test-openapi test-apikeys test-hooks test-sdk-unit test-sdk-integration kb-sync-smoke gen-eval eval-nl2sql eval-repair eval-multiturn gen-multiturn eval-day6 test-integration tls monitor check lint-fix format loadtest drill help
+.PHONY: up up-mysql down build migrate seed init-biz-db migrate-biz seed-biz reseed-biz check-biz test test-auth test-sql-validator test-executor test-nl2sql-e2e test-repair test-session-ctx test-scheduler test-kb-sync test-day3-tasks test-openapi test-apikeys test-hooks test-sdk-unit test-sdk-integration kb-sync-smoke gen-eval eval-nl2sql eval-repair eval-multiturn gen-multiturn eval-day6 test-integration tls monitor check lint-fix format loadtest drill smoke help
 
 ## 默认：显示帮助
 help:
@@ -63,6 +63,7 @@ help:
 	@echo "  make check     ruff lint + mypy（0 error）"
 	@echo "  make loadtest  40 并发 × 200 压测（nginx :18000）"
 	@echo "  make drill     压测中段杀 backend-a1 演练（5xx=0）"
+	@echo "  make smoke     W26 Day4 六域 14 项端到端冒烟（需全栈已起 + seed）"
 
 ## 只起 MySQL+Redis（本地迁移/seed/单测用）
 up-mysql:
@@ -88,9 +89,12 @@ monitor:
 build:
 	$(COMPOSE) build backend-a1 mock-biz
 
-## 迁移数据库（须在 backend/ 下运行，alembic.ini 在此）
+## 迁移数据库（★ W26 Day4 修复：cd backend 后 PY 相对路径解析失效——.venv 在项目根。
+## 原 `cd backend && .venv/...` 在 Windows PowerShell + mingw32-make 下报
+## ".venv 不是内部或外部命令"（相对路径随 cd 失效）；`../$(PY)` 又被 make 当路径转换
+## 报 "'..' 不是内部或外部命令"。改用 make 内置 CURDIR 绝对路径，任何 shell 均可用）
 migrate:
-	cd $(BACKEND) && $(PY) -m alembic upgrade head
+	cd $(BACKEND) && $(CURDIR)/.venv/Scripts/python.exe -m alembic upgrade head
 
 ## 平台库幂等种子（4 角色/12 权限/映射/3 租户 × 4 角色用户）
 seed:
@@ -104,7 +108,7 @@ init-biz-db:
 
 ## scm_biz 迁移（独立 alembic_biz 链，隔离 platform 版本树）
 migrate-biz:
-	cd $(BACKEND) && $(PY) -X utf8 -m alembic -c alembic_biz.ini upgrade head
+	cd $(BACKEND) && $(CURDIR)/.venv/Scripts/python.exe -X utf8 -m alembic -c alembic_biz.ini upgrade head
 
 ## scm_biz 固定 seed（幂等：TRUNCATE 后重插；连跑两遍校验和一致）
 seed-biz:
@@ -268,3 +272,8 @@ chaos-probe:
 chaos-verify:
 	$(PY) -X utf8 deploy/chaos/redis_idem_failopen_check.py
 	$(PY) -X utf8 deploy/chaos/prom_check.py
+
+## ★ W26 Day4：六域 14 项端到端冒烟（真实 HTTPS 平台，需全栈已起 + seed 已跑 + SDK 已装）
+# 前置：make up && make migrate && make seed && make init-biz-db && make migrate-biz && make seed-biz
+smoke:
+	$(PY) -X utf8 deploy/verify_e2e_day3.py
