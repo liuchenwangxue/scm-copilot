@@ -23,6 +23,7 @@
 """
 import hashlib
 import json
+import time
 from typing import Any
 
 import numpy as np
@@ -34,6 +35,11 @@ from app.shared.reliability.redis_client import get_redis_client
 # Redis 前缀与条目 TTL（知识库更新 bump version 全量失效；TTL 兜底防无限增长）
 _SEMCACHE_PREFIX = "scm:semcache"
 _REDIS_TTL = 7 * 24 * 3600  # 7 天
+# ★ W27-D6 (B12)：内存条目 TTL 与清扫周期——内存兜底不再无限驻留
+#   （原实现内存条目无 TTL，只在 LRU 超 max_size 时淘汰；Redis 侧 7 天淘汰，
+#   内存侧与 Redis 的淘汰口径对齐，60s 周期清扫 + 访问时惰性触发）。
+_MEM_TTL_SECONDS = 60.0
+_SWEEP_INTERVAL_SECONDS = 60.0
 
 
 def _query_hash(query: str) -> str:
@@ -77,10 +83,12 @@ class SemanticCache:
         self.version = version or config.SEMANTIC_CACHE_VERSION
         self.embedder = embedder or Embedder()
         self.rc = redis_client or get_redis_client()
-        # 内存兜底存储（进程内 LRU；Redis 命中后回填，加速同实例后续命中）
+        # 内存兜底存储（进程内 LRU + ★ B12 TTL；Redis 命中后回填，加速同实例后续命中）
         self._store: dict[str, dict[str, Any]] = {}
         self._order: list[str] = []
         self._stats = {"hits": 0, "misses": 0, "error": 0}
+        # ★ B12：上次全量清扫时刻（访问时惰性触发 60s 周期清扫）
+        self._last_sweep = time.monotonic()
 
     # ---- key 管理 ----
 
@@ -93,7 +101,7 @@ class SemanticCache:
     def _index_key(self) -> str:
         return f"{self._ns()}:keys"
 
-    # ---- 内存 LRU ----
+    # ---- 内存 LRU + TTL（★ W27-D6 B12） ----
 
     def _touch(self, key: str) -> None:
         if key in self._order:
@@ -102,6 +110,29 @@ class SemanticCache:
         if len(self._order) > self.max_size:
             old = self._order.pop(0)
             self._store.pop(old, None)
+        # 活跃命中刷新 stored_at（LRU 语义：最近用过的条目不过期）
+        entry = self._store.get(key)
+        if entry is not None:
+            entry["stored_at"] = time.monotonic()
+
+    def _sweep_if_due(self) -> None:
+        """60s 周期清扫（访问时惰性触发）：物理移除内存中过期的条目。
+
+        无后台线程：在 lookup/put 入口检查距上次清扫是否 ≥60s，到期才全量扫一遍。
+        """
+        now = time.monotonic()
+        if now - self._last_sweep < _SWEEP_INTERVAL_SECONDS:
+            return
+        self._last_sweep = now
+        expired = [
+            k
+            for k, e in self._store.items()
+            if now - (e.get("stored_at") or now) > _MEM_TTL_SECONDS
+        ]
+        for k in expired:
+            self._store.pop(k, None)
+            if k in self._order:
+                self._order.remove(k)
 
     # ---- 指标埋点（W26 Day1，fail-open） ----
 
@@ -123,9 +154,14 @@ class SemanticCache:
                 entries: dict[str, dict[str, Any]]) -> dict | None:
         """在给定条目集中找最相似且双闸门达标者。"""
         best_key, best_sim, best_overlap = None, -1.0, 0.0
+        now = time.monotonic()
         for key, entry in entries.items():
             if entry.get("version") != self.version:
                 continue  # 版本不符不参与匹配
+            # ★ W27-D6 (B12)：内存条目过期即弃（get 时惰性失效，不等周期清扫）；
+            #   Redis 条目无 stored_at 字段 → `or now` 折算为 0 永不过期
+            if now - (entry.get("stored_at") or now) > _MEM_TTL_SECONDS:
+                continue
             sim = float(np.dot(qv, np.asarray(entry.get("vec"))))
             if sim > best_sim:
                 best_sim, best_key = sim, key
@@ -185,6 +221,7 @@ class SemanticCache:
         （scm_semcache_hit_total / scm_semcache_miss_total）——Grafana
         "语义缓存" 面板命中率曲线数据源。
         """
+        self._sweep_if_due()  # ★ W27-D6 (B12)：访问时惰性触发 60s 周期清扫
         if not query.strip():
             self._stats["misses"] += 1
             self._inc_metric("miss")
@@ -204,8 +241,10 @@ class SemanticCache:
                 if hit:
                     self._stats["hits"] += 1
                     self._inc_metric("hit")
-                    # 回填内存（后续同实例命中走快路径）
+                    # 回填内存（后续同实例命中走快路径；★ B12：从回填时刻起计内存 TTL）
+                    now = time.monotonic()
                     for k, e in redis_entries.items():
+                        e.setdefault("stored_at", now)
                         self._store.setdefault(k, e)
                     return hit
             self._stats["misses"] += 1
@@ -225,7 +264,8 @@ class SemanticCache:
             vec = _vec_to_list(self.embedder.embed_query(query))
             query_hash = _query_hash(query)
             entry = {"vec": vec, "answer": answer, "citations": citations or [],
-                     "version": self.version, "query": query}
+                     "version": self.version, "query": query,
+                     "stored_at": time.monotonic()}  # ★ B12：内存条目 TTL 起点
             # 内存
             key = f"{self.version}:{query_hash}"
             self._store[key] = entry
