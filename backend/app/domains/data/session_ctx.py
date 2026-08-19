@@ -39,6 +39,7 @@ import re
 import threading
 import time
 
+from app.domains.data.config import DEFAULT_MAX_TURNS, DEFAULT_TTL_SECONDS
 from app.domains.data.prompts import DATA_BASE_DATE
 from app.shared.llm import get_provider
 from app.shared.obs import logger as obs_logger
@@ -153,10 +154,9 @@ def build_resolve_messages(
 
 # ==================== 会话上下文（★ W27-D2：Redis 权威 + L1 缓存） ====================
 
-DEFAULT_TTL_SECONDS = 30 * 60  # 1800s：会话 Redis TTL（读/写路径都刷新，活跃会话不过期）
-DEFAULT_MAX_TURNS = 4
-
 # Redis key 前缀与 L1 读缓存 TTL（30s：高频同会话追问省一次 RTT）
+# DEFAULT_TTL_SECONDS / DEFAULT_MAX_TURNS 已收敛到 data/config.py（★ W27-D6 B6，
+# 本模块保留名称导出供 test_session_ctx_redis.py 引用）
 _KEY_PREFIX = "nl2sql:sess"
 L1_TTL_SECONDS = 30.0
 

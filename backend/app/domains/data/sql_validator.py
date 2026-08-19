@@ -29,6 +29,8 @@ import sqlglot
 from sqlglot import exp
 from sqlglot.errors import ParseError, TokenError
 
+from app.domains.data.config import MAX_ROWS
+
 # 闸2：允许的根节点（UNION ALL 也是 Union，天然覆盖）
 ALLOWED_ROOT = (exp.Select, exp.Union)
 
@@ -56,7 +58,7 @@ SCM_BIZ_TABLES = {
     "shipments",
 }
 
-DEFAULT_MAX_ROWS = 200
+DEFAULT_MAX_ROWS = MAX_ROWS  # 兼容旧名（★ W27-D6 B6：值收拢到 data/config.py 单一来源）
 
 
 class SQLRejected(Exception):

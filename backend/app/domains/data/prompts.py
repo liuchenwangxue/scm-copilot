@@ -34,7 +34,9 @@ from datetime import date, timedelta
 from typing import Any
 
 # ---- 数据基准日：与 scripts/seed_biz.py BASE_DATE 对齐（评测时 today 传它）----
-DATA_BASE_DATE = date(2026, 8, 18)
+# ★ W27-D6 (B7)：常量收敛到 domains/data/config.py 单一来源（SCM_DATA_BASE_DATE 可覆盖），
+#   本模块保留名称导出供既有 import 路径（router/service/repair/eval_*）不破。
+from app.domains.data.config import DATA_BASE_DATE  # noqa: E402,F401
 
 # ==================== 全 schema（v1） ====================
 # 单一数据源：DDL 片段在 schema_linker.TABLE_DDL（v2 召回注入同一份），

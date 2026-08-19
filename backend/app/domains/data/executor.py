@@ -34,14 +34,13 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
+from app.domains.data.config import EXEC_TIMEOUT_SECONDS, MAX_RESULT_BYTES, MAX_ROWS
 from app.platform.settings import settings
 
 logger = logging.getLogger("scm.data.executor")
 
-# 三重资源约束
-EXEC_TIMEOUT_SECONDS = 3.0
-MAX_ROWS = 200
-MAX_RESULT_BYTES = 1_048_576  # 1MB
+# 三重资源约束（★ W27-D6 B6：常量收敛到 data/config.py 单一来源；
+# 模块属性保留，既有 `from executor import MAX_ROWS` 引用不破）
 
 # 审计回调：{event, sql, status, error, elapsed_ms, rows} → 由调用方注入写 audit_logs 的实现
 # （域间解耦：data 域不 import platform 内部模块，只依赖这个回调契约）
