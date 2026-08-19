@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 from pathlib import Path
 
 # 默认安全 SQL（评测集里没有的问题，保证链路仍能跑通）
@@ -39,6 +40,31 @@ def clear_mock_sql_registry() -> None:
     _EXTRA_MAP.clear()
 
 
+@lru_cache(maxsize=1)
+def _load_eval_map(eval_file: str) -> dict[str, str]:
+    """模块级缓存：评测集文件只读一次（★ W27-D6 B9）。
+
+    原实现每次 `MockSQLGenerator()` 都重新 read_text 解析整个评测集文件；
+    现在按路径缓存解析结果（maxsize=1：单路径常驻，避免每轮查询重复 IO）。
+    """
+    by_question: dict[str, str] = {}
+    path = Path(eval_file)
+    if path.exists():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                item = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            q = (item.get("question") or "").strip()
+            sql = (item.get("gold_sql") or "").strip()
+            if q and sql:
+                by_question[q] = sql
+    return by_question
+
+
 class MockSQLGenerator:
     """基于评测集 gold SQL 的确定性 mock 生成器。"""
 
@@ -49,21 +75,8 @@ class MockSQLGenerator:
             eval_file = (
                 Path(__file__).resolve().parents[3] / "evals" / "nl2sql_eval_v1.jsonl"
             )
-        self._by_question: dict[str, str] = {}
         path = Path(eval_file)
-        if path.exists():
-            for line in path.read_text(encoding="utf-8").splitlines():
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    item = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                q = (item.get("question") or "").strip()
-                sql = (item.get("gold_sql") or "").strip()
-                if q and sql:
-                    self._by_question[q] = sql
+        self._by_question = _load_eval_map(str(path))  # 只读缓存，重复实例化不重读文件
         self._path = path
 
     @property
