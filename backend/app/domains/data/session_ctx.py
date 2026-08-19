@@ -1,36 +1,50 @@
-"""★ 多轮会话上下文与指代消解（W24 Day5）——"那华南呢？" → "上个月华南的延迟订单有多少"。
+"""★ 多轮会话上下文与指代消解（W24 Day5 + ★ W27 Day2 Redis 化）——"那华南呢？" → "上个月华南的延迟订单有多少"。
 
-对应《W24学习执行手册》Day5 下午 +《03》1.4 节：
+对应《W24学习执行手册》Day5 下午 +《03》1.4 节 +《W27学习执行手册》Day2（A3/A4）：
 - 会话内保存上一轮 {question, sql, tables}；新问题做指代消解（LLM 一次调用）：
   补全省份/时间/实体省略，**消解后的问题再进生成链路**（SQL 生成感知不到多轮——
   两个关注点分开，各自评测）；
 - mock 双路径（手册坑"mock 测链路、real 测效果"）：
   - provider=mock → 确定性规则消解（_mock_resolve，支持区域/时间/状态替换与补插），测链路；
   - provider=real → `build_resolve_messages` + 模型池（真实消解能力，效果只算 real）；
-- 无状态化说明：当前为进程内 LRU 缓存（TTL 30min，多实例各持一份）；
-  正式多实例会话持久化归 W25（MySQL conversations 表，已有 touch_conversation 通路）。
+
+★ W27-D2 改造（A3/A4：会话 Redis 外置）：
+- **Redis 权威 + 进程内 L1 读缓存**：KEY = `nl2sql:sess:{owner}:{session_id}`，
+  value = JSON [{question, sql, tables}, ...]（≤ max_turns 轮）；状态不在进程内存，
+  多实例互通、重启不丢、TTL 天然淘汰（删除原 _MAX_SESSIONS / _SESSIONS.clear() 反模式）；
+- **每次读写都刷新 TTL**（LRU 语义：活跃会话不过期，读/写路径都刷）；
+- **L1 30s 短缓存**：高频同会话追问省一次 RTT（写穿透、读回填）；
+- **并发安全**：append 用 Redis Lua 原子脚本（读-改-写一步完成，防并发覆盖）；
+- **Redis 挂降级**：进程内本地存储（fail-open，resolve 仍工作）+ DEGRADED 日志事件。
 
 用法（router 侧）：
-    ctx = get_session(session_id)            # 无则创建
+    ctx = get_session(session_id)            # Redis 权威；每次返回新实例（状态不在实例上）
     resolved = await ctx.resolve(question, today)
     state = await data_graph.ainvoke({...})  # 用 resolved 入图
     if 查询成功: ctx.record(resolved, sql, tables)
 
 对外接口：
-    get_session(session_id) -> SessionContext     # 全局注册表（惰性建 + TTL 清理）
-    clear_sessions() -> None                      # 测试隔离
+    get_session(session_id) -> SessionContext
+    clear_sessions() -> None                      # 清进程内 L1/降级缓存（测试隔离）
     SessionContext.record(question, sql, tables)
+    SessionContext.recent() -> dict | None
     SessionContext.resolve(question, today) -> str
     build_resolve_messages(prev_question, prev_sql, question) -> list[dict]
 """
 
 from __future__ import annotations
 
+import json
 import re
+import threading
 import time
 
 from app.domains.data.prompts import DATA_BASE_DATE
 from app.shared.llm import get_provider
+from app.shared.obs import logger as obs_logger
+from app.shared.reliability.redis_client import get_redis_client
+
+_log = obs_logger.get_logger("data.session_ctx")
 
 # ==================== mock 规则消解（确定性，测链路） ====================
 
@@ -137,42 +151,153 @@ def build_resolve_messages(
     ]
 
 
-# ==================== 会话上下文 ====================
+# ==================== 会话上下文（★ W27-D2：Redis 权威 + L1 缓存） ====================
 
-DEFAULT_TTL_SECONDS = 30 * 60  # 30min 过期（进程内缓存；W25 迁 MySQL 持久化）
+DEFAULT_TTL_SECONDS = 30 * 60  # 1800s：会话 Redis TTL（读/写路径都刷新，活跃会话不过期）
 DEFAULT_MAX_TURNS = 4
+
+# Redis key 前缀与 L1 读缓存 TTL（30s：高频同会话追问省一次 RTT）
+_KEY_PREFIX = "nl2sql:sess"
+L1_TTL_SECONDS = 30.0
+
+# Lua：原子 append + 截断 + 刷新 TTL。
+# 手册坑：轮次列表读-改-写不是原子的（并发追问可能覆盖），但单人会话概率低、
+# 不上分布式锁（过度设计）——用 Redis Lua 一步完成，既不丢轮次也零锁开销。
+_APPEND_TURN_LUA = """
+local raw = redis.call('GET', KEYS[1])
+local turns = {}
+if raw then turns = cjson.decode(raw) end
+table.insert(turns, cjson.decode(ARGV[1]))
+while #turns > tonumber(ARGV[2]) do table.remove(turns, 1) end
+redis.call('SET', KEYS[1], cjson.encode(turns), 'EX', tonumber(ARGV[3]))
+return cjson.encode(turns)
+"""
+
+# Lua：读 + 刷新 TTL（LRU 语义）。键不存在返回空串（与"Redis 挂返回 None"区分开）
+_GET_TOUCH_LUA = """
+local raw = redis.call('GET', KEYS[1])
+if raw then
+  redis.call('EXPIRE', KEYS[1], tonumber(ARGV[1]))
+  return raw
+end
+return ''
+"""
+
+# 模块级：L1 读缓存 + Redis 挂时的进程内降级存储（进程内存；跨实例共享走 Redis）
+_L1: dict[str, tuple[list[dict], float]] = {}   # redis_key -> (turns, expire_monotonic)
+_LOCAL_TURNS: dict[str, list[dict]] = {}        # redis_key -> turns（Redis 挂时降级）
+_L1_LOCK = threading.Lock()
+_LOCAL_LOCK = threading.Lock()
+
+
+def _l1_set(key: str, turns: list[dict]) -> None:
+    with _L1_LOCK:
+        _L1[key] = (list(turns), time.monotonic() + L1_TTL_SECONDS)
+
+
+def _l1_get(key: str) -> list[dict] | None:
+    with _L1_LOCK:
+        entry = _L1.get(key)
+        if entry is None:
+            return None
+        turns, expire = entry
+        if expire < time.monotonic():
+            _L1.pop(key, None)
+            return None
+        return turns
+
+
+def _degrade(op: str, session_id: str) -> None:
+    """Redis 不可用 → 进程内降级（fail-open：会话在进程内继续，resolve 仍工作）。"""
+    obs_logger.log_event(
+        _log, "session_ctx_degraded", level="warning",
+        session_id=session_id, op=op, backend="local",
+    )
 
 
 class SessionContext:
-    """一次多轮会话的上下文：保存最近几轮 {question, sql, tables} 供指代消解。"""
+    """一次多轮会话的上下文：保存最近几轮 {question, sql, tables} 供指代消解。
+
+    ★ W27-D2：状态权威在 Redis（跨实例/重启不丢），进程内仅 L1 读缓存（30s）；
+    Redis 挂 → 进程内降级存储（fail-open，DEGRADED 日志）。
+    """
 
     def __init__(
         self,
         session_id: str,
+        owner: str = "",
         max_turns: int = DEFAULT_MAX_TURNS,
         ttl_seconds: float = DEFAULT_TTL_SECONDS,
+        redis_client=None,
     ) -> None:
         self.session_id = session_id
+        self.owner = owner  # user_id 维度（多租户隔离；当前调用方可不传）
         self.max_turns = max_turns
         self.ttl_seconds = ttl_seconds
-        self.updated_at = time.monotonic()
-        self._turns: list[dict[str, object]] = []
+        self.rc = redis_client or get_redis_client()
+
+    @property
+    def _key(self) -> str:
+        return f"{_KEY_PREFIX}:{self.owner}:{self.session_id}"
 
     # ---- 状态 ----
 
     def record(self, question: str, sql: str, tables: list[str] | None = None) -> None:
-        """记录一轮已消解的完整问题（作为下轮消解的上下文来源）。"""
-        self._turns.append({"question": question, "sql": sql, "tables": tables or []})
-        if len(self._turns) > self.max_turns:
-            self._turns.pop(0)
-        self.updated_at = time.monotonic()
+        """记录一轮已消解的完整问题（作为下轮消解的上下文来源）。
+
+        Redis 权威 + L1 写穿透；append 用 Lua 原子脚本（并发安全）；Redis 挂 → 进程内降级。
+        """
+        turn = {"question": question, "sql": sql, "tables": tables or []}
+        key = self._key
+        try:
+            raw = self.rc.eval(
+                _APPEND_TURN_LUA, 1, key,
+                json.dumps(turn, ensure_ascii=False),
+                str(self.max_turns), str(int(self.ttl_seconds)),
+            )
+        except Exception:  # noqa: BLE001  # Redis 抛错（如 ConnectionError）→ 同 fail-open 降级
+            raw = None
+        if isinstance(raw, str) and raw:
+            try:
+                turns = json.loads(raw)
+                _l1_set(key, turns)
+                return
+            except (ValueError, TypeError):
+                pass
+        # Redis 挂 → 进程内降级（fail-open：不丢本轮，resolve 仍工作）
+        _degrade("record", self.session_id)
+        with _LOCAL_LOCK:
+            local = _LOCAL_TURNS.get(key, [])
+            local.append(turn)
+            if len(local) > self.max_turns:
+                del local[: len(local) - self.max_turns]
+            _LOCAL_TURNS[key] = local
+        _l1_set(key, local)  # 写穿透：降级也更新 L1，进程内视图一致
 
     def recent(self) -> dict[str, object] | None:
-        """最近一轮上下文（None = 首轮）。"""
-        return self._turns[-1] if self._turns else None
-
-    def is_expired(self) -> bool:
-        return time.monotonic() - self.updated_at > self.ttl_seconds
+        """最近一轮上下文（None = 首轮）。L1 → Redis（读回填 + 刷 TTL）→ 本地降级。"""
+        key = self._key
+        turns = _l1_get(key)
+        if turns is not None:
+            return turns[-1] if turns else None
+        try:
+            raw = self.rc.eval(_GET_TOUCH_LUA, 1, key, str(int(self.ttl_seconds)))
+        except Exception:  # noqa: BLE001  # Redis 抛错 → 同 fail-open 降级
+            raw = None
+        if raw == "":
+            return None  # 键不存在：首轮（Redis 正常）
+        if isinstance(raw, str) and raw:
+            try:
+                turns = json.loads(raw)
+                _l1_set(key, turns)
+                return turns[-1] if turns else None
+            except (ValueError, TypeError):
+                pass
+        # Redis 挂（eval 返回 None/非 str）→ 进程内降级
+        _degrade("recent", self.session_id)
+        with _LOCAL_LOCK:
+            local = _LOCAL_TURNS.get(key, [])
+        return local[-1] if local else None
 
     # ---- 指代消解 ----
 
@@ -198,24 +323,25 @@ class SessionContext:
         return _clean_resolved(raw)
 
 
-# ==================== 全局会话注册表（进程内 LRU + TTL） ====================
+# ==================== 全局会话入口（★ W27-D2：删除进程内注册表反模式） ====================
 
-_MAX_SESSIONS = 1024
-_SESSIONS: dict[str, SessionContext] = {}
+# 原 `_MAX_SESSIONS` / `_SESSIONS` / `_SESSIONS.clear()` 整段删除——
+# 状态权威在 Redis，TTL 天然淘汰，超限清空这个反模式不再需要。
+# get_session 每次返回新实例（状态不在实例上，L1 为模块级共享缓存）。
 
 
-def get_session(session_id: str) -> SessionContext:
-    """按 session_id 取会话上下文（无则创建；过期/超量触发清理）。"""
-    if len(_SESSIONS) >= _MAX_SESSIONS:
-        # 简单防膨胀：清掉过期项，仍超限则整体重置（进程内缓存，重启即失）
-        _SESSIONS.clear()
-    ctx = _SESSIONS.get(session_id)
-    if ctx is None or ctx.is_expired():
-        ctx = SessionContext(session_id)
-        _SESSIONS[session_id] = ctx
-    return ctx
+def get_session(session_id: str, owner: str = "", redis_client=None) -> SessionContext:
+    """按 session_id 取会话上下文（Redis 权威；每次返回新实例，L1 模块级共享）。"""
+    return SessionContext(session_id, owner=owner, redis_client=redis_client)
 
 
 def clear_sessions() -> None:
-    """清空会话注册表（测试隔离）。"""
-    _SESSIONS.clear()
+    """清空进程内 L1 缓存与降级存储（测试隔离）。
+
+    Redis 里的会话数据由 TTL 自动淘汰，不主动删除（多实例环境不要互相清）。
+    """
+    global _L1, _LOCAL_TURNS
+    with _L1_LOCK:
+        _L1 = {}
+    with _LOCAL_LOCK:
+        _LOCAL_TURNS = {}

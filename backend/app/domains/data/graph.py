@@ -309,6 +309,7 @@ builder.add_conditional_edges(
 builder.add_edge("degrade", END)
 builder.add_edge("format", END)
 
-# 无 checkpointer（Day3 单轮；多轮会话上下文 W24-D5 由 session_ctx 在图上处理），
-# 无跨事件循环问题 → 模块级编译
+# 图内无 checkpointer：多轮会话上下文由图上之外的 session_ctx 处理（W24-D5 引入，
+# ★ W27-D2 升级为 Redis 权威 + 进程内 L1 读缓存——跨实例/重启不丢，TTL 天然淘汰），
+# 图本身保持单轮无状态 → 可模块级编译、无跨事件循环问题
 data_graph = builder.compile()

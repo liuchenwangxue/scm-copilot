@@ -109,11 +109,15 @@ async def test_record_recent_and_resolve_with_context():
     assert await ctx.resolve("那华北呢？", TODAY) == "华北区域有多少订单？"
 
 
-def test_session_registry_dedup_and_clear():
+def test_session_registry_replaced_by_store():
+    """W27-D2：进程内注册表已删除（_SESSIONS 全局 dict 删除）——
+    get_session 每次返回新实例，状态经 store（Redis/L1/降级存储）共享。"""
     clear_sessions()
     a = get_session("s3")
     b = get_session("s3")
-    assert a is b
+    assert a is not b  # 注册表删除：不再复用实例
+    a.record("华东区域有多少订单？", "SELECT 1", ["orders"])
+    assert b.recent()["question"] == "华东区域有多少订单？"  # 状态跨实例共享
     clear_sessions()
     c = get_session("s3")
     assert c is not a

@@ -170,6 +170,18 @@ class RedisClient:
             self._last_fail_ts = time.time()
             return 0
 
+    def ttl(self, key: str) -> int:
+        """查询 key 剩余 TTL（秒；-2=键不存在，-1=无过期）。
+
+        ★ W27 Day2：会话 TTL 刷新断言用（读/写路径都刷 TTL 的 LRU 语义验证）。
+        fail-open：异常返回 -2（键视为不存在）。
+        """
+        try:
+            return int(self._connect().ttl(key))
+        except Exception:
+            self._last_fail_ts = time.time()
+            return -2
+
     def eval(self, lua: str, numkeys: int, *keys_and_args) -> object:
         """EVAL Lua 脚本（★ W25 Day5：API Key 令牌桶限速用）。
 

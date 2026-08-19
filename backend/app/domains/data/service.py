@@ -67,7 +67,15 @@ async def run_nl2sql_query(
     # ---- 查询成功 → 记会话上下文（下轮消解来源）+ 洞察摘要（★ Day6） ----
     insights: list[str] = []
     if session_ctx is not None and columns:
-        session_ctx.record(resolved, sql, linker.link_prompt_tables(resolved))
+        try:
+            tables = linker.link_prompt_tables(resolved)
+        except Exception:  # noqa: BLE001
+            # ★ W27-D2 修复：容器内无 embedding 模型（sentence_transformers 未装，
+            #   Dockerfile 设计"模型推理不在容器内做"）→ 降级空表。
+            #   tables 只是会话元数据（消解只用 prev question/sql），缺失不影响链路；
+            #   真实模型环境照常召回（fail-open 原则，不因元数据挂主链路）。
+            tables = []
+        session_ctx.record(resolved, sql, tables)
     if with_insights and columns:
         insights = await generate_insights(resolved, columns, rows, sql)
 
