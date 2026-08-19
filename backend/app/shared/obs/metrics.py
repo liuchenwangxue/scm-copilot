@@ -211,18 +211,14 @@ class MetricsMiddleware:
 
 def set_nl2sql_eval_score(layer: str, value: float) -> None:
     """更新 NL2SQL 某层准确率（eval_nightly 夜间任务调用）。"""
-    try:
+    with contextlib.suppress(Exception):
         get_metrics().nl2sql_eval_score.labels(layer).set(float(value))
-    except Exception:
-        pass
 
 
 def set_rag_eval_score(metric: str, value: float) -> None:
     """更新 RAG 某指标分数（eval_nightly 夜间任务调用）。"""
-    try:
+    with contextlib.suppress(Exception):
         get_metrics().rag_eval_score.labels(metric).set(float(value))
-    except Exception:
-        pass
 
 
 def inc_job_success(job: str) -> None:
@@ -230,34 +226,26 @@ def inc_job_success(job: str) -> None:
 
     label 名 job_name：避免与 Prometheus 保留标签 `job`（scrape job）冲突被覆盖。
     """
-    try:
+    with contextlib.suppress(Exception):
         get_metrics().job_success_total.labels(job_name=job).inc()
-    except Exception:
-        pass
 
 
 def inc_job_failed(job: str) -> None:
     """调度任务失败计数（scheduler _record 终态 failed 时调用）。"""
-    try:
+    with contextlib.suppress(Exception):
         get_metrics().job_failed_total.labels(job_name=job).inc()
-    except Exception:
-        pass
 
 
 def inc_semcache_hit() -> None:
     """语义缓存命中计数（semantic_cache lookup 命中时调用）。"""
-    try:
+    with contextlib.suppress(Exception):
         get_metrics().semcache_hit_total.inc()
-    except Exception:
-        pass
 
 
 def inc_semcache_miss() -> None:
     """语义缓存未命中计数（semantic_cache lookup 未命中/异常降级时调用）。"""
-    try:
+    with contextlib.suppress(Exception):
         get_metrics().semcache_miss_total.inc()
-    except Exception:
-        pass
 
 
 def inc_llm_usage(model: str, prompt_tokens: int, completion_tokens: int,
@@ -278,10 +266,8 @@ def inc_llm_usage(model: str, prompt_tokens: int, completion_tokens: int,
 
 def set_rq_queue_depth(queue: str, depth: int) -> None:
     """RQ 报表队列深度（enqueue 时更新，队列积压观测）。"""
-    try:
+    with contextlib.suppress(Exception):
         get_metrics().rq_queue_depth.labels(queue).set(int(depth))
-    except Exception:
-        pass
 
 
 def render(service: str | None = None) -> str:
