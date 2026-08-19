@@ -3,7 +3,10 @@
 - 环境变量前缀 SCM_，如 SCM_PLATFORM_DSN 覆盖 PLATFORM_DSN
 - 双库 DSN：scm_platform（平台库）+ scm_biz（业务库，W24 用）
 - 默认指向本地 MySQL（deploy/docker-compose.yml，宿主端口 13306）
+★ W27-D6 (B14)：启动时检测默认密钥并打 WARNING（生产必须替换）。
 """
+
+import logging
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -64,6 +67,20 @@ class Settings(BaseSettings):
         if not self.jobstore_dsn:
             self.jobstore_dsn = self.platform_dsn.replace(
                 "mysql+asyncmy://", "mysql+pymysql://", 1
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _warn_dev_secrets(self) -> "Settings":
+        """★ W27-D6 (B14)：启动时检测默认密钥 → WARNING。
+
+        默认 `dev-secret-change-me` 只允许本地开发；生产若忘记替换，JWT 可被
+        伪造（HS256 对称密钥即签名私钥）。CI 用 SCM_JWT_SECRET 覆盖，不触发。
+        """
+        if self.jwt_secret == "dev-secret-change-me":
+            logging.getLogger("scm.platform.settings").warning(
+                "SCM_JWT_SECRET 仍是默认值 'dev-secret-change-me'——"
+                "生产部署前必须替换为 32+ 字节随机串（.env.example 已注明）"
             )
         return self
 
