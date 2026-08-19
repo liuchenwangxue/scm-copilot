@@ -16,7 +16,6 @@
 | 3 | `docs/deploy.md` 升级 30 分钟新成员部署手册（含冒烟清单） | ✅ |
 | 4 | 一键起验证：down -v → up → migrate/seed/biz → smoke **14/14** | ✅（并修复 Makefile 路径 bug） |
 | 5 | `reports/demo_10min.md` 录屏讲稿（五场景 + 追问预案） | ✅ |
-| 6 | tag `v1.0.0` 项目冻结 | ✅ |
 
 ---
 
@@ -116,7 +115,6 @@ migrate:
 | README / architecture / deploy 三文档 | ✅ | 定稿 |
 | 一键起全栈 from-scratch | ✅ | 14/14 + Makefile 修复 |
 | demo_10min.md 讲稿 | ✅ | 录屏本体待 OBS 录制（讲稿已备） |
-| tag v1.0.0 项目冻结 | ✅ | 本日打 tag |
 | Day5：简历 v1 + STAR 三主线脱稿 | 明日 | 依据《05》第 4 节 + 简历素材库 |
 
 ---
@@ -128,6 +126,5 @@ migrate:
 - [x] docs/architecture.md（三域+基座/数据流图/ADR 索引）
 - [x] docs/deploy.md（30 分钟新成员部署手册 + 冒烟验证清单）
 - [x] demo_10min.md 录屏讲稿（五场景无卡壳脚本 + 追问预案）
-- [x] tag v1.0.0 项目冻结
 
 > **Day4 完成：三文档定稿 + 从零到可用 14/14 + 修复真实一键起 bug + demo 讲稿就绪。** 明天 Day5 简历 v1 + 三主线脱稿。

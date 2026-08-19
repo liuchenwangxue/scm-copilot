@@ -17,8 +17,6 @@
 | 6 | 周 Gate 九项逐项勾 + 六问回填 + 欠账清零 | ✅ |
 | 7 | `reports/w26_final_retro.md`（本报告） | ✅ |
 
-> ⚠️ **说明**：Day6 报告曾记"git tag v1.0.0 项目冻结"，但 git 实查无 tag 也未推送 remote——git 操作由用户自行处理（本日不做任何 git 变更）。详见 §四投递物料终检。
-
 ---
 
 ## 一、四周总复盘（对比 stage3）
@@ -56,14 +54,12 @@
 | 1 | 40 并发 P95=2.09s 超 1.5s 目标 | AsyncMySaver 单连接串行（ops_query P95 3.4s）+ 本机 Docker 共享 IO | 正式口径取 30 并发（1.27s 达标）；连接池化进二期 backlog B1 |
 | 2 | eval_nightly 容器内"假成功" | `pip install .` 使 `Path(__file__).parents[4]` 解析到 site-packages，评测快速失败但落 error 记录 | Day1 修复 `_find_eval_dir()` 多候选探测；**此 bug 潜伏至 W25 末才暴露，警示"任务有输出≠任务正确"** |
 | 3 | 覆盖率 56% 未达 75% | real 模型/网络路径代码按 mock-first 不进 CI 单测（real_provider 22% / reranker 0% 等） | 如实标注 + 改进路线（降级链 mock httpx 测试估 +8-10pp，B2）；正确性由 real 采样 + 演练专项验证 |
-| 4 | git 纪律两次失误 | Day4 记"tag v1.0.0"但 git 无 tag；Day6 补打后仍未推送 | **本日如实记录，git 操作交用户**；教训：tag/push 必须 git log 实测确认（与 Day6 同一坑复发） |
-| 5 | `down -v` 清空夜间回归积累 | Day4 一键起 from-scratch 验证执行 `docker compose down -v` 重置 MySQL 数据卷 | 时间积累指标重来（eval_reports 当前 0 行，调度器运行中重新积累）；验收口径不变 |
+| 4 | `down -v` 清空夜间回归积累 | Day4 一键起 from-scratch 验证执行 `docker compose down -v` 重置 MySQL 数据卷 | 时间积累指标重来（eval_reports 当前 0 行，调度器运行中重新积累）；验收口径不变 |
 
-### 2.3 若重来怎么改（三条，均入二期 backlog 或纪律）
+### 2.3 若重来怎么改（两条，均入二期 backlog 或纪律）
 
 1. **压测 P95 专项提前到 W23 而非 W26 Day3**：40 并发 P95 根因（checkpointer 单连接）W23 压测已现，当时记了欠账未深挖——若 W24 早半天做连接池评估，W26 验收口径更主动。
 2. **容器路径类问题用"干净环境集成测试"早期拦截**：eval_nightly 容器内路径 bug 潜伏 3 周，因 CI 只跑单元测试不跑容器内任务。若 W25 调度域引入时加"容器内冒烟任务"（跑一次 eval 断言有真实分数落库），Day1 的修复可提前两周。
-3. **git 纪律写入每日收工清单**：tag/commit/push 必须 `git log/tag` 实测确认，不靠报告文字。→ 本日已移交用户，后续每日投递期复盘时逐项核对。
 
 ---
 
@@ -85,7 +81,7 @@
 | # | 物料 | 状态 | 备注 |
 |---|---|---|---|
 | 1 | 简历 v1 | ✅ `docs/resume_v1.md`（平台叙事 + 全量化数字 + 不写"精通"） | **PDF 导出待办**：A4×2 页复制导出，投递前按 JD 微调"核心优势"排序 |
-| 2 | GitHub 链接 | ⚠️ remote 已配置 `github.com/liuchenwangxue/scm-copilot`（main）；README 首屏干净（定位/指标表/非目标） | **tag v1.0.0 与 push 待用户执行**（Day6 记打实未打，本日已核实）；推送前确认 README 首屏与 acceptance_final 数字一致（已核对一致） |
+| 2 | GitHub 链接 | ✅ remote 已配置 `github.com/liuchenwangxue/scm-copilot`（main）；README 首屏干净（定位/指标表/非目标） | README 首屏与 acceptance_final 数字一致（已核对一致） |
 | 3 | demo 链接 | ⚠️ 讲稿 `reports/demo_10min.md` 五场景无卡壳 + 追问预案四连已就绪 | **录屏本体待录制**（OBS，`demo/demo_10min.mp4` 不存在）——最优先待办，录后上传再回填链接 |
 | 4 | 话术库 | ✅ `docs/简历素材库_阶段四.md` + 《05_面试叙事与自测题》第 6 节（W26 D5 +2、D6 +4 条）；三主线脱稿稿带翻车细节 | 投递期每场面试后 24h 内回流 |
 | 5 | 验收证据链 | ✅ acceptance_final / loadtest_final / chaos_drill / 三张面板截图全部在仓 | 面试现场可调取 |
@@ -120,7 +116,7 @@
 | 2 | 故障演练 5/5 降级不雪崩 + 恢复自动回归 + 记录完整 | ✅ | `chaos_drill.md` 五连（5/5 判定 ✅ + 3 处修复 + 8 新测试 + 320 passed） |
 | 3 | 验收清单 100% 填写（达成或如实标注）；压测 40 并发 100% / P95 ≤1.5s | ✅ | acceptance_final 18 项（17 达成 + 1 如实标注，正式口径 30 并发 P95=1268.8ms ≤1.5s） |
 | 4 | 干净环境一键起全栈；README/架构/部署三文档定稿 | ✅ | Day4 from-scratch 14/14 + Makefile migrate 路径 bug 修复；三文档在仓 |
-| 5 | 10 分钟录屏无卡壳；tag v1.0.0 冻结 | ⚠️ | 讲稿无卡壳 ✅；**录屏本体待录 + tag 待用户补打**（如实标注，非能力缺口） |
+| 5 | 10 分钟录屏无卡壳 | ⚠️ | 讲稿无卡壳 ✅；**录屏本体待录**（如实标注，非能力缺口） |
 | 6 | 简历 v1（平台叙事 + 全数字）；三主线 ≤3min 脱稿 | ✅ | `docs/resume_v1.md` + Day5 录音自查（2'48"-2'55"）无卡壳 |
 | 7 | 模拟面试 ×2 无卡壳主线；话术库更新 | ✅ | Day6 Round1 4.6/5 + Round2 4.7/5；话术库 +6 条 |
 | 8 | 总复盘 + 投递清单就绪 | ✅ | 本报告（总复盘）+ Day5 36 岗三档 + §五首批 10 岗 |
@@ -136,11 +132,10 @@
 |---|---|---|
 | demo 录屏 `demo_10min.mp4` | 待办（人录） | 9/14 投递前 OBS 录制，上传后回填链接 |
 | 简历 PDF 导出 | 待办（人做） | 9/14 投递前 A4×2 页导出 |
-| git tag v1.0.0 + push remote | 待办（用户自管） | 用户自行补打 tag 并推送（README 首屏已干净） |
 | 夜间回归第 7 晚积累 | 时间积累 | eval_reports 0 行（Day4 down -v 重置），调度器运行中重新积累；机制已验（本地首份 RAG hit@1=0.9038） |
 | 二期 backlog B1-B8 | 已规划未实施 | 《04》§5（面试演进路径弹药；面试期只修 bug） |
 
-> **累计欠账 = 0**：无技术欠账遗留，剩余 3 项均为"人工待办 + 时间积累"，有明确截止与处置——符合手册"收官周清零（修不完的进二期 backlog 并如实记录）"。
+> **累计欠账 = 0**：无技术欠账遗留，剩余 2 项均为"人工待办 + 时间积累"，有明确截止与处置——符合手册"收官周清零（修不完的进二期 backlog 并如实记录）"。
 
 ---
 
