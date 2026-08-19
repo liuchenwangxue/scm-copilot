@@ -35,6 +35,20 @@ _STATUS_FAILED = "FAILED"
 DEFAULT_TTL = 300  # 幂等 key TTL（config.REDIS_IDEM_TTL，超时后允许重试）
 
 
+class IdemUnavailableError(Exception):
+    """幂等保护不可用（★ W27 D3 A7 fail-closed）。
+
+    Redis 不可用 + 写类请求（risk="write"）→ 拒绝执行，错误码 `IDEM_UNAVAILABLE`。
+    设计（手册坑）：fail-closed 的拒绝要给明确错误码，别复用通用 500——
+    SDK/前端要能区分"服务坏"（5xx）和"保护拒绝"（幂等不可用）。
+    """
+
+    error_code = "IDEM_UNAVAILABLE"
+
+    def __init__(self, message: str = "幂等保护不可用（Redis 不可用），拒绝高危写操作"):
+        super().__init__(f"{message}（error_code={self.error_code}）")
+
+
 # ==================== 后端实现 ====================
 
 class _SqliteBackend:
@@ -204,8 +218,13 @@ class IdempotencyStore:
             ttl=ttl or DEFAULT_TTL)
         self.backend = backend
 
-    def resolve_backend(self):
+    def resolve_backend(self, risk: str = "read"):
         """解析当前生效的后端（一次操作内固定——★ W21 Day6 修复）。
+
+        risk 语义（★ W27 D3 A7 fail-closed 判定函数，调用方声明）：
+        - "read"（默认）：Redis 不可用 → fail-open 降级 sqlite（读类请求：查询/生成允许降级）
+        - "write"：Redis 不可用 → 抛 `IdemUnavailableError`（fail-closed：
+          写类请求——ops 高危工具执行——直接拒绝，避免跨实例重复副作用）
 
         原实现 `_active` 是属性（每次访问重新判定），Redis 状态抖动时同一操作的
         claim/complete/get_result 可能走不同后端（数据分裂）。改为显式解析一次，
@@ -215,7 +234,14 @@ class IdempotencyStore:
         rc = self._redis.rc
         if rc.available:
             return self._redis
-        # fail-open：Redis 不可用 → sqlite（W19 代码保留为兜底）
+        # Redis 不可用：
+        if risk == "write":
+            # fail-closed：写路径拒绝（错误码 IDEM_UNAVAILABLE，metrics 计数）
+            from app.shared.obs.metrics import inc_idem_fail_closed
+            inc_idem_fail_closed()
+            print("  [IDEM] Redis 不可用 + risk=write → fail-closed 拒绝（IDEM_UNAVAILABLE）")
+            raise IdemUnavailableError()
+        # fail-open：Redis 不可用 → sqlite（读类请求允许降级，W19 代码保留为兜底）
         if self.backend == "redis":
             print("  [IDEM] Redis 不可用 → fail-open 降级 sqlite（幂等语义仍成立）")
         return self._sqlite
@@ -232,33 +258,40 @@ class IdempotencyStore:
         raw = f"{session_id}::{operation}::{target}"
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
-    # ---- SETNX 语义 ----
+    # ---- SETNX 语义（risk 透传：写操作调用方显式声明，见 resolve_backend A7） ----
 
     def claim(self, idem_key: str, session_id: str, operation: str, target: str,
-              backend=None) -> bool:
-        b = backend or self.resolve_backend()
+              backend=None, risk: str = "read") -> bool:
+        b = backend or self.resolve_backend(risk=risk)
         return b.claim(idem_key, session_id, operation, target)
 
-    def complete(self, idem_key: str, result: dict, backend=None) -> None:
-        b = backend or self.resolve_backend()
+    def complete(self, idem_key: str, result: dict, backend=None,
+                 risk: str = "read") -> None:
+        b = backend or self.resolve_backend(risk=risk)
         b.complete(idem_key, result)
 
-    def mark_failed(self, idem_key: str, error: str, backend=None) -> None:
-        b = backend or self.resolve_backend()
+    def mark_failed(self, idem_key: str, error: str, backend=None,
+                    risk: str = "read") -> None:
+        b = backend or self.resolve_backend(risk=risk)
         b.mark_failed(idem_key, error)
 
-    def get_result(self, idem_key: str, backend=None) -> dict | None:
-        b = backend or self.resolve_backend()
+    def get_result(self, idem_key: str, backend=None, risk: str = "read") -> dict | None:
+        b = backend or self.resolve_backend(risk=risk)
         return b.get_result(idem_key)
 
-    def status(self, idem_key: str, backend=None) -> str | None:
-        b = backend or self.resolve_backend()
+    def status(self, idem_key: str, backend=None, risk: str = "read") -> str | None:
+        b = backend or self.resolve_backend(risk=risk)
         return b.status(idem_key)
 
 
 def execute_idempotent(store: IdempotencyStore, session_id: str, operation: str,
-                       target: str, func, audit=None, *args, **kwargs):
+                       target: str, func, audit=None, risk: str = "write",
+                       *args, **kwargs):
     """幂等执行包装：同 key 重复 → 返回首次结果；首次 → 执行并缓存。
+
+    risk（★ W27 D3 A7）：本包装就是"执行带副作用操作"的写路径，默认 risk="write"——
+    Redis 不可用时 fail-closed 抛 IdemUnavailableError（拒绝执行）；
+    读类请求请显式传 risk="read"（允许 sqlite 降级）。
 
     Returns:
         (result, hit)：hit=True 表示幂等命中（未重复执行）
@@ -266,7 +299,7 @@ def execute_idempotent(store: IdempotencyStore, session_id: str, operation: str,
     key = store.build_key(session_id, operation, target)
     # ★ 一次操作内固定后端（W21 Day6：resolve_backend 只调一次，
     #    claim/complete/get_result 用同一后端，避免 Redis 抖动导致数据分裂）
-    backend = store.resolve_backend()
+    backend = store.resolve_backend(risk=risk)
     cached = store.get_result(key, backend=backend)
     if cached is not None:
         if audit:

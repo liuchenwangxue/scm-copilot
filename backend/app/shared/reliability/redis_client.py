@@ -182,6 +182,19 @@ class RedisClient:
             self._last_fail_ts = time.time()
             return -2
 
+    def incrbyfloat(self, key: str, amount: float) -> float | None:
+        """INCRBYFLOAT：float 原子自增（★ W27 Day3 A8 成本预算 Redis 化）。
+
+        跨实例共享计数（双实例 budget 累加同一 key），返回自增后的新值。
+        fail-open：异常返回 None——调用方按"Redis 挂 → 本地近似"降级
+        （预算是软限制，Redis 抖动不阻塞业务，手册 fail-open 原则）。
+        """
+        try:
+            return float(self._connect().incrbyfloat(key, amount))
+        except Exception:
+            self._last_fail_ts = time.time()
+            return None
+
     def eval(self, lua: str, numkeys: int, *keys_and_args) -> object:
         """EVAL Lua 脚本（★ W25 Day5：API Key 令牌桶限速用）。
 

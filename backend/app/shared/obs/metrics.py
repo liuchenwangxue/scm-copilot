@@ -128,6 +128,17 @@ class _Metrics:
         self.llm_cost_yuan_total = Counter(
             "scm_llm_cost_yuan_total", "LLM 成本（¥，按模型，日预算水位=rate[1d]）",
             ["model"], registry=self._reg)
+        # ⑥ 可靠性降级区（★ W27 Day3 A6/A7/A8：redis-down 行为矩阵的指标证据）
+        #   "我知道边界在哪、它挂了我做了什么"——三个降级分支各有 Counter 上墙
+        self.lock_local_fallback_total = Counter(
+            "scm_lock_local_fallback_total", "Redis 不可用时的本地互斥兜底次数（A6）",
+            ["component"], registry=self._reg)
+        self.idem_fail_closed_total = Counter(
+            "scm_idem_fail_closed_total", "幂等写路径 fail-closed 拒绝次数（A7）",
+            registry=self._reg)
+        self.budget_redis_down_total = Counter(
+            "scm_budget_redis_down_total", "成本预算 Redis 不可用降级本地近似次数（A8）",
+            registry=self._reg)
         # ② 队列深度 Gauge：RQ 报表队列当前积压（enqueue 时更新）
         self.rq_queue_depth = Gauge(
             "scm_rq_queue_depth", "RQ 报表队列深度（当前积压 job 数）",
@@ -246,6 +257,29 @@ def inc_semcache_miss() -> None:
     """语义缓存未命中计数（semantic_cache lookup 未命中/异常降级时调用）。"""
     with contextlib.suppress(Exception):
         get_metrics().semcache_miss_total.inc()
+
+
+# ==================== W27 Day3：可靠性降级计数（redis-down 行为矩阵证据） ====================
+
+def inc_lock_fallback(component: str = "lock") -> None:
+    """分布式锁本地互斥兜底计数（A6：Redis 挂 → 同 key 进程内锁）。
+
+    component label 取值：lock（同步 DistributedLock）/ leader（调度 leader_lock）。
+    """
+    with contextlib.suppress(Exception):
+        get_metrics().lock_local_fallback_total.labels(component=component).inc()
+
+
+def inc_idem_fail_closed() -> None:
+    """幂等写路径 fail-closed 拒绝计数（A7：Redis 挂 + risk=write 拒绝执行）。"""
+    with contextlib.suppress(Exception):
+        get_metrics().idem_fail_closed_total.inc()
+
+
+def inc_budget_redis_down() -> None:
+    """成本预算 Redis 降级计数（A8：Redis 挂 → 本地近似 + 日志）。"""
+    with contextlib.suppress(Exception):
+        get_metrics().budget_redis_down_total.inc()
 
 
 def inc_llm_usage(model: str, prompt_tokens: int, completion_tokens: int,

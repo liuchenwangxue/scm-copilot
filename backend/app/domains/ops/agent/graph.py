@@ -31,14 +31,19 @@ from app.domains.ops.security.approval import ApprovalService
 from app.domains.ops.security.audit import AuditLogger
 from app.platform.hooks import ToolUseContext, run_post_hooks, run_pre_hooks
 from app.shared.reliability.cost_budget import get_session_budget
-from app.shared.reliability.idempotency import IdempotencyStore
+from app.shared.reliability.idempotency import IdempotencyStore, IdemUnavailableError
+from app.shared.reliability.redis_client import get_redis_client
 
 # ---- 服务单例（进程内；Docker 化时可用依赖注入替换） ----
 audit = AuditLogger(config.AUDIT_LOG)
 approval_svc = ApprovalService(dsn=config.APPROVAL_DSN, audit=audit)  # ★ Day5：MySQL 平台库
-order_tools = OrderTools(config.BIZ_BASE_URL)
-report_tools = ReportTools(config.BIZ_BASE_URL)
+# ★ W27 D3 A5：熔断状态 Redis 共享（双实例各熔各的 → 秒级收敛；Redis 挂 fail-open 不误熔断）
+order_tools = OrderTools(config.BIZ_BASE_URL, redis_client=get_redis_client())
+report_tools = ReportTools(config.BIZ_BASE_URL, redis_client=get_redis_client())
 idem_store = IdempotencyStore(config.IDEMPOTENCY_DB)
+
+# ★ W27 D3 A7：写类请求集合——Redis 挂时幂等保护 fail-closed 拒绝（读类降级不受影响）
+_WRITE_TOOLS = frozenset({"update_order", "cancel_order"})
 
 
 def _make_intent_router():
@@ -172,6 +177,19 @@ def execute_node(state: BizState) -> dict:
         audit.log("execution_failed", approval_id=approval.get("approval_id"),
                   target=params.get("order_id", ""), tool=tool_name, error=f"hook:{blocked}")
         return {"tool_result": r.to_dict(), "degraded": False}
+
+    # ---- ★ W27 D3 A7：幂等写路径 fail-closed 前置检查 ----
+    # Redis 挂 + 写类请求（高危工具执行）→ 直接拒绝（错误码 IDEM_UNAVAILABLE），
+    # 避免跨实例重复副作用；读类请求（查询/生成）走 sqlite 降级不受影响。
+    if tool_name in _WRITE_TOOLS:
+        try:
+            idem_store.resolve_backend(risk="write")
+        except IdemUnavailableError as e:
+            r = ToolResultDummy(success=False, error=str(e))
+            audit.log("execution_failed", approval_id=approval.get("approval_id"),
+                      target=params.get("order_id", ""), tool=tool_name,
+                      error="idem_unavailable")
+            return {"tool_result": r.to_dict(), "degraded": False}
 
     # ---- 可靠层工具调用（Day3 熔断+降级链已内置） ----
     result = None

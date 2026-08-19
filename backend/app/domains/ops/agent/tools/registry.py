@@ -134,12 +134,15 @@ class BaseTool:
 
     def __init__(self, base_url: str, snapshot: dict | None = None,
                  retries: int = 2, base_delay: float = 0.5,
-                 failure_threshold: int = 5, cooldown: float = 10.0):
+                 failure_threshold: int = 5, cooldown: float = 10.0,
+                 redis_client=None):
         self.client = httpx.Client(base_url=base_url, timeout=10.0)
         self.retries = retries
         self.base_delay = base_delay
         self.failure_threshold = failure_threshold
         self.cooldown = cooldown
+        # ★ W27 D3 A5：熔断状态 Redis 共享（生产传 get_redis_client()；None=单机语义）
+        self._redis_client = redis_client
         # ★ 每工具一个熔断器实例（懒创建）：update_order 熔断不影响 query_order
         self._breakers: dict[str, CircuitBreaker] = {}
         # 备用只读快照：主源失败时的降级数据源（"上次成功结果"）
@@ -150,7 +153,8 @@ class BaseTool:
         name = name or self.name
         if name not in self._breakers:
             self._breakers[name] = CircuitBreaker(
-                name, failure_threshold=self.failure_threshold, cooldown=self.cooldown)
+                name, failure_threshold=self.failure_threshold, cooldown=self.cooldown,
+                redis_client=self._redis_client)
         return self._breakers[name]
 
     @property
