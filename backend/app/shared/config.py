@@ -67,6 +67,16 @@ REDIS_IDEM_TTL = int(os.getenv("REDIS_IDEM_TTL", "300"))
 REDIS_CACHE_TTL = int(os.getenv("REDIS_CACHE_TTL", "60"))
 REDIS_LOCK_TTL = int(os.getenv("REDIS_LOCK_TTL", "30"))
 
+# ---- LangGraph Checkpointer 连接池（★ W27 D1：AsyncMySaver 单连接串行 → 池化）----
+# 单连接版 AsyncMySaver 的「单 conn + asyncio.Lock」是全局限流器：40 并发下 ops
+# 请求全部在锁上排队（ops_query P95=3467.9ms）。池化后并发写分散到池内连接。
+# 池大小用 Little's law 估算：40 并发 × 单写 ~50ms / 1s ≈ 2 条忙连接，默认 10
+# 是余量不是并发数（面试口径："为什么是 10 不是 40"）。
+# 池与创建它的事件循环绑定（同 asyncmy 连接纪律），进程内懒建、测试 reset 重建。
+SCM_CHECKPOINT_POOL_SIZE = int(os.getenv("SCM_CHECKPOINT_POOL_SIZE", "10"))
+SCM_CHECKPOINT_POOL_MIN = int(os.getenv("SCM_CHECKPOINT_POOL_MIN", "2"))
+SCM_CHECKPOINT_POOL_RECYCLE = int(os.getenv("SCM_CHECKPOINT_POOL_RECYCLE", "3600"))
+
 # ---- Qdrant（复用 stage3 W5 容器，端口 6333）----
 QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
 QDRANT_TIMEOUT = int(os.getenv("QDRANT_TIMEOUT", "30"))
