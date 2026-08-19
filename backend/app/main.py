@@ -12,7 +12,7 @@ W23 Day4：双域并入——挂载 /api/kb（知识问答域，承 stage3-a）�
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -24,7 +24,7 @@ from app.domains.data import router as data_router
 from app.domains.kb import router as kb_router
 from app.domains.ops import router as ops_router
 from app.platform import auth, rbac, schemas
-from app.platform.apikeys import API_KEY_PREFIX, authenticate_api_key
+from app.platform.apikeys import authenticate_credentials
 from app.platform.audit import AuditMiddleware
 from app.platform.errors import Err, ErrorCode, register_error_handlers
 from app.platform.models import User
@@ -87,11 +87,13 @@ async def global_auth(request: Request) -> User | None:
     """全局 JWT/API Key 门禁（FastAPI 全局依赖，所有路由生效）。
 
     - 白名单路径 / 认证端点 → 放行（返回 None）
-    - 其余路径 → 手动解析 Bearer 头：
+    - 其余路径 → 手动解析 Bearer 头后统一走 `authenticate_credentials`：
       · `sk-` 前缀 → API Key 机器身份（sha256 查表 + owner 用户存活，★ W25 Day5；
         限速在端点级 `api_key_or_jwt` 恰好一次，门禁只认证避免双计费）
       · 否则 → 完整 JWT 校验（签名/类型/吊销/用户存活）
       失败抛 401；成功返回用户（丢弃，门禁只保证"有有效身份"）
+    ★ W27-D6 (B11)：sk- 检测/401 处理已收敛到 apikeys.authenticate_credentials 单处，
+    与端点级 api_key_or_jwt 共用同一认证实现。
     """
     path = request.url.path
     if path.startswith(WHITELIST_PREFIXES) or path.startswith(OPEN_AUTH_PATHS):
@@ -105,12 +107,7 @@ async def global_auth(request: Request) -> User | None:
 
     factory = request.app.state.session_factory
     async with factory() as session:
-        if credentials is not None and credentials.credentials.startswith(API_KEY_PREFIX):
-            user = await authenticate_api_key(session, credentials.credentials)
-            if user is None:
-                raise HTTPException(status_code=401, detail="invalid api key")
-            return user
-        return await auth.get_current_user(credentials=credentials, session=session)
+        return await authenticate_credentials(session, credentials)
 
 
 app = FastAPI(

@@ -104,6 +104,28 @@ async def revoke_api_key(session: AsyncSession, key_id: int) -> bool:
     return True
 
 
+async def authenticate_credentials(
+    session: AsyncSession,
+    credentials: HTTPAuthorizationCredentials | None,
+) -> User:
+    """统一身份解析（★ W27-D6 B11：sk- 检测单处实现）。
+
+    被 `main.py` 全局门禁（只认证不限速）与端点级 `api_key_or_jwt`（认证+限速）
+    共用——Bearer `sk-` 前缀判定与"无效 Key → 401"逻辑不再两处维护：
+
+    - Bearer `sk-` → API Key 认证（sha256 查表，无效抛 401）；
+    - 否则 → JWT 校验（`get_current_user` 内部处理 401/吊销/过期）。
+    """
+    if credentials is not None and credentials.credentials.startswith(API_KEY_PREFIX):
+        user = await authenticate_api_key(session, credentials.credentials)
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid api key"
+            )
+        return user
+    return await get_current_user(credentials=credentials, session=session)
+
+
 async def authenticate_api_key(session: AsyncSession, key: str) -> User | None:
     """API Key 认证：sha256 查表 → enabled 校验 → owner 用户存活 → 返回 User。
 
@@ -227,14 +249,14 @@ async def api_key_or_jwt(
 
     这是端点级统一入口（`rbac.require_permission` 内部依赖）——集成方带 API Key
     调任何受保护端点都经过这里；限速恰好每请求一次（全局门禁只认证不限速）。
+    ★ W27-D6 (B11)：认证分支（sk- 检测 + 无效 Key 401）已收敛到
+    `authenticate_credentials` 单处实现，本依赖只追加限速判定。
     """
+    user = await authenticate_credentials(session, credentials)
+    # 限速（每请求一次，仅 API Key）：超额 429 + Retry-After（Err body 由全局处理器归一）。
+    # ★ 这里的 sk- 前缀判定是"是否限速"的业务条件，非认证逻辑——认证只发生在
+    #   authenticate_credentials 一处（B11 去重的对象就是认证分支）。
     if credentials is not None and credentials.credentials.startswith(API_KEY_PREFIX):
-        user = await authenticate_api_key(session, credentials.credentials)
-        if user is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid api key"
-            )
-        # 限速（每请求一次）：超额 429 + Retry-After（Err body 由全局处理器归一）
         allowed, retry_after = check_token_bucket(hash_api_key(credentials.credentials))
         if not allowed:
             raise HTTPException(
@@ -242,5 +264,4 @@ async def api_key_or_jwt(
                 detail="api key rate limit exceeded",
                 headers={"Retry-After": str(retry_after)},
             )
-        return user
-    return await get_current_user(credentials=credentials, session=session)
+    return user
