@@ -48,6 +48,28 @@ client.close()
 
 > 也可直接复用你自己的 `httpx.Client`（传 `client=` 参数），SDK 不接管连接管理。
 
+## 自动退避重试（0.2.0 起默认开）
+
+SDK 对幂等请求自动重试，调用方无需手写退避（★ W27 Day4 与平台令牌桶闭环）：
+
+| 场景 | 行为 |
+|---|---|
+| 429（`ScmQuotaError`） | 尊重服务端 `Retry-After` 头，≤30s 才重试；无/超 30s 立即抛 |
+| 5xx / 超时 | 指数退避 + 抖动（`min(2^n + jitter, 8)`） |
+| 其他 4xx（认证/校验） | **不重试**——重试也不会变好 |
+
+```python
+client = ScmCopilot(url, api_key="sk-...")          # auto_retry=True 默认
+client = ScmCopilot(url, api_key="sk-...", auto_retry=False)   # 自定义非幂等请求时关闭
+client = ScmCopilot(url, api_key="sk-...", max_retries=3)      # 调重试次数
+```
+
+> 重试前提是请求幂等：查询 / 带 `approval_id` 幂等键的审批决策可安全重试；
+> 若你自己扩展非幂等写请求，请传 `auto_retry=False`。
+>
+> **`chat_stream`（SSE 流）不自动重试**：流式响应一旦开始消费，中途重试会导致
+> 重复/丢失事件、语义不清——流的错误在迭代器起始时抛 `ScmError`，由调用方决定是否重新发起。
+
 ## 事件协议（chat_stream）
 
 SSE `data:` 行 JSON，`type` 字段分发（kb / ops 双域）：

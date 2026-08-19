@@ -195,8 +195,9 @@ test-hooks:
 	$(PYTEST) backend/tests/test_hooks.py -v
 
 ## ★ W25 Day5：SDK 单元测试（MockTransport 离线可跑，无需平台）
+##   W27 Day4：并入 test_sdk_retry.py（429/5xx 自动退避三序列）
 test-sdk-unit:
-	cd sdk && ..\.venv\Scripts\python.exe -m pytest tests/test_sdk_units.py -v
+	cd sdk && ..\.venv\Scripts\python.exe -m pytest tests/test_sdk_units.py tests/test_sdk_retry.py -v
 
 ## ★ W25 Day5：SDK 集成测试（需真实平台：SCM_SDK_BASE_URL 默认 http://localhost:8000）
 test-sdk-integration:

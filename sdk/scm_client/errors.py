@@ -9,6 +9,7 @@ SDK 侧异常体系：
 - `ScmError`：基类（携带 status_code / code / message / trace_id）
 - `ScmAuthError`：401/403（凭证无效 / 权限不足）——可提示集成方检查 API Key
 - `ScmQuotaError`：429（令牌桶限速超额）——携带 `retry_after`（秒），可退避重试
+- `ScmServerError`：5xx（服务端/网关错误）——瞬时性较高，可指数退避重试
 - 其余非 2xx 一律归一为 `ScmError`（据 status_code 兜底，据 code 精确分支）
 """
 
@@ -59,7 +60,13 @@ class ScmError(Exception):
             )
         if response.status_code in (401, 403):
             return ScmAuthError(response.status_code, code, message, trace_id)
+        if response.status_code >= 500:
+            return ScmServerError(response.status_code, code, message, trace_id)
         return cls(response.status_code, code, message, trace_id)
+
+
+class ScmServerError(ScmError):
+    """服务端/网关错误（5xx）：瞬时性较高，SDK 默认指数退避重试（W27 D4）。"""
 
 
 class ScmAuthError(ScmError):

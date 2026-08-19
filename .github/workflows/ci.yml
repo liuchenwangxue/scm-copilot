@@ -180,7 +180,23 @@ jobs:
 
       - name: SDK unit tests (offline)
         run: |
-          cd sdk && python -m pytest tests/test_sdk_units.py -v
+          cd sdk && python -m pytest tests/test_sdk_units.py tests/test_sdk_retry.py -v
+
+      # ★ W27 Day4：0.2.0 发布路径验证——build dist + 干净 venv 十行接入跑通
+      #   （TestPyPI 上传在本地做；CI 保证 dist 可构建、wheel 可干净安装、429 退避可用）
+      - name: SDK 0.2.0 build + clean-install smoke
+        run: |
+          cd sdk && pip install build twine
+          python -m build
+          ls dist/
+          python -m venv /tmp/sdk_venv
+          /tmp/sdk_venv/bin/pip install dist/scm_copilot_client-0.2.0-py3-none-any.whl
+          /tmp/sdk_venv/bin/python - <<'EOF'
+          from scm_client import ScmCopilot, ScmServerError, __version__
+          assert __version__ == "0.2.0", __version__
+          c = ScmCopilot("http://localhost:8000", auto_retry=False)
+          print("0.2.0 clean install OK", __version__)
+          EOF
 
       - name: SDK integration tests (clean env vs real platform)
         run: |

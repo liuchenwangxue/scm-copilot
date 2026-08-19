@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "scm-copilot-client"
-version = "0.1.0"
+version = "0.2.0"
 description = "SCM Copilot 供应链智能运营平台官方 Python SDK——chat_stream / nl2sql / approvals 三接口"
 readme = "README.md"
 requires-python = ">=3.10"

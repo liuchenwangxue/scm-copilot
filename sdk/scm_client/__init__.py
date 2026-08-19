@@ -20,6 +20,8 @@
 
 from __future__ import annotations
 
+import random
+import time
 from collections.abc import Iterator
 
 import httpx
@@ -27,7 +29,7 @@ import httpx
 from scm_client.approvals import Approvals
 from scm_client.chat import parse_sse_events
 from scm_client.data import build_dataframe
-from scm_client.errors import ErrorCode, ScmAuthError, ScmError, ScmQuotaError
+from scm_client.errors import ErrorCode, ScmAuthError, ScmError, ScmQuotaError, ScmServerError
 from scm_client.models import ApprovalItem, ChatEvent, Nl2SqlResult
 
 __all__ = [
@@ -38,10 +40,11 @@ __all__ = [
     "ScmError",
     "ScmAuthError",
     "ScmQuotaError",
+    "ScmServerError",
     "ErrorCode",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 
 class ScmCopilot:
@@ -55,8 +58,20 @@ class ScmCopilot:
         timeout: float = 30.0,
         client: httpx.Client | None = None,
         verify: bool | str = True,
+        auto_retry: bool = True,
+        max_retries: int = 2,
     ):
+        """初始化客户端。
+
+        ★ W27 Day4：`auto_retry=True`（默认）时对幂等请求自动退避重试：
+        - 429（ScmQuotaError）→ 尊重服务端 `Retry-After`（≤30s 才重试，避免放大雪崩）
+        - 5xx / 超时 → 指数退避 + 抖动（base 2^n + jitter，上限 8s）
+        非幂等写操作（如 approvals.decide 已带 approval_id 幂等键，可安全重试；
+        若调用方自定义非幂等请求，应传 `auto_retry=False` 关闭）。
+        """
         self.base_url = base_url.rstrip("/")
+        self.auto_retry = auto_retry
+        self.max_retries = max(0, int(max_retries))
         headers: dict[str, str] = {}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
@@ -76,11 +91,29 @@ class ScmCopilot:
     # ---------------- 内部请求封装 ----------------
 
     def _request(self, method: str, path: str, **kwargs) -> httpx.Response:
-        """统一请求入口：非 2xx → 抛 `ScmError`（据 Err 契约解析 code/message/trace_id）。"""
-        resp = self._client.request(method, path, **kwargs)
-        if resp.status_code >= 400:
-            raise ScmError.from_response(resp)
-        return resp
+        """统一请求入口：非 2xx → 抛 `ScmError`（据 Err 契约解析 code/message/trace_id）。
+
+        ★ W27 Day4 自动退避（`auto_retry`，默认开）：
+        - 429：有 `Retry-After` 且 ≤30s → sleep 后重试；无/超 30s 立即抛（不猜服务端）
+        - 5xx / httpx 超时：指数退避 + 抖动（`min(2**attempt + random, 8)`）
+        其他 4xx（认证/校验）不重试——重试也不会变好。
+        """
+        for attempt in range(self.max_retries + 1):
+            try:
+                resp = self._client.request(method, path, **kwargs)
+                if resp.status_code >= 400:
+                    raise ScmError.from_response(resp)
+                return resp
+            except ScmQuotaError as e:  # 429：尊重服务端节流
+                if not self.auto_retry or attempt >= self.max_retries \
+                        or not e.retry_after or e.retry_after > 30:
+                    raise
+                time.sleep(e.retry_after)
+            except (ScmServerError, httpx.TimeoutException):  # 5xx/超时：指数退避+抖动
+                if not self.auto_retry or attempt >= self.max_retries:
+                    raise
+                time.sleep(min(2 ** attempt + random.random(), 8))
+        raise RuntimeError("unreachable")  # pragma: no cover
 
     # ---------------- 三接口 ----------------
 
