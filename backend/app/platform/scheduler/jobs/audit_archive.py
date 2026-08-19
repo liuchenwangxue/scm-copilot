@@ -154,7 +154,7 @@ async def run(
     """调度器入口（无参契约）。单测可注入依赖/固定时间。"""
     from app.platform.scheduler import _runtime
 
-    sf = session_factory or _runtime.get("session_factory")
+    sf = session_factory or _runtime.session_factory  # ★ W27-D6 B10：RuntimeContext 字段
     if sf is None:
         return {
             "job": "audit_archive",

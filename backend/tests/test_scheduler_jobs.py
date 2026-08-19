@@ -62,20 +62,24 @@ def test_run_job_is_module_level_callable():
 
 @pytest_asyncio.fixture
 async def runtime():
-    """设置模块级运行时上下文（session_factory/instance_id），用完还原。"""
+    """设置模块级运行时上下文（session_factory/instance_id），用完还原。
+
+    ★ W27-D6 (B10)：_runtime 已是 RuntimeContext 对象——测试文件顶部的 `_runtime`
+    与模块属性是同一对象引用，直接改字段（而非替换对象），两边都可见。
+    """
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+    import app.platform.scheduler as mod
     from app.platform.settings import settings
 
     engine = create_async_engine(settings.platform_dsn)
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
-    old = dict(_runtime)
-    _runtime["session_factory"] = session_factory
-    _runtime["instance_id"] = "test-instance"
+    old_sf, old_iid = mod._runtime.session_factory, mod._runtime.instance_id
+    mod._runtime.session_factory = session_factory
+    mod._runtime.instance_id = "test-instance"
     yield session_factory
-    _runtime.clear()
-    _runtime.update(old)
+    mod._runtime.session_factory, mod._runtime.instance_id = old_sf, old_iid
     await engine.dispose()
 
 
@@ -106,7 +110,7 @@ async def test_job_runs_written_on_execute(runtime, monkeypatch):
 
     from app.platform.models import SchedulerJobRun
 
-    async with _runtime["session_factory"]() as session:
+    async with _runtime.session_factory() as session:
         rows = list(
             (
                 await session.scalars(
@@ -161,7 +165,7 @@ async def test_job_runs_skipped_when_lock_held(runtime, monkeypatch):
         result = await _run_job(spec["name"])
         assert isinstance(result, SkipResult)
 
-        async with _runtime["session_factory"]() as session:
+        async with _runtime.session_factory() as session:
             rows = list(
                 (
                     await session.scalars(

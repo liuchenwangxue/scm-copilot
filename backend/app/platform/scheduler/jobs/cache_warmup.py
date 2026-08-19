@@ -112,7 +112,7 @@ async def _yesterday_hot_questions(yesterday: date, limit: int = WARMUP_LIMIT) -
     """
     from app.platform.scheduler import _runtime
 
-    session_factory = _runtime["session_factory"]
+    session_factory = _runtime.session_factory  # ★ W27-D6 B10：RuntimeContext 字段
     if session_factory is None:
         return []
 

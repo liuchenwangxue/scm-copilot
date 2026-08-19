@@ -137,7 +137,7 @@ async def _generate_brief(today: date) -> dict:
     # ---- 4) 落 daily_briefs（brief_date unique；已存在则跳过——幂等双保险）----
     from app.platform.scheduler import _runtime
 
-    session_factory = _runtime["session_factory"]
+    session_factory = _runtime.session_factory  # ★ W27-D6 B10：RuntimeContext 字段
     if session_factory is None:
         raise RuntimeError("scheduler runtime not initialized (session_factory is None)")
 
@@ -281,7 +281,7 @@ async def _push_to_subscribers(
     """
     from app.platform.scheduler import _runtime
 
-    session_factory = _runtime["session_factory"]
+    session_factory = _runtime.session_factory  # ★ W27-D6 B10：RuntimeContext 字段
     if session_factory is None:
         return []
 

@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
@@ -98,9 +99,23 @@ DEFAULT_LOCK_TTL = 300
 # 错过宽限期 + 合并：休眠/重启/负载导致的错过触发点在 5min 内合并补跑一次
 MISFIRE_GRACE_TIME = 300
 
+@dataclass
+class RuntimeContext:
+    """调度运行时上下文（★ W27-D6 B10：显式传参替代模块级 dict 紧耦合）。
+
+    APScheduler 序列化坑要求回调是模块级函数（job store 只持久化
+    `app.platform.scheduler:_run_job` 引用）；运行时依赖（session_factory /
+    instance_id）经本上下文注入一次，任务函数显式读字段而非隐式读 dict——
+    类型可查、职责清晰，测试也可直接替换整个上下文对象。
+    """
+
+    session_factory: async_sessionmaker[AsyncSession] | None = None
+    instance_id: str = "local"
+
+
 # 模块级运行时上下文（★ 序列化坑的解法）：job store 只持久化 `_run_job` 的函数引用，
 # 它执行时从这里读 session_factory / instance_id——由 PlatformScheduler.start() 注入。
-_runtime: dict[str, Any] = {"session_factory": None, "instance_id": "local"}
+_runtime = RuntimeContext()
 
 
 # ==================== 模块级任务入口（APScheduler 可序列化引用） ====================
@@ -170,7 +185,7 @@ def _make_run_id(job_id: str) -> str:
     - 跳过实例：skipped（1 行）
     零重复观测 = 按 (job, 秒窗口) 聚合，status != skipped 恰 1 行。
     """
-    instance = _runtime.get("instance_id", "local")
+    instance = _runtime.instance_id
     return f"{job_id}:{datetime.now().strftime('%Y%m%d%H%M%S')}:{instance}"
 
 
@@ -200,7 +215,7 @@ async def _record(
                 inc_job_failed(job_id)
         except Exception:  # noqa: BLE001  # 指标旁路失败不影响任务记录
             pass
-    session_factory = _runtime["session_factory"]
+    session_factory = _runtime.session_factory
     if session_factory is None:
         logger.warning("scheduler runtime not initialized, skip job_runs record for %s", job_id)
         return
@@ -221,7 +236,7 @@ async def _record(
                         status=status,
                         started_at=started_at,
                         finished_at=finished_at,
-                        instance=_runtime["instance_id"],
+                        instance=_runtime.instance_id,
                         error=error,
                     )
                 )
@@ -263,9 +278,9 @@ class PlatformScheduler:
     def start(self) -> None:
         """创建调度器并启动：job store 建在 MySQL（重启不丢任务定义）。"""
         global _runtime
-        # 注入模块级运行时上下文（序列化回调的依赖从这里读）
-        _runtime["session_factory"] = self._session_factory
-        _runtime["instance_id"] = self._instance_id
+        # 注入模块级运行时上下文（序列化回调的依赖从这里读；★ W27-D6 B10：显式字段赋值）
+        _runtime.session_factory = self._session_factory
+        _runtime.instance_id = self._instance_id
 
         store = SQLAlchemyJobStore(url=self._jobstore_dsn)
         self._scheduler = AsyncIOScheduler(

@@ -5,7 +5,6 @@ from datetime import date
 import pytest
 import pytest_asyncio
 
-from app.platform.scheduler import _runtime
 from app.platform.scheduler.jobs import daily_brief
 from app.platform.scheduler.jobs.daily_brief import _extract_metric, _render_brief
 
@@ -99,20 +98,24 @@ def test_render_brief_no_data_placeholder():
 
 @pytest_asyncio.fixture
 async def runtime():
-    """设置模块级运行时上下文（session_factory/instance_id），用完还原。"""
+    """设置模块级运行时上下文（session_factory/instance_id），用完还原。
+
+    ★ W27-D6 (B10)：_runtime 已是 RuntimeContext 对象——测试文件顶部 `_runtime`
+    与模块属性同一对象引用，直接改字段（而非替换对象），两边都可见。
+    """
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+    import app.platform.scheduler as mod
     from app.platform.settings import settings
 
     engine = create_async_engine(settings.platform_dsn)
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
-    old = dict(_runtime)
-    _runtime["session_factory"] = session_factory
-    _runtime["instance_id"] = "test-daily-brief"
+    old_sf, old_iid = mod._runtime.session_factory, mod._runtime.instance_id
+    mod._runtime.session_factory = session_factory
+    mod._runtime.instance_id = "test-daily-brief"
     yield session_factory
-    _runtime.clear()
-    _runtime.update(old)
+    mod._runtime.session_factory, mod._runtime.instance_id = old_sf, old_iid
     await engine.dispose()
 
 
