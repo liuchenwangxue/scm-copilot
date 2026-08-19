@@ -223,12 +223,10 @@ eval-multiturn:
 eval-day6:
 	$(PY) -X utf8 backend/scripts/eval_nl2sql.py --prompt-version v2 --out reports/nl2sql_eval_day6_real_v2.json
 
-## 双域集成回归（Day4 迁移自 stage3 的脚本；审批/幂等自动拉起 mock_biz）
+## 双域集成回归（★ W27-D6 B15：W19 遗留独立脚本已删，功能由 pytest 覆盖——
+##   审批流/审批 API/幂等/reliability 矩阵/熔断，需 MySQL+Redis+mock_biz）
 test-integration:
-	$(PY) -X utf8 scripts/ops_day4_approval_test.py
-	$(PY) -X utf8 scripts/ops_day4_idempotency_test.py
-	$(PY) -X utf8 scripts/ops_day3_tools_test.py
-	$(PY) -X utf8 scripts/kb_day4_validator_test.py
+	$(PYTEST) backend/tests/test_ops_approval_flow.py backend/tests/test_ops_approvals_api.py backend/tests/test_idempotency.py backend/tests/test_reliability_matrix.py backend/tests/test_circuit_breaker.py -v
 
 ## lint + 类型检查（CI 同款）
 check:
