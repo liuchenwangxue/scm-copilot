@@ -218,7 +218,9 @@ async def repair_node(state: DataState) -> dict[str, Any]:
             await audit(
                 {
                     "event": "data:nl2sql:repair",
-                    "sql": failed_sql,
+                    # ★ W27-D6 (B13)：不再重复写 `sql`（失败的 SQL 已由 executor 的
+                    #   data:nl2sql:execute 事件记录，同一次失败的 SQL 不落两处）；
+                    #   本事件只记修复产物 repaired_sql（execute 事件没有的增量信息）。
                     "status": "ok",
                     "error": failure,
                     "elapsed_ms": 0.0,

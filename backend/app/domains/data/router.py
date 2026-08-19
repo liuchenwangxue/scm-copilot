@@ -57,12 +57,15 @@ def _audit_sink(request: Request, current: User) -> Any:
     async def sink(event: dict[str, Any]) -> None:
         from app.platform.audit import write_audit
 
-        detail = {
-            "sql": event.get("sql"),
+        detail: dict[str, Any] = {
             "error": event.get("error"),
             "rows": event.get("rows"),
             "elapsed_ms": event.get("elapsed_ms"),
         }
+        # ★ W27-D6 (B13)：sql 只在携带的事件里写（execute 事件有；repair 事件已去重，
+        #   只带 repaired_sql）——避免 audit_logs detail 里 sql=null 的冗余噪音
+        if event.get("sql") is not None:
+            detail["sql"] = event.get("sql")
         if event.get("repaired_sql"):
             detail["repaired_sql"] = event.get("repaired_sql")  # ★ Day5：修复轨迹可回放
         async with session_factory() as session:
