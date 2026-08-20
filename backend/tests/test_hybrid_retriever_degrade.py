@@ -14,6 +14,7 @@ class _FakeStore:
     """模拟 SCMStore：retries 透传 + 可选抛异常。"""
 
     def __init__(self, fail: bool = False, seen: list[int] | None = None):
+        self.collection = "scm_kb_v1"  # W28-D4：retrieve 无 tenant 时读 store.collection
         self.fail = fail
         self.seen = seen if seen is not None else []
         self.calls: list[dict] = []
@@ -35,7 +36,7 @@ class _FakeStore:
 class _FakeBM25:
     """模拟 BM25Index：固定返回两条。"""
 
-    def search(self, query, top_k=10):
+    def search(self, query, top_k=10, tenant_id=None):  # W28-D4：透传 tenant 过滤
         return [
             {"chunk_id": "bm-1", "score": 5.0},
             {"chunk_id": "bm-2", "score": 4.0},

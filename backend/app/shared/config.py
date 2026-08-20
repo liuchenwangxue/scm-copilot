@@ -81,6 +81,10 @@ SCM_CHECKPOINT_POOL_RECYCLE = int(os.getenv("SCM_CHECKPOINT_POOL_RECYCLE", "3600
 QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
 QDRANT_TIMEOUT = int(os.getenv("QDRANT_TIMEOUT", "30"))
 SCM_COLLECTION = os.getenv("SCM_COLLECTION", "scm_kb_v1")
+# ---- W28 Day4：多租户 collection 分片（C4/B7，路由逻辑见 shared/rag/sharding.py）----
+# SCM_SHARDING=on|off：off 时 collection_for() 恒返回 base collection（灰度开关、回退零成本）
+SCM_SHARDING = os.getenv("SCM_SHARDING", "off").lower()
+SHARD_COUNT = max(1, int(os.getenv("SCM_SHARD_COUNT", "4")))
 
 # ---- Embedding（复用 W3/W5 的 bge-small-zh-v1.5 缓存）----
 # ★ W28-D1：SCM_EMBEDDER=real（默认，容器内挂模型卷跑真模型）| mock（确定性哈希向量，
