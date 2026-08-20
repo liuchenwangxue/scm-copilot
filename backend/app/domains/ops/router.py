@@ -133,9 +133,13 @@ async def chat(
             obs_logger.log_event(_log, "chat_started", request_id=request_id,
                                  session_id=session_id, msg_len=len(message))
             biz_graph = await _get_graph()
+            # ★ W27 D7：durability="exit"——checkpoint 合并写（LangGraph 每步 aput 的写放大）。
+            #   一次图执行只在退出时写 1 次 checkpoint（默认 async 每 super-step 写 1 次），
+            #   40 并发压测的 MySQL 写压力显著下降；interrupt（HITL 审批）在挂起时强制写
+            #   checkpoint（源码 _suppress_interrupt 已确认），恢复语义不变。
             async for event in biz_graph.astream(
                     {"message": message, "session_id": session_id},
-                    runtime_cfg, stream_mode="updates"):
+                    runtime_cfg, stream_mode="updates", durability="exit"):
                 for node, data in event.items():
                     if node == "__interrupt__":
                         for inter in data:
@@ -251,9 +255,10 @@ async def approval_action(
         # 审批动作由 graph 内 approval_gate 统一处理（approve/reject 落库 + HITL resume），
         # 避免路由层重复调用造成"单向状态机 already"错误。
         biz_graph = await _get_graph()
+        # ★ W27 D7：与 chat 路径同款 durability="exit"（checkpoint 合并写）。
         result = await biz_graph.ainvoke(
             Command(resume={"decision": decision, "reason": reason}),
-            runtime_cfg)
+            runtime_cfg, durability="exit")
         return ApprovalOut(
             ok=True,
             approval_id=approval_id,

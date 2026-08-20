@@ -10,6 +10,14 @@
 断言口径：用「同测试内背靠背串行基线」对比而非绝对倍数阈值——单路基线的固定开销
 （序列化线程跳转 / 池取连接）不随并发线性分摊，绝对倍数在本机不可靠；串行/并行
 在同一时刻测量，负载一致，比值稳定。
+
+★ W27 D7 加固（CI flaky 修复）：原「单轮并行 vs 单轮串行」断言对机器速度过敏——
+CI 是 mysql:8.0 官方镜像 + 2 核 runner，单次写仅 ~2.4ms，20 路并发时固定调度开销
+（gather 调度 / 池 acquire 竞争 / to_thread 序列化 / MySQL 并发写竞争）偶发超过并发
+收益，比值可冲到 >1（day3/day6 偶发失败）。实测（deploy/exp_pool_payload.py）：
+- 断言本身正确：池化版比值 0.18~0.23 vs 单连接版 0.92~1.03（锁上排队，能区分）
+- 加固后极稳：payload=8KB（模拟真实负载，降调度占比）+ 串行/并行各测 3 轮取 min，
+  5 组独立测量比值 max=0.21，余量充足
 """
 
 import asyncio
@@ -20,6 +28,10 @@ import pytest
 
 from app.domains.ops import config
 from app.domains.ops.persistence import get_mysql_checkpointer, reset_checkpointer
+
+# ★ W27 D7：模拟真实 checkpoint 的负载量（channel_values 里带 context 数据），
+# 让单次 DB 写耗时占主导、固定调度开销占比下降——CI 快 MySQL 下比值不再易抖
+_PAYLOAD_KB = 8
 
 
 @pytest.fixture(autouse=True)
@@ -52,10 +64,12 @@ def _checkpoint(cp_id: str, idx: int = 0) -> dict:
         "channel_values": {
             "__start__": {"message": "把 PO-0002 的金额改成 9500"},
             "intent": {"intent": "update_order"},
+            # ★ W27 D7：加大负载（见模块 docstring——CI 快 MySQL 下防比值抖动）
+            "context": {"trace": "Y" * (_PAYLOAD_KB * 1024)},
         },
         "channel_versions": _versions(idx),
         "versions_seen": {},
-        "updated_channels": ["__start__", "intent"],
+        "updated_channels": ["__start__", "intent", "context"],
     }
 
 
@@ -80,6 +94,38 @@ async def _warm_writes(saver, threads: list[str]) -> None:
     await asyncio.gather(*(_put(saver, t, 0) for t in threads))
 
 
+async def _best_serial_ms(saver, n: int, rounds: int = 3) -> float:
+    """串行基线最佳值：测 rounds 轮取 min（吸收偶发单轮抖动，W27 D7 加固）。"""
+    best = float("inf")
+    for _ in range(rounds):
+        threads = [_thread() for _ in range(n)]
+        try:
+            await _warm_writes(saver, threads)
+            t0 = time.perf_counter()
+            for t in threads:
+                await _put(saver, t, 1)
+            best = min(best, (time.perf_counter() - t0) * 1000)
+        finally:
+            for t in threads:
+                await saver.adelete_thread(t)
+    return best
+
+
+async def _best_parallel_ms(saver, n: int, rounds: int = 3) -> float:
+    """并行最佳值：测 rounds 轮取 min（吸收偶发单轮抖动，W27 D7 加固）。"""
+    best = float("inf")
+    for _ in range(rounds):
+        threads = [_thread() for _ in range(n)]
+        try:
+            t0 = time.perf_counter()
+            await asyncio.gather(*(_put(saver, t, 0) for t in threads))
+            best = min(best, (time.perf_counter() - t0) * 1000)
+        finally:
+            for t in threads:
+                await saver.adelete_thread(t)
+    return best
+
+
 @pytest.mark.integration
 async def test_pool_20_parallel_faster_than_serial(monkeypatch):
     """20 路并发写显著快于同量串行写——证明不再串行。
@@ -87,32 +133,17 @@ async def test_pool_20_parallel_faster_than_serial(monkeypatch):
     手册原口径"< 3×单路"在本机不可靠：单路基线里固定开销（JSON 序列化线程跳转 /
     池取连接）占大头，不随并发线性分摊。改直接对比「同一 saver 上 20 次串行写 vs
     20 路并行写」——若池未生效（仍单连接），两者应等量。
+
+    ★ W27 D7 加固：串行/并行各测 3 轮取 min——CI（mysql:8.0 官方镜像 + 2 核）单次
+    写仅 ~2.4ms，单轮比值受调度抖动影响可 >0.7；多轮取 min + 8KB 负载后极稳
+    （实测 5 组独立测量比值 max=0.21，见模块 docstring）。
     """
     monkeypatch.setattr(config, "SCM_CHECKPOINT_POOL_MIN", 1)
     monkeypatch.setattr(config, "SCM_CHECKPOINT_POOL_SIZE", 20)
     saver = await get_mysql_checkpointer()
 
-    # 串行基线：20 个 thread 依次写（同量工作）
-    serial_threads = [_thread() for _ in range(20)]
-    try:
-        await _warm_writes(saver, serial_threads)
-        t0 = time.perf_counter()
-        for t in serial_threads:
-            await _put(saver, t, 1)
-        serial_ms = (time.perf_counter() - t0) * 1000
-    finally:
-        for t in serial_threads:
-            await saver.adelete_thread(t)
-
-    # 并行：20 个 thread 同时写
-    parallel_threads = [_thread() for _ in range(20)]
-    try:
-        t0 = time.perf_counter()
-        await asyncio.gather(*(_put(saver, t, 0) for t in parallel_threads))
-        parallel_ms = (time.perf_counter() - t0) * 1000
-    finally:
-        for t in parallel_threads:
-            await saver.adelete_thread(t)
+    serial_ms = await _best_serial_ms(saver, 20)
+    parallel_ms = await _best_parallel_ms(saver, 20)
 
     assert parallel_ms < 0.7 * serial_ms, (
         f"并发未生效：并行 {parallel_ms:.1f}ms ≥ 70%×串行 {serial_ms:.1f}ms"
@@ -131,27 +162,9 @@ async def test_pool_exhaustion_queues_not_error(monkeypatch):
     monkeypatch.setattr(config, "SCM_CHECKPOINT_POOL_SIZE", 4)  # 缩小池，制造排队
     saver = await get_mysql_checkpointer()
 
-    # 串行基线：12 个 thread 依次写
-    serial_threads = [_thread() for _ in range(12)]
-    try:
-        await _warm_writes(saver, serial_threads)
-        t0 = time.perf_counter()
-        for t in serial_threads:
-            await _put(saver, t, 1)
-        serial_ms = (time.perf_counter() - t0) * 1000
-    finally:
-        for t in serial_threads:
-            await saver.adelete_thread(t)
-
-    # 并行：12 个 thread 同时写（池只有 4，超出部分 acquire 排队）
-    parallel_threads = [_thread() for _ in range(12)]
-    try:
-        t0 = time.perf_counter()
-        await asyncio.gather(*(_put(saver, t, 0) for t in parallel_threads))
-        parallel_ms = (time.perf_counter() - t0) * 1000
-    finally:
-        for t in parallel_threads:
-            await saver.adelete_thread(t)
+    # ★ W27 D7：与 faster_than_serial 同口径加固——3 轮取 min 吸收 CI 快 MySQL 的抖动
+    serial_ms = await _best_serial_ms(saver, 12)
+    parallel_ms = await _best_parallel_ms(saver, 12)
 
     # 池耗尽排队不报错 + 并行仍显著更快：4 连接 12 写 ≈ 3 轮 vs 串行 12 轮
     assert parallel_ms < 0.7 * serial_ms, (
