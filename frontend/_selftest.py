@@ -137,4 +137,95 @@ resp = scm2.approvals.decide("a1", "approve", reason="平台放行", session_id=
 assert resp["ok"] is True
 print("[6] 审批 list_pending/decide 事件循环 OK")
 
-print("\n=== W28 Day2 前端自测 ALL PASS ===")
+# ---- 7) 日报页 BI 图表数据函数（W28 Day3）----
+from pages import brief
+
+sample_charts = {
+    "latest_date": "2026-09-02",
+    "points": [
+        {"date": "2026-08-27", "gmv": 1000.0, "delay_rate": 8.0},
+        {"date": "2026-08-28", "gmv": 2000.0, "delay_rate": 9.0},
+        {"date": "2026-09-02", "gmv": 3000.0, "delay_rate": 9.91},
+    ],
+    "top_suppliers": [
+        {"rank": 1, "supplier": "华东A", "gmv": 1800.0},
+        {"rank": 2, "supplier": "华北B", "gmv": 1200.0},
+    ],
+    "sqls": [
+        {
+            "key": "gmv",
+            "question": "昨日订单总金额（GMV）是多少？",
+            "sql": "SELECT SUM(amount) AS gmv FROM orders WHERE ...",
+        }
+    ],
+    "baseline_delay_rate": 9.91,
+}
+
+# _to_wanyuan 换算（元 → 万元）
+assert brief._to_wanyuan(3000.0) == 0.3
+assert brief._to_wanyuan(None) is None
+assert brief._hover_money(36738101.8) == "36,738,101.80"
+print("[7] _to_wanyuan / _hover_money OK")
+
+# GMV 折线：含数据 trace + 昨日标注点
+fg = brief.build_gmv_figure(sample_charts)
+assert len(fg.data) == 1 and len(fg.layout.annotations) == 1
+assert fg.layout.annotations[0].text == "昨日"
+assert fg.layout.font.family.startswith("Microsoft YaHei"), "中文字体应生效"
+print("[8] build_gmv_figure OK")
+
+# 延迟率折线：含基准虚线（hline 以 shape 存在）
+fd = brief.build_delay_figure(sample_charts)
+shapes = [s for s in (fd.layout.shapes or []) if s.type == "line"]
+assert len(shapes) == 1, "应有 9.91% 基准虚线"
+assert shapes[0].y0 == 9.91, "基准虚线与后端 baseline 一致"
+print("[9] build_delay_figure OK")
+
+# TOP5 横向柱状：rank1 在顶（y 轴反转）
+ft = brief.build_top5_figure(sample_charts)
+ys = list(ft.data[0].y)
+assert ys == ["华北B", "华东A"], f"rank1 应在顶部, got {ys}"
+print("[10] build_top5_figure OK")
+
+# SQL 回溯 + 空态
+assert "SELECT SUM(amount)" in brief.render_sqls(sample_charts)
+assert "无 SQL" in brief.render_sqls({"sqls": []})
+assert brief.render_empty_message(sample_charts) == ""
+assert "无日报数据" in brief.render_empty_message({"points": []})
+print("[11] render_sqls / render_empty_message OK")
+
+# fetch_charts（httpx MockTransport 模拟 200）
+import httpx as _httpx
+
+_FAKE_CHARTS = {
+    "latest_date": "2026-09-02",
+    "points": [{"date": "2026-09-02", "gmv": 1.0, "delay_rate": 9.91}],
+    "top_suppliers": [],
+    "sqls": [],
+    "baseline_delay_rate": 9.91,
+}
+
+
+def _fake_charts(request: _httpx.Request) -> _httpx.Response:
+    if "unreachable" in str(request.url):
+        raise _httpx.ConnectError("connection refused", request=request)
+    if request.url.path.endswith("/admin/brief/charts"):
+        return _httpx.Response(200, json=_FAKE_CHARTS)
+    return _httpx.Response(404, text="not found")
+
+
+_mock_httpx = _httpx.Client(
+    base_url="http://mock", transport=_httpx.MockTransport(_fake_charts)
+)
+_orig_get = brief.httpx.get
+brief.httpx.get = lambda url, **kw: _mock_httpx.get(str(url), headers=kw.get("headers") or {})
+try:
+    got = brief.fetch_charts("https://nginx:443", "sk-test")
+    assert got is not None and got["latest_date"] == "2026-09-02"
+    bad = brief.fetch_charts("https://unreachable.invalid", "sk-test")
+    assert bad is None, "连接失败应返回 None（图整张不挂）"
+finally:
+    brief.httpx.get = _orig_get
+print("[12] fetch_charts OK")
+
+print("\n=== W28 Day2+Day3 前端自测 ALL PASS ===")

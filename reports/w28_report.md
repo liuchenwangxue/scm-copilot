@@ -1,6 +1,86 @@
 
 ---
 
+# W28 Day3 报告 · BI 图层（阶段五 · 口径统一与二期功能 第 3 天）
+
+> 阶段五 SCM Copilot 第 2 周 Day3 ｜ 2026-08-21 ｜ 依据《W28学习执行手册》Day3
+> 主题：经营日报从"数字文本"到"趋势图表"——图表数据 API + 前端 Plotly 三图（C3/B4 项）
+> **Day3 验收：三图真数据渲染 ✓ / SQL 折叠可回溯 ✓ / admin:brief:read 权限闸 ✓ / API Key 令牌桶限流 ✓ / 全量回归绿 + ruff·mypy 0 ✓**
+
+---
+
+## 〇、Day3 速览
+
+| # | 任务 | 状态 |
+|---|---|---|
+| 1 | 权限：新增 `admin:brief:read`（seed 13→14 权限 / 26→27 映射；`test_rbac`/`test_seed_platform` 同步） | ✅ 幂等 seed 后 14 权限 27 映射 |
+| 2 | `domains/admin/brief_charts.py`：`GET /api/v1/admin/brief/charts`——近 7 日 GMV/延迟率趋势 + 最近一日 TOP5 + 三条 SQL 原文 + 9.91% 基准虚线 | ✅ 挂 `admin:brief:read` |
+| 3 | 空值兜底（COALESCE 语义）：metrics 缺字段 → None，图整张不挂；无记录 → `latest_date=None` 空态 | ✅ |
+| 4 | 限流：admin 面 API 也是 API——`rbac.require_permission → api_key_or_jwt` 自动过令牌桶（429 + Retry-After） | ✅ `test_api_key_rate_limit_429` |
+| 5 | `frontend/pages/brief.py`：三图（GMV 折线含昨日标注点 / TOP5 横向柱状 rank1 在顶 / 延迟率+基准虚线）+ `gr.Accordion` SQL 折叠 + 空态提示 + Microsoft YaHei 字体 | ✅ |
+| 6 | `frontend/_selftest.py`：Day3 新增 6 项图表数据函数自测（12/12 PASS） | ✅ |
+| 7 | 容器重建 + 端到端验证：login → charts API 真数据（GMV 36,738,101.8 / TOP5 5 行 / SQL 3 条）→ operator 403 | ✅ |
+| 8 | 全量回归（UTF-8 模式）+ ruff check + mypy 0 error | ✅ |
+
+## 一、设计要点（面试题）
+
+**图表 = 快照的可视化，不是新的计算路径**：
+- 数据源是 `daily_briefs` 表 metrics/sqls JSON 快照（W25 Day3 起积累，已固化口径），
+  图表 API 不现算——避免"BI 图层另算一套 → 与日报数字口径漂移"的风险
+- SQL 原文一并回放（三条模板问题），"数字可回溯"卖点延续到图表层：
+  图里每个点都能展开看它是怎么算出来的
+- 延迟率 9.91% 基准虚线 = W25 首份日报实测值（`w25_day3_brief_eval.md`），
+  作为趋势对比基线（当前值低于/高于基线的可视化判读）
+
+**权限与限流**：
+- 独立权限码 `admin:brief:read`（不塞进既有 admin 权限的复用）：图表是只读面板，
+  权限语义精确；seed 单一事实来源 + 测试逐字对齐（W25 Day5 先例）
+- 限流零额外代码：`rbac.require_permission` 依赖 `api_key_or_jwt`，API Key 每请求
+  过令牌桶（容量 10 / 5 per min），超额 429 + Retry-After——"admin 面 API 也是 API"
+
+## 二、容器内端到端验证（真实数据链路）
+
+```text
+POST /api/v1/auth/login (admin_t_huadong)            → 200
+GET  /api/v1/admin/brief/charts (Bearer token)       → 200
+  latest_date = 2099-08-19（演示记录，用后即删）
+  points      = [ ... 2099-08-19 gmv=36738101.8 delay_rate=9.91 ]
+  top_suppliers = 华东供应链A(823万) / 华南制造B(694万) / 华北物流C(571万)
+                 / 西南电子D(448万) / 华中食品E(322万)   ← rank 补齐，金额降序
+  sqls keys   = [gmv, delay_rate, top_suppliers]      ← SQL 原文可回溯
+GET  /api/v1/admin/brief/charts (operator)            → 403（admin:brief:read 权限闸）
+```
+
+**空值兜底实测**：库里既有的 2026-08-20/21 两条日报（容器 mock NL2SQL 结果为空 →
+metrics 全 null）被 API 原样返回为 `gmv=None/delay_rate=None`，图不炸——COALESCE
+语义在真实环境生效。
+
+## 三、前端三图
+
+- **GMV 折线**：万元轴（hover 显示原值千分位，数字不因单位换算失真）+ 昨日标注点
+- **TOP5 供应商**：横向柱状（反转 y 轴让 rank1 在顶）+ hover 原值
+- **延迟率趋势**：折线 + `9.91%` 基准虚线（`add_hline`，后端 baseline 下发，前后端不双写）
+- 中文字体：plotly 全局 `font_family="Microsoft YaHei"`（手册坑）
+- SQL 折叠：`gr.Accordion("查看 SQL（数字可回溯）")`；无日报数据 → 空态提示引导手动触发
+
+## 四、测试与质量
+
+- 新增 `test_brief_charts_api.py` 9 用例：纯逻辑兜底（_as_float/_to_point/TOP5/SQL 空态）
+  + 权限闸（operator 403 / 匿名 401）+ 真数据（7 日升序 + TOP5 + SQL 回溯）
+  + 缺字段 COALESCE + API Key 429 限流
+- 权限同步：`test_rbac`（admin 14 权限）/ `test_seed_platform`（14 权限 27 映射）全绿
+- 全量回归：UTF-8 模式全绿（Windows GBK 编码坑用 `PYTHONUTF8=1` 规避，既有现象非本次引入）
+- ruff check + mypy：0 error
+
+## 五、观察项（非 Day3 范围）
+
+- **容器内 daily_brief 空指标**：业务库 seed 固定到 2026-08-18（`BASE_DATE` 固定保证重放一致），
+  日期推进后"昨日"（08-19 之后）无订单 → NL2SQL 返回 0 行 → metrics null。BI 图层忠实
+  反映快照数据（null 不炸）；演示"图有数字"需先补业务数据（`make seed-biz` 或按 W25
+  演示路径插入当日订单）再触发 daily_brief——留 D4/D5 演示准备时处理
+
+---
+
 # W28 Day2 报告 · Gradio 前端三页（阶段五 · 口径统一与二期功能 第 2 天）
 
 > 阶段五 SCM Copilot 第 2 周 Day2 ｜ 2026-08-21 ｜ 依据《W28学习执行手册》Day2

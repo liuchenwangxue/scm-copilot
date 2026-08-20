@@ -88,3 +88,40 @@ class ApiKeyRevokeOut(BaseModel):
     ok: bool
     key_id: int
     revoked: bool
+
+
+# ==================== W28 Day3：BI 图表数据 ====================
+
+
+class BriefChartPoint(BaseModel):
+    """单日快照点（daily_briefs.metrics 固化口径，非现算）。"""
+
+    date: str = Field(description="日报归属日 YYYY-MM-DD")
+    gmv: float | None = Field(None, description="当日 GMV（元）；早期 brief 缺字段为 None")
+    delay_rate: float | None = Field(None, description="当日延迟发货率（%）")
+
+
+class TopSupplierItem(BaseModel):
+    """最近一日 TOP5 供应商（按订单金额降序）。"""
+
+    rank: int
+    supplier: str
+    gmv: float | None = Field(None, description="该供应商昨日订单金额（元）")
+
+
+class BriefSqlOut(BaseModel):
+    """SQL 回溯项（数字可验证：图表 = 快照的可视化，SQL 来自已落库原文）。"""
+
+    key: str = Field(description="gmv / delay_rate / top_suppliers")
+    question: str
+    sql: str = Field(description="执行过的 SQL 原文（可回溯）；被安全闸拒绝时为空串")
+
+
+class BriefChartsOut(BaseModel):
+    """BI 图表数据（近 7 日）：GMV 折线 / 延迟率趋势 / TOP5 柱状一次取齐。"""
+
+    latest_date: str | None = Field(None, description="最近一日（无记录为 None，前端显示空态）")
+    points: list[BriefChartPoint] = Field(default_factory=list, description="近 7 日，按日期升序")
+    top_suppliers: list[TopSupplierItem] = Field(default_factory=list, description="最近一日 TOP5")
+    sqls: list[BriefSqlOut] = Field(default_factory=list, description="三条模板 SQL 原文（可回溯）")
+    baseline_delay_rate: float = Field(default=9.91, description="延迟率基准虚线（W25 首份实测 9.91%）")

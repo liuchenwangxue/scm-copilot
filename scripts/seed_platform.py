@@ -2,7 +2,7 @@
 
 填充内容（固定 seed，连跑两遍结果一致）：
 - 4 角色：admin / operator / analyst / viewer（固定 id 1–4）
-- 12 权限码：kb 3 + ops 4 + data 2 + admin 3
+- 14 权限码：kb 3 + ops 4 + data 2 + admin 5（★ W28 Day3 新增 admin:brief:read）
 - 角色-权限映射：admin 全量 / operator(kb+ops) / analyst(kb+data) / viewer(kb 只读)
 - 3 租户 × 4 角色测试用户（密码明文 `Passw0rd!`，bcrypt 入库，写进 README 开发文档）
 
@@ -61,6 +61,7 @@ PERMISSIONS: list[dict[str, Any]] = [
     {"code": "admin:audit:read", "domain": "admin", "name": "审计日志查看"},
     {"code": "admin:scheduler:manage", "domain": "admin", "name": "调度任务管理"},
     {"code": "admin:apikey:manage", "domain": "admin", "name": "API Key 机器身份管理"},  # ★ W25 Day5
+    {"code": "admin:brief:read", "domain": "admin", "name": "经营日报图表查看"},  # ★ W28 Day3
 ]
 
 # 角色 → 权限码集合

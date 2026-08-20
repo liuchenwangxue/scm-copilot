@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from starlette.datastructures import MutableHeaders
 
 from app.domains.admin import apikey_api as admin_apikey_api
+from app.domains.admin import brief_charts as admin_brief_charts
 from app.domains.admin import scheduler_api as admin_scheduler_api
 from app.domains.data import router as data_router
 from app.domains.kb import router as kb_router
@@ -254,3 +255,5 @@ app.include_router(data_router.router)
 app.include_router(admin_scheduler_api.router)
 # ==================== W25 Day5：平台管理域（API Key 机器身份管理） ====================
 app.include_router(admin_apikey_api.router)
+# ==================== W28 Day3：平台管理域（BI 图表数据） ====================
+app.include_router(admin_brief_charts.router)
