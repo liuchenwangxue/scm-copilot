@@ -196,6 +196,35 @@ services:
       retries: 5
       start_period: 10s
 
+  # ============ Gradio 前端（★ W28 Day2：浏览器可演示三页） ============
+  # 走 SCM SDK 0.2.0 直连后端（经 nginx https 入口）；nginx 反代 /ui 到本服务 7860。
+  # 演示口径：浏览器打开 https://localhost:18443/ui → 登录 API Key → 对话/审批/日报。
+  gradio:
+    build:
+      context: ..
+      dockerfile: deploy/frontend/Dockerfile
+    image: scm-frontend:latest
+    container_name: scm-gradio
+    restart: unless-stopped
+    environment:
+      # ★ 前端容器内访问后端：经 nginx（https 入口，负载均衡到双实例）。
+      #   SDK verify=False：nginx 容器内证书是 mkcert 本地自签（前端是自有服务，
+      #   信任链在宿主；容器内直连关闭证书校验——生产换真实证书后应 verify=True）。
+      SCM_BASE_URL: "https://nginx:443"
+      SCM_FRONTEND_PORT: "7860"
+      SCM_ROOT_PATH: "/ui"
+    ports:
+      - "${FRONTEND_PORT:-17860}:7860"   # 宿主 17860 → 容器 7860（避开常用端口）
+    depends_on:
+      - nginx
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request;urllib.request.urlopen('http://127.0.0.1:7860',timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   # ============ 监控（★ W25 Day6 三吸收项：基础监控） ============
   # Prometheus 拉模型抓三组：backend 应用 /metrics + node-exporter（宿主机）+ cAdvisor（容器）
   node-exporter:

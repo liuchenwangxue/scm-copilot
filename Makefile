@@ -17,6 +17,8 @@
 #   make check     ruff lint + mypy（0 error 才算过）
 #   make loadtest   40 并发 × 200 压测（打 nginx :18000）
 #   make drill      压测中段杀 backend-a1 演练（5xx=0 验证）
+#   make frontend   本机起 Gradio 前端（7860）
+#   make test-frontend 前端自测（build + 数据函数 + SSE 事件循环 mock 验证）
 PY := .venv/Scripts/python.exe
 RUFF := $(PY) -m ruff
 MYPY := $(PY) -m mypy
@@ -25,7 +27,7 @@ COMPOSE := docker compose -f deploy/docker-compose.yml
 # alembic.ini 在 backend/ 下，须在此目录运行（env.py 经 pythonpath 兜底）
 BACKEND := backend
 
-.PHONY: up up-mysql down build migrate seed init-biz-db migrate-biz seed-biz reseed-biz check-biz test test-auth test-sql-validator test-executor test-nl2sql-e2e test-repair test-session-ctx test-scheduler test-kb-sync test-day3-tasks test-openapi test-apikeys test-hooks test-sdk-unit test-sdk-integration kb-sync-smoke gen-eval eval-nl2sql eval-repair eval-multiturn gen-multiturn eval-day6 test-integration tls monitor check lint-fix format loadtest drill smoke help
+.PHONY: up up-mysql down build migrate seed init-biz-db migrate-biz seed-biz reseed-biz check-biz test test-auth test-sql-validator test-executor test-nl2sql-e2e test-repair test-session-ctx test-scheduler test-kb-sync test-day3-tasks test-openapi test-apikeys test-hooks test-sdk-unit test-sdk-integration kb-sync-smoke gen-eval eval-nl2sql eval-repair eval-multiturn gen-multiturn eval-day6 test-integration tls monitor check lint-fix format loadtest drill smoke frontend test-frontend help
 
 ## 默认：显示帮助
 help:
@@ -276,3 +278,11 @@ chaos-verify:
 # 前置：make up && make migrate && make seed && make init-biz-db && make migrate-biz && make seed-biz
 smoke:
 	$(PY) -X utf8 deploy/verify_e2e_day3.py
+
+## ★ W28 Day2：本机起 Gradio 前端（默认 https://localhost:18443，端口 7860）
+frontend:
+	$(PY) -X utf8 frontend/app.py
+
+## ★ W28 Day2：前端自测（build + 数据函数 + SSE 事件循环 mock，无需后端在线）
+test-frontend:
+	$(PY) -X utf8 frontend/_selftest.py

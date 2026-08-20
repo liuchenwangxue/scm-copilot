@@ -1,0 +1,8 @@
+# SCM Copilot 前端依赖（★ W28 Day2：Gradio 三页 + Plotly 图表）
+# 安装：pip install -r frontend/requirements.txt
+gradio>=5.0
+plotly>=5.18
+pandas>=2.0
+# SCM SDK 0.2.0（本地 sdk/ 目录：pip install -e sdk 或安装 dist 产物）
+scm-copilot-client>=0.2.0
+httpx>=0.24

@@ -43,3 +43,5 @@ deploy/nginx/certs/
 
 # Docker 数据卷（命名卷不受影响，这里只防绑定挂载漏网）
 mysql_data/
+snap.yaml
+tabs.yaml
