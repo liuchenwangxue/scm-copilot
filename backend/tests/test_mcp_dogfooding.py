@@ -8,7 +8,10 @@ kb 域自己的 MCPClient（W21 资产）连平台自己的 MCP server（FastMCP
 - 审计落盘（mcp_* 事件写入 ops audit.log）
 
 覆盖手册验收："MCP server 三只读工具可被 kb client 调通（dogfooding 证据）"。
-依赖：mock-biz 在跑（query_order/query_inventory 走 BIZ_BASE_URL）+ 平台库有 daily_briefs。
+依赖探测（★ CI 兼容，对齐 test_session_ctx_redis.py 的 skip 惯例）：
+- query_order/query_inventory 依赖 **mock-biz**（CI 无此服务）→ 不可达则 skip
+- daily_report 依赖 **daily_briefs 表记录**（调度产物，CI 不自动生成）→ 无记录则 skip
+- list_tools/viewer 权限/审计 只依赖 MCP server 本身 → 恒跑（CI 也在跑）
 """
 import os
 import sys
@@ -17,12 +20,51 @@ from pathlib import Path
 import pytest
 
 from app.domains.kb.mcp_tools.client.mcp_client import MCPClient
+from tests.conftest import TEST_DSN
 
 pytestmark = pytest.mark.integration
 
 BACKEND = Path(__file__).resolve().parents[1]
 SERVER = BACKEND / "app" / "mcp_server" / "main.py"
 PY = sys.executable
+
+
+def _biz_ready() -> bool:
+    """mock-biz 可达性探测（health 端点 200 + status=ok）。
+
+    CI 无 mock-biz → 连接失败返回 False → 相关 dogfooding 用例 skip
+    （本地 compose 全栈在跑 → 正常执行，验收证据仍覆盖）。
+    """
+    import httpx
+
+    from app.domains.ops import config as ops_config
+
+    try:
+        r = httpx.get(f"{ops_config.BIZ_BASE_URL}/health", timeout=2)
+        return r.status_code == 200 and r.json().get("status") == "ok"
+    except Exception:  # noqa: BLE001  # 连接拒绝/超时/非 JSON 一律视为不在线
+        return False
+
+
+async def _brief_ready() -> bool:
+    """daily_briefs 表是否有记录（平台库 reachable 且 ≥1 行）。
+
+    CI 只跑 migrate+seed（seed 不产日报）→ 无记录返回 False → 日报用例 skip；
+    daily_briefs 由调度任务 daily_brief 产出（W25 Day3），本地全栈已产。
+    """
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    try:
+        engine = create_async_engine(TEST_DSN)
+        try:
+            async with engine.connect() as conn:
+                row = await conn.execute(text("SELECT COUNT(*) FROM daily_briefs"))
+                return int(row.scalar_one()) > 0
+        finally:
+            await engine.dispose()
+    except Exception:  # noqa: BLE001  # 平台库不可达按"无数据"处理 → skip
+        return False
 
 
 def _env(run_as: str, perms: str) -> dict:
@@ -77,6 +119,8 @@ async def test_list_tools_dynamic_discovery(client_admin):
 
 async def test_query_order_dogfood(client_admin):
     """kb client 跨域调平台 query_order（订单真实数据，PO-0001 存在）。"""
+    if not _biz_ready():
+        pytest.skip("mock-biz 不在线，跳过跨服务 dogfood（本地 compose 全栈可跑）")
     raw = await client_admin.call_tool("query_order", {"order_id": "PO-0001"})
     assert "PO-0001" in raw
     assert "success" in raw
@@ -84,6 +128,8 @@ async def test_query_order_dogfood(client_admin):
 
 async def test_query_inventory_dogfood(client_admin):
     """query_inventory 走 ReportTools.generate_report(inventory)，真实库存报表。"""
+    if not _biz_ready():
+        pytest.skip("mock-biz 不在线，跳过跨服务 dogfood（本地 compose 全栈可跑）")
     raw = await client_admin.call_tool("query_inventory", {})
     assert "inventory" in raw
     assert "low_stock" in raw
@@ -91,6 +137,8 @@ async def test_query_inventory_dogfood(client_admin):
 
 async def test_daily_report_dogfood(client_admin):
     """daily_report 从平台库 daily_briefs 表取最近一份（可能无指标但结构完整）。"""
+    if not await _brief_ready():
+        pytest.skip("daily_briefs 无记录（调度产物未生成），跳过日报 dogfood")
     raw = await client_admin.call_tool("daily_report", {})
     assert "brief_date" in raw  # 结构存在即可（metrics 可为 null，COALESCE 兜底）
     assert "title" in raw
