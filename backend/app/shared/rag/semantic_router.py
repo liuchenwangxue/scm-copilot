@@ -67,7 +67,18 @@ _RULES = [
     (r"(TOP\d*|前\d+).*(供应商|商品|订单|区域|仓库|承运商)", "data", "排行类查数"),
 ]
 # 闲聊高频精确词（整句命中率高才用规则，避免误杀）
-_CHAT_EXACT = {"你好", "再见", "谢谢", "拜拜", "在吗", "周末愉快", "早上好", "晚上好"}
+_CHAT_EXACT = {
+    "你好", "您好", "再见", "谢谢", "拜拜", "在吗", "周末愉快", "早上好", "晚上好",
+    "你好呀", "您好呀", "辛苦了", "不客气", "收到",
+}
+# ★ W28-D1（容器口径统一 C1）：长聊天表述子串匹配——容器装真 bge 后语义路由
+#   "假死"变"真活"，暴露 bootstrap 聊天原型覆盖不足："你好呀，你能做什么？"这类
+#   完整表述与 chat 原型相似度仅 ~0.52（< 阈值 0.85）被误判 rag → 触发 RAG 检索
+#   长尾。规则优先层补拦截（零 embedding 成本，chat 是零检索零 token 分支）。
+_CHAT_PHRASES = [
+    "你能做什么", "你是做什么的", "你是谁", "很高兴认识你", "认识你很高兴",
+    "你好呀", "您好呀", "你能帮我做什么", "是做什么的",
+]
 
 
 def _load_samples() -> dict | None:
@@ -207,6 +218,11 @@ class SemanticRouter:
             if q == w or (len(q) <= 6 and w in q):
                 return {"route": "chat", "score": 1.0, "scores": {},
                         "source": "rule", "matched": [{"query": q, "label": "chat", "why": "闲聊高频词"}]}
+        # ★ W28-D1：长聊天表述子串拦截（完整寒暄表述，非裸关键词，误杀风险低）
+        for p in _CHAT_PHRASES:
+            if p in q:
+                return {"route": "chat", "score": 1.0, "scores": {},
+                        "source": "rule", "matched": [{"query": q, "label": "chat", "why": "长聊天表述"}]}
         for pat, route, why in _RULES:
             if re.search(pat, q, re.IGNORECASE):
                 return {"route": route, "score": 1.0, "scores": {},

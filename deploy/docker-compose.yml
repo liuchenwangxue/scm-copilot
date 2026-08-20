@@ -107,13 +107,32 @@ services:
       # ★ W23 Day6 压测优化：容器内关结构化日志（obs handler 是同步文件 IO + 线程锁，
       #   Docker volume 上写盘慢，20 并发/实例下阻塞事件循环造成 P95 长尾；观测留本地/W26）
       STRUCT_LOG_ENABLED: "0"
-      # 容器内无 embedding 模型（不装 sentence-transformers）：语义缓存关闭（避免每次异常降级）
-      SEMANTIC_CACHE_ENABLED: "0"
+      # ★ W28-D1（容器口径统一 C1）：容器内跑真 embedding + 真 reranker——
+      #   语义缓存开启（真模型下命中才有意义）；模型文件来自 model-cache 卷
+      #   （本机下载好的 bge-small/bge-reranker 拷入卷，镜像不膨胀）。
+      SCM_EMBEDDER: "real"
+      SCM_RERANKER: "bge"                  # a1 真 reranker（1.1GB 挂载）
+      SEMANTIC_CACHE_ENABLED: "1"
       SEMANTIC_ROUTER_ENABLED: "1"         # 语义路由规则层零 embedding，kb 压测走 chat/tool 分支
+      # ★ W28-D1：Qdrant 访问路径——容器内 localhost 指容器自身，走宿主转发的
+      #   w5-qdrant（本机 6333 端口，scm_kb_v1 collection 所在；与本地开发同库，
+      #   保证"容器内外同语料"口径）。Windows Docker Desktop 支持 host.docker.internal；
+      #   生产环境应替换为 compose 内专用 qdrant 服务（如 w5-qdrant 独立部署）。
+      QDRANT_URL: "http://host.docker.internal:6333"
       OTEL_ENABLED: "0"
     volumes:
       - runtime_data:/data
       - runtime_reports:/reports
+      - model-cache:/root/.cache           # ★ W28-D1：bge 模型卷（HF 缓存位）
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8795/health',timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      # ★ W28-D1：start_period 放宽——/health 首次探活会触发模型加载探测
+      #   （bge-small ~3s + bge-reranker ~5-10s），30s 不够需 60s
+      start_period: 60s
     depends_on:
       mysql:
         condition: service_healthy
@@ -121,13 +140,6 @@ services:
         condition: service_healthy
       mock-biz:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "python", "-c",
-             "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8795/health',timeout=2)"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
-      start_period: 30s
 
   backend-a2:
     image: scm-backend:latest
@@ -136,9 +148,13 @@ services:
     environment:
       <<: *backend_env
       SCM_INSTANCE_ID: "backend-a2"
+      # ★ W28-D1：a2 保持规则重排（RuleReranker）——1.1GB reranker 只挂 a1，
+      #   /health 可见两实例差异 = 分级降级演示素材；embedding 100MB 双实例共享。
+      SCM_RERANKER: "rule"
     volumes:
       - runtime_data:/data
       - runtime_reports:/reports
+      - model-cache:/root/.cache           # ★ W28-D1：bge 模型卷（HF 缓存位）
     depends_on:
       mysql:
         condition: service_healthy
@@ -152,7 +168,8 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-      start_period: 30s
+      # ★ W28-D1：start_period 放宽（/health 首次探活触发模型加载探测）
+      start_period: 60s
 
   # ============ nginx：least_conn 负载均衡（Day6）+ TLS（W25 Day6） ============
   nginx:
@@ -272,6 +289,11 @@ volumes:
     name: scm_runtime_data
   runtime_reports:
     name: scm_runtime_reports
+  # ★ W28-D1：bge 模型卷——本机下载好的 bge-small/bge-reranker 拷入
+  #   （/root/.cache/huggingface/hub/...），backend 双实例共享；用命名卷而非
+  #   bind mount（Windows Docker Desktop 大模型目录 bind IO 慢，手册坑）
+  model-cache:
+    name: scm_model_cache
   prometheus_data:
     name: scm_prometheus_data
   grafana_data:

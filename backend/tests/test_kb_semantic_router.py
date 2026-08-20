@@ -82,10 +82,26 @@ def test_router_bootstrap_keyword_categories():
     res = r.route("采购申请需要审批吗")
     assert res["route"] == "rag" and res["source"] == "prototype"
     res2 = r.route("你好呀，很高兴认识你")
-    assert res2["route"] == "chat" and res2["source"] == "prototype"
+    # ★ W28-D1：长聊天表述已入规则层 → rule（原 prototype）；仍是 chat 类
+    assert res2["route"] == "chat" and res2["source"] in ("rule", "prototype")
     res3 = r.route("订单 PO-0001 现在什么状态")
     # 规则优先层命中（PO 单号）→ rule
     assert res3["route"] == "tool" and res3["source"] == "rule"
+
+
+def test_router_chat_long_phrase_rules():
+    """★ W28-D1：长聊天表述规则层拦截（容器真 bge 下 bootstrap 原型覆盖不足的补充）。
+
+    完整寒暄句（长度 >6 不进精确词分支）此前被真实 embedding 误判 rag，
+    现在规则层子串拦截 → chat（零检索零 token 分支），压测/聊天快路径回归。
+    """
+    r = _make_router()
+    for q in ["你好呀，你能做什么？", "你是做什么的", "很高兴认识你呀", "你能帮我做什么"]:
+        res = r.route(q)
+        assert res["route"] == "chat" and res["source"] == "rule", q
+    # 制度问不受影响（不进 chat）
+    res = r.route("采购申请需要经过哪几级审批")
+    assert res["route"] != "chat"
 
 
 def test_router_empty_query_fallback():

@@ -1,0 +1,38 @@
+{
+  "mode": "dual-instance-nginx",
+  "concurrency": 30,
+  "per": 7,
+  "total": 210,
+  "t_sec": 5.86,
+  "qps": 35.81,
+  "success": 205,
+  "success_rate": 97.62,
+  "p50_ms": 133.0,
+  "p95_ms": 879.8,
+  "p99_ms": 1861.7,
+  "http_5xx": 5,
+  "errors": {
+    "HTTP_502": 5
+  },
+  "per_scene": {
+    "ops_query": {
+      "count": 42,
+      "ok": 40,
+      "p50": 529.1,
+      "p95": 906.8
+    },
+    "kb_tool": {
+      "count": 85,
+      "ok": 83,
+      "p50": 124.9,
+      "p95": 482.9
+    },
+    "kb_chat": {
+      "count": 83,
+      "ok": 82,
+      "p50": 125.5,
+      "p95": 483.9
+    }
+  },
+  "kill": null
+}

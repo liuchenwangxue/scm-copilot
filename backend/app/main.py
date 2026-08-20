@@ -181,7 +181,11 @@ app.add_middleware(RequestIdMiddleware)
     description="返回服务与数据库连通状态 + 调度器状态（deploy compose healthcheck 用）。",
 )
 async def health() -> schemas.HealthOut:
-    """存活探针：返回服务与数据库连通状态 + 调度器状态（W25 Day1）。"""
+    """存活探针：返回服务与数据库连通状态 + 调度器状态 + 模型状态（★ W28-D1）。
+
+    embedder/reranker：首次探活主动探测一次模型加载/降级（幂等，进程内缓存），
+    ——容器内外口径统一的可观测载体（a1 real/bge、a2 real/rule 可见差异）。
+    """
     db_status = "up"
     try:
         async with app.state.engine.connect() as conn:
@@ -189,10 +193,20 @@ async def health() -> schemas.HealthOut:
     except Exception:
         db_status = "down"
     scheduler = getattr(app.state, "scheduler", None)
+
+    # ★ W28-D1：模型状态（探测一次后缓存；不因探活高频重载模型）
+    from app.domains.kb import config as kb_config
+    from app.shared.rag.model_status import probe_if_pending, snapshot
+
+    probe_if_pending()
+    model = snapshot()
     return schemas.HealthOut(
         status="ok" if db_status == "up" else "degraded",
         db=db_status,
         scheduler="running" if scheduler is not None and scheduler.running else "off",
+        embedder=model["embedder"],
+        reranker=model["reranker"],
+        semantic_cache="on" if kb_config.SEMANTIC_CACHE_ENABLED else "off",
     )
 
 

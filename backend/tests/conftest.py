@@ -26,6 +26,13 @@ os.environ["SCM_JWT_SECRET"] = TEST_JWT_SECRET
 #   既拖慢单测又往测试库写调度状态。调度器功能由 test_scheduler_jobs.py 专项
 #   integration 测试覆盖（手动构造 PlatformScheduler）；CI 部署环境默认开启。
 os.environ.setdefault("SCM_SCHEDULER_ENABLED", "0")
+# ★ W28-D1：测试环境默认 mock embedder / rule reranker——不加载真实模型、不联网
+#   （sentence-transformers 首次 import 会查 HF 版本，CI 无网会卡；model 降级路径
+#   由 test_embedder_mode.py 用注入故障覆盖，真实模型只进容器验证）。
+os.environ.setdefault("SCM_EMBEDDER", "mock")
+os.environ.setdefault("SCM_RERANKER", "rule")
+os.environ.setdefault("SENTENCE_TRANSFORMERS_OFFLINE", "1")
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
 
 # seed 用户的固定测试凭证（与 scripts/seed_platform.py 一致）
 PLAIN_PASSWORD = "Passw0rd!"

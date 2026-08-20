@@ -9,22 +9,81 @@
 接口统一：rerank(query, candidates: list[dict], top_k=5) -> list[dict]（保序精排）
 candidates 元素至少含 {chunk_id, doc_id, text, fused_score, source}。
 """
+
 import re
 from typing import Any
 
 from app.shared import config
+from app.shared.rag.model_status import record_reranker
 
 # 停用词（中文检索关键词重叠的噪音词）
 _STOPWORDS = set(
-    ["的", "了", "和", "与", "及", "是", "在", "我", "你", "他", "她", "它", "这", "那", "有", "就", "都", "而", "及", "或", "按", "根据", "需要", "应该", "什么", "怎么", "如何", "一个", "一笔", "公司", "规定", "吗", "呢", "请问", "是否", "具体", "到底", "分别", "哪个", "哪些", "多少", "多久", "之内", "以内", "以后", "时候", "处理", "流程", "管理", "规范", "办法", "文件", "部门"]
+    [
+        "的",
+        "了",
+        "和",
+        "与",
+        "及",
+        "是",
+        "在",
+        "我",
+        "你",
+        "他",
+        "她",
+        "它",
+        "这",
+        "那",
+        "有",
+        "就",
+        "都",
+        "而",
+        "及",
+        "或",
+        "按",
+        "根据",
+        "需要",
+        "应该",
+        "什么",
+        "怎么",
+        "如何",
+        "一个",
+        "一笔",
+        "公司",
+        "规定",
+        "吗",
+        "呢",
+        "请问",
+        "是否",
+        "具体",
+        "到底",
+        "分别",
+        "哪个",
+        "哪些",
+        "多少",
+        "多久",
+        "之内",
+        "以内",
+        "以后",
+        "时候",
+        "处理",
+        "流程",
+        "管理",
+        "规范",
+        "办法",
+        "文件",
+        "部门",
+    ]
 )
 
 
 def _tokenize_cn(text: str) -> list[str]:
     """中文分词：jieba（与 BM25 同一分词器），去停用词，保留数字/条款号/英文。"""
     import jieba
+
     # 条款号/数字/英文单位先整块保留，再 jieba 切中文
-    special = re.findall(r"第\s*[\d\-]+\s*条(?:第\s*\d+\s*款)?|[0-9]+(?:\.[0-9]+)?%?|[A-Za-z]+", text)
+    special = re.findall(
+        r"第\s*[\d\-]+\s*条(?:第\s*\d+\s*款)?|[0-9]+(?:\.[0-9]+)?%?|[A-Za-z]+", text
+    )
     words = [t.strip() for t in jieba.lcut(text) if t.strip()]
     return [t for t in (special + words) if t not in _STOPWORDS and len(t) > 0]
 
@@ -40,6 +99,11 @@ class RuleReranker:
     """
 
     name = "rule"
+
+    def status(self) -> str:
+        """状态探测（/health 用）：规则重排无外部依赖，恒为 rule。"""
+        record_reranker(self.name)
+        return self.name
 
     def rerank(self, query: str, candidates: list[dict], top_k: int = 5) -> list[dict]:
         # RRF 顺序即最佳顺序（融合已是最强信号），仅做 doc 去重
@@ -76,6 +140,7 @@ class BGEReranker:
             try:
                 import torch
                 from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
                 print(f"[reranker] 加载 bge-reranker {self.model_name}（首次下载 ~1GB）……")
                 self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
                 self._model = AutoModelForSequenceClassification.from_pretrained(self.model_name)
@@ -84,10 +149,20 @@ class BGEReranker:
                     self._model = self._model.to(self._device)
                 self._model.eval()
                 print(f"[reranker] bge-reranker 就绪（device={self._device}）")
+                record_reranker(self.name)
             except Exception as e:  # 网络/显存/下载失败 → 降级
                 self._load_error = str(e)
                 print(f"[reranker] bge-reranker 加载失败，降级规则重排：{e}")
+                record_reranker("bge-failed→rule", str(e)[:200])
         return self._model
+
+    def status(self) -> str:
+        """状态探测（/health 用）：触发一次加载尝试（幂等），返回当前状态名。
+
+        pending（未探测）→ bge(...)（加载成功）/ bge-failed→rule（失败降级）。
+        """
+        self._load()
+        return self.name
 
     @property
     def name(self) -> str:
@@ -98,9 +173,11 @@ class BGEReranker:
     def _score(self, query: str, texts: list[str]) -> list[float]:
         import torch
         import torch.nn.functional as F
+
         pairs = [[query, t] for t in texts]
-        inputs = self._tokenizer(pairs, padding=True, truncation=True, max_length=512,
-                                 return_tensors="pt")
+        inputs = self._tokenizer(
+            pairs, padding=True, truncation=True, max_length=512, return_tensors="pt"
+        )
         if self._device == "cuda":
             inputs = {k: v.to(self._device) for k, v in inputs.items()}
         with torch.no_grad():
@@ -134,9 +211,14 @@ class BGEReranker:
 
 
 def get_reranker(force: str | None = None):
-    """重排器工厂：LLM_RERANKER=rule|bge，默认 bge（失败自动降级 rule）。"""
+    """重排器工厂：SCM_RERANKER=real|bge → BGEReranker（失败自动降级 rule）；rule → RuleReranker。
+
+    ★ W28-D1：容器 a1 用 SCM_RERANKER=bge（真模型）、a2 用 rule（分级降级演示）；
+    兼容旧 LLM_RERANKER 环境变量。默认 bge。
+    """
     import os
-    choice = (force or os.getenv("LLM_RERANKER") or "bge").lower()
-    if choice == "bge":
+
+    choice = (force or os.getenv("SCM_RERANKER") or os.getenv("LLM_RERANKER") or "bge").lower()
+    if choice in ("bge", "real"):
         return BGEReranker()
     return RuleReranker()

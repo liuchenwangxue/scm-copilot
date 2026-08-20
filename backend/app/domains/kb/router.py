@@ -206,33 +206,6 @@ async def chat(
                 yield _ss({"type": "done"})
                 return
 
-            # ①.5 语义缓存优先——语义相似问题命中则直接返回（省 RAG + LLM token）
-            if config.SEMANTIC_CACHE_ENABLED:
-                cached = get_semantic_cache().lookup(message)
-                if cached:
-                    await _audit(request, "semantic_cache_hit",
-                                 f"sim={cached['sim']} 命中缓存，省 RAG+LLM")
-                    obs_logger.log_event(_log, "semantic_cache_hit", request_id=request_id,
-                                         session_id=session_id, sim=cached["sim"],
-                                         matched_query=cached.get("matched_query", ""))
-                    yield _ss({"type": "progress", "node": "cache",
-                               "data": {"result": f"语义缓存命中（相似度 {cached['sim']}），直接返回缓存回答"}})
-                    ans = cached["answer"]
-                    for i in range(0, len(ans), 12):
-                        yield _ss({"type": "message", "role": "assistant",
-                                   "content": ans[i:i + 12], "delta": True,
-                                   "session_id": session_id})
-                        await asyncio.sleep(0.02)
-                    yield _ss({"type": "message", "role": "assistant", "content": "",
-                               "delta": False, "session_id": session_id})
-                    yield _ss({"type": "citations", "citations": cached["citations"],
-                               "retrieved_docs": [],
-                               "validation": {"passed": True, "retries": 0,
-                                              "degraded": False, "warning": ""},
-                               "source": "cache", "session_id": session_id})
-                    yield _ss({"type": "done"})
-                    return
-
             # ①.6 语义路由分流——让请求只走该走的链路（不相关请求不进 RAG）
             if config.SEMANTIC_ROUTER_ENABLED:
                 route_res = get_semantic_router().route(message)
@@ -313,6 +286,36 @@ async def chat(
                                "validation": {"passed": True, "retries": 0,
                                               "degraded": False, "warning": ""},
                                "source": "route", "session_id": session_id})
+                    yield _ss({"type": "done"})
+                    return
+
+            # ①.5 语义缓存优先（rag 分支；命中省 RAG+LLM）——★ W28-D1 调整：
+            #   缓存只服务 RAG 答案（put 仅在 rag 分支生成校验通过后落库），而规则层
+            #   已判定 chat/tool/data 的请求查缓存纯属浪费（每次白做一次真 embedding
+            #   推理，30 并发下成为模型长尾）→ 从路由前移到路由后，仅 rag 请求查缓存。
+            if config.SEMANTIC_CACHE_ENABLED:
+                cached = get_semantic_cache().lookup(message)
+                if cached:
+                    await _audit(request, "semantic_cache_hit",
+                                 f"sim={cached['sim']} 命中缓存，省 RAG+LLM")
+                    obs_logger.log_event(_log, "semantic_cache_hit", request_id=request_id,
+                                         session_id=session_id, sim=cached["sim"],
+                                         matched_query=cached.get("matched_query", ""))
+                    yield _ss({"type": "progress", "node": "cache",
+                               "data": {"result": f"语义缓存命中（相似度 {cached['sim']}），直接返回缓存回答"}})
+                    ans = cached["answer"]
+                    for i in range(0, len(ans), 12):
+                        yield _ss({"type": "message", "role": "assistant",
+                                   "content": ans[i:i + 12], "delta": True,
+                                   "session_id": session_id})
+                        await asyncio.sleep(0.02)
+                    yield _ss({"type": "message", "role": "assistant", "content": "",
+                               "delta": False, "session_id": session_id})
+                    yield _ss({"type": "citations", "citations": cached["citations"],
+                               "retrieved_docs": [],
+                               "validation": {"passed": True, "retries": 0,
+                                              "degraded": False, "warning": ""},
+                               "source": "cache", "session_id": session_id})
                     yield _ss({"type": "done"})
                     return
 

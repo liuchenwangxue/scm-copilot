@@ -31,10 +31,21 @@ def test_health_endpoint():
         resp = client.get("/health")
         assert resp.status_code == 200
         body = resp.json()
-        assert set(body) == {"status", "db", "scheduler"}
+        assert set(body) == {
+            "status",
+            "db",
+            "scheduler",
+            "embedder",
+            "reranker",
+            "semantic_cache",
+        }
         assert body["status"] in ("ok", "degraded")
         assert body["db"] in ("up", "down")
         assert body["scheduler"] in ("running", "off")
+        # ★ W28-D1：模型状态可见（测试环境 conftest 设 SCM_EMBEDDER=mock/SCM_RERANKER=rule）
+        assert body["embedder"] in ("real", "mock", "mock_degraded", "pending")
+        assert body["reranker"] in ("rule", "bge", "bge-failed→rule", "pending")
+        assert body["semantic_cache"] in ("on", "off")
 
 
 @pytest.mark.integration

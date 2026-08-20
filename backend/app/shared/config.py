@@ -83,9 +83,15 @@ QDRANT_TIMEOUT = int(os.getenv("QDRANT_TIMEOUT", "30"))
 SCM_COLLECTION = os.getenv("SCM_COLLECTION", "scm_kb_v1")
 
 # ---- Embedding（复用 W3/W5 的 bge-small-zh-v1.5 缓存）----
+# ★ W28-D1：SCM_EMBEDDER=real（默认，容器内挂模型卷跑真模型）| mock（确定性哈希向量，
+#   CI/无模型环境）。real 加载失败自动降级 mock（降级哲学贯穿，/health 见 embedder=degraded）。
+EMBEDDER_MODE = os.getenv("SCM_EMBEDDER", "real").lower()
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-zh-v1.5")
 EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "512"))
 QUERY_INSTRUCTION = "为这个句子生成表示以用于检索相关文章："
+# ★ W28-D1：SCM_RERANKER=bge（默认）| rule——容器 a1 真 reranker、a2 规则版
+#   （分级降级演示）；兼容旧 LLM_RERANKER。
+RERANKER_MODE = os.getenv("SCM_RERANKER", os.getenv("LLM_RERANKER", "bge")).lower()
 
 # ---- 检索数据文件（kb 域使用；默认指向 scm-copilot/data，旧数据在 stage3-a/data）----
 CHUNKS_FILE = os.getenv("CHUNKS_FILE", str(DATA_DIR / "chunks_title.json"))

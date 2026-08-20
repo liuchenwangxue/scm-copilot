@@ -53,8 +53,16 @@ class LogoutOut(BaseModel):
 
 
 class HealthOut(BaseModel):
-    """存活探针响应：服务与数据库连通状态 + 调度器状态。"""
+    """存活探针响应：服务与数据库连通状态 + 调度器状态 + 模型状态（★ W28-D1）。
+
+    embedder: pending（未探测）/ real / mock（主动选择）/ mock_degraded（加载失败降级）
+    reranker: pending / bge(bge-reranker-base) / rule / bge-failed→rule
+    semantic_cache: on（容器内开启）/ off
+    """
 
     status: str  # ok / degraded
     db: str  # up / down
     scheduler: str  # running / off
+    embedder: str = "pending"
+    reranker: str = "pending"
+    semantic_cache: str = "off"
