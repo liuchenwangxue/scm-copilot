@@ -225,6 +225,47 @@ services:
       retries: 5
       start_period: 20s
 
+  # ============ MCP Server（★ W28 Day5 D1：FastMCP 包装 ops 只读工具） ============
+  # HTTP transport（容器间走 http，w6 client_http_test 模式）；kb 域 MCPClient 本地调试走 stdio。
+  # 鉴权复用平台 API Key（Bearer sk-... → 平台库 api_keys 表）；工具调用走 mock-biz。
+  mcp-server:
+    image: scm-backend:latest
+    container_name: scm-mcp-server
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      SCM_PLATFORM_DSN: "mysql+asyncmy://root:root123@mysql:3306/scm_platform?charset=utf8mb4"
+      SCM_BIZ_DSN: "mysql+asyncmy://root:root123@mysql:3306/scm_biz?charset=utf8mb4"
+      SCM_JWT_SECRET: "dev-secret-change-me"
+      REDIS_URL: "redis://redis:6379/0"
+      LLM_PROVIDER: "mock"
+      BIZ_BASE_URL: "http://mock-biz:8794"
+      AUDIT_LOG: "/data/audit.log"
+      IDEMPOTENCY_DB: "/data/idempotency.db"
+      KB_DATA_DIR: "/data"
+      MCP_PORT: "8765"
+    volumes:
+      - runtime_data:/data
+    ports:
+      - "${MCP_PORT:-18765}:8765"   # 宿主 18765 → 容器 8765（避开常用端口）
+    command: ["python", "-m", "app.mcp_server.main", "--transport", "http", "--host", "0.0.0.0", "--port", "8765"]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mock-biz:
+        condition: service_healthy
+    healthcheck:
+      # ★ MCP HTTP 端点是流式协议（需 Accept/JSON-RPC 头），urllib GET 会 406——
+      #   改用 TCP 端口探测（端口通 = 服务在监听）
+      test: ["CMD", "python", "-c",
+             "import socket;socket.create_connection(('127.0.0.1',8765),timeout=3).close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   # ============ 监控（★ W25 Day6 三吸收项：基础监控） ============
   # Prometheus 拉模型抓三组：backend 应用 /metrics + node-exporter（宿主机）+ cAdvisor（容器）
   node-exporter:

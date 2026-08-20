@@ -148,6 +148,14 @@ class ApprovalService:
             self.audit.log("approval_requested", approval_id=req.approval_id,
                            operation=operation, target=order_id,
                            diff_count=len(req.diff), reason=reason)
+        # ★ W28 Day5 (C6/B6)：审批 IM 推送（尽力而为，webhook 挂不影响审批主流程）。
+        #   只发摘要（审批 id+工具+字段名，不发敏感值）；SCM_WEBHOOK_URL 空 = 关闭。
+        from app.domains.ops.notify.webhook import notify_approval_requested_async
+
+        notify_approval_requested_async(
+            req.approval_id, tool_name, operation, order_id,
+            diff=req.diff, reason=reason,
+        )
         return req
 
     # ---- 审批动作（单向状态机） ----

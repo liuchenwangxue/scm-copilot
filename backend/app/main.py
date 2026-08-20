@@ -48,8 +48,20 @@ async def lifespan(app: FastAPI):
     #   pool_size=5 在并发下排队（每次 POST 叠加审计写 + 会话落库 + 业务审计，
     #   单请求峰值 2–3 个并发 session）。扩容到 40+20/实例，
     #   MySQL command 加 --max-connections=500（compose）承接双实例 120 连接
+    # ★ W28 Day5 (ADR-010)：读写分离路由——write_factory 恒主 DSN（现状不变）；
+    #   read_factory 只在配置了有效只读副本（SCM_DB_RO_DSN 且 != 主）时创建，
+    #   本机无副本 → 不建（零行为差异，路由开关语义见 shared/db.py）。
+    from app.shared.db import make_routers
+
+    routers = make_routers(
+        platform_dsn=settings.platform_dsn,
+        platform_ro_dsn=settings.platform_ro_dsn,
+        biz_dsn=settings.biz_dsn,
+        biz_ro_dsn=settings.biz_ro_dsn,
+    )
+    write_dsn = routers.platform.dsn_for("write")
     engine = create_async_engine(
-        settings.platform_dsn,
+        write_dsn,
         pool_pre_ping=True,
         pool_size=40,
         max_overflow=20,
@@ -57,6 +69,20 @@ async def lifespan(app: FastAPI):
     )
     app.state.engine = engine
     app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    # 只读副本（有才建）：报表查询/NL2SQL executor 走 RO 的接入点
+    app.state.read_session_factory = None
+    if routers.platform.has_read_replica:
+        ro_engine = create_async_engine(
+            routers.platform.dsn_for("read"),
+            pool_pre_ping=True,
+            pool_size=10,
+            max_overflow=5,
+            pool_timeout=30,
+        )
+        app.state.read_engine = ro_engine
+        app.state.read_session_factory = async_sessionmaker(ro_engine, expire_on_commit=False)
+    else:
+        app.state.read_engine = None
 
     # ★ W25 Day1：调度器随进程启动（双实例全跑，任务级互斥靠 leader 锁）。
     #   job store 在 MySQL（任务定义重启不丢）；start() 失败 → fail-open 降级
@@ -82,6 +108,9 @@ async def lifespan(app: FastAPI):
     if app.state.scheduler is not None:
         app.state.scheduler.shutdown(wait=False)
     await engine.dispose()
+    read_engine = getattr(app.state, "read_engine", None)
+    if read_engine is not None:
+        await read_engine.dispose()
 
 
 async def global_auth(request: Request) -> User | None:

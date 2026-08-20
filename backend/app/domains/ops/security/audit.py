@@ -15,13 +15,20 @@ from pathlib import Path
 
 
 class AuditLogger:
-    def __init__(self, path: str | Path):
+    def __init__(self, path: str | Path, echo: bool = True):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
+        self.echo = echo
 
     def log(self, event_type: str, **fields) -> dict:
-        """写一条审计事件。返回写入的记录（含 event/ts）。"""
+        """写一条审计事件。返回写入的记录（含 event/ts）。
+
+        echo=True 时同步打印到 stdout（日常/测试观测用）；
+        echo=False 时只落盘不打印——★ MCP server 场景必需：MCP stdio 的 stdout 是
+        JSON-RPC 协议通道，任何非 JSON 打印都会污染协议流（W21 踩坑：audit 必须走
+        stderr 或静默）。MCP 侧的可见审计由 audit_call 装饰器显式写 stderr。
+        """
         record = {
             "event": event_type,
             "ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
@@ -30,7 +37,8 @@ class AuditLogger:
         line = json.dumps(record, ensure_ascii=False)
         with self._lock, open(self.path, "a", encoding="utf-8") as f:
             f.write(line + "\n")
-        print(f"  [AUDIT:{event_type}] " + " ".join(f"{k}={v}" for k, v in fields.items()))
+        if self.echo:
+            print(f"  [AUDIT:{event_type}] " + " ".join(f"{k}={v}" for k, v in fields.items()))
         return record
 
     def read_all(self) -> list[dict]:

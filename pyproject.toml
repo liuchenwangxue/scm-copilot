@@ -41,6 +41,7 @@ dependencies = [
     "opentelemetry-instrumentation-fastapi",
     "opentelemetry-exporter-otlp-proto-http",
     "mcp",                   # kb MCP 工具（按需）
+    "fastmcp",               # ★ W28 Day5 (D1)：MCP Server 侧（FastMCP 包装 ops registry）
     # ---- W24：NL2SQL 数据分析域 ----
     # ★ sqlglot 版本锁死：AST 结构随大版本演进（30.x 中 Anonymous 函数名取 .name、
     #   Union 根节点 .limit() 无效需 set、CTE 挂在 with_），升级可能改 AST 结构破坏四道闸。

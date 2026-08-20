@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     platform_dsn: str = "mysql+asyncmy://root:root123@127.0.0.1:13306/scm_platform?charset=utf8mb4"
     # 业务库：NL2SQL 数据域（W24 使用，本周仅预置）
     biz_dsn: str = "mysql+asyncmy://root:root123@127.0.0.1:13306/scm_biz?charset=utf8mb4"
+    # ★ W28 Day5 (ADR-010)：平台库只读副本 DSN——读写分离路由开关（shared/db.py）。
+    #   空 = 无副本（本机默认，路由恒回主 DSN，零行为差异）；上线副本后填只读 DSN。
+    platform_ro_dsn: str = ""
     # 业务库只读账号（★ W24 Day2：NL2SQL 沙箱执行专用，与 sqlglot 闸构成纵深防御双保险）
     # 仅 GRANT SELECT，写操作被 MySQL 拒绝（ERROR 1142）；CI 用 SCM_BIZ_RO_DSN 覆盖
     biz_ro_dsn: str = (

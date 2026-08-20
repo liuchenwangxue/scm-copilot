@@ -1,6 +1,111 @@
 
 ---
 
+# W28 Day5 报告 · MCP Server 资产回归 + IM webhook 最小版 + 读写分离 ADR（阶段五 · 第 2 周 Day 5）
+
+> 阶段五 SCM Copilot 第 2 周 Day5 ｜ 2026-08-21 ｜ 依据《W28学习执行手册》Day5
+> 主题：D1 MCP Server 资产回归（w6 server + W21 client 合并进平台）/ C6 IM webhook 最小版 / C7·B8 读写分离 ADR-010
+> **Day5 验收：MCP server 三只读工具被 kb client 调通（dogfooding 证据）✓ / HTTP transport 平台 Key 鉴权 401 ✓ / webhook 摘要卡片单测 7 用例 ✓ / RO 路由单测 6 用例绿 ✓ / ADR-010 入库 ✓ / 全量 600 passed + ruff·mypy 0 ✓**
+
+---
+
+## 〇、Day5 速览
+
+| # | 任务 | 状态 |
+|---|---|---|
+| 1 | ★ MCP Server 资产回归（D1）：`backend/app/mcp_server/`——FastMCP 包装 ops registry 只读工具 | ✅ 三工具：query_order / query_inventory / daily_report |
+| 2 | 鉴权复用平台 API Key：HTTP transport AuthProvider（Bearer sk- → 平台库 api_keys 表 sha256 + owner 权限动态加载） | ✅ 有效 Key 200 / 错误 Key 401 / 无 Key 401（实测） |
+| 3 | 审计装饰器（w6 三层栈 @mcp.tool → @audit_call → @require_permission）+ AuditLogger echo=False（MCP stdio stdout 是协议通道） | ✅ `mcp_*` 审计落盘 |
+| 4 | **dogfooding 闭环**：kb 域 MCPClient（W21 资产）连平台 MCP server 调通三只读工具 | ✅ `test_mcp_dogfooding.py` 6 用例全绿 |
+| 5 | 高危写工具（update_order/cancel_order）**不暴露**（安全边界注释 + 单测断言） | ✅ |
+| 6 | ★ IM webhook 最小版（C6/B6）：`ops/notify/webhook.py` + approval_requested 钩子 + SCM_WEBHOOK_URL 开关 | ✅ 3s 超时 + 1 次重试，摘要不发敏感值 |
+| 7 | ★ 读写分离 ADR-010 + `shared/db.py` 路由开关（B8 PoC 口径） | ✅ `test_db_routing.py` 6 用例绿；ADR-010 入库 |
+| 8 | compose 加 mcp-server 服务（HTTP transport，18765:8765，复用 scm-backend 镜像） | ✅ `docker compose config` 语法通过 |
+| 9 | 全量回归 + ruff + mypy | ✅ 600 passed / ruff 0 / mypy 0 |
+
+---
+
+## 一、MCP Server 资产回归（D1，核心）
+
+### 1.1 为什么是"资产回归"不是"新增功能"（面试叙事）
+
+w6 已做过供应链 FastMCP server（7 工具 + RBAC + 审计 + 重试 + 幂等，双传输），且工具清单
+与 ops registry 同域同名（query_order 同名同域）；kb 域有 MCP client（W21，stdio 消费第三方
+server）。Day5 把**两半资产合并**：FastMCP 包装 ops tool registry，平台正式具备 MCP server 侧。
+
+- 复用面：w6 三层装饰器栈（`@mcp.tool() → @audit_call → @require_permission`）+ W21
+  `MCPClient`（`mcp_client.py` 直接作为 dogfooding 客户端，零改造）。
+- 落点：`backend/app/mcp_server/`——`main.py`（FastMCP + 工具）、`auth.py`（AuthProvider）、
+  `apikey_db.py`（平台 API Key → 用户/权限，同步查平台库）。
+
+### 1.2 三只读工具 + 安全边界
+
+| 工具 | 实现 | 权限码 | 数据源 |
+|---|---|---|---|
+| `query_order(order_id)` | `OrderTools.query_order`（registry 分发） | `ops:order:read` | mock-biz 实时订单 |
+| `query_inventory()` | `ReportTools.generate_report("inventory")` | `ops:order:read` | mock-biz 库存报表 |
+| `daily_report(brief_date?)` | `_read_daily_brief`（平台库 daily_briefs 表） | `admin:brief:read` | MySQL |
+
+**高危写工具（update_order/cancel_order）不暴露**——MCP 面只读；写操作必须走平台 REST +
+approval_gate（HITL），MCP 调用方无法绕过审批流。边界注释写进 `main.py` docstring，单测断言
+`update_order`/`cancel_order` 不在工具列表。
+
+### 1.3 鉴权（w6 AuthProvider 模式 → 平台 API Key）
+
+- HTTP transport：`ScmApiKeyAuthProvider.verify_token(token)` 查平台库 `api_keys` 表
+  （sha256 哈希匹配 + enabled + owner 存活 + **动态加载 owner 当前权限码**）——与
+  `apikeys.authenticate_api_key` 同语义；无效/吊销 → None → fastmcp HTTP 层 401。
+- stdio 模式：进程即身份（`MCP_RUN_AS` + `MCP_PERMISSIONS` 环境变量模拟，默认 viewer
+  fail-closed）——与 w6 同款设计，dogfooding 测试用此路径。
+- 实测：有效 Key → 三工具调通；错误 Key / 无 Key → HTTP 401。
+
+### 1.4 MCP stdio 协议坑（W21 踩坑在本日复发）
+
+`AuditLogger.log()` 默认 `print()` 到 stdout——MCP stdio 的 **stdout 是 JSON-RPC 协议通道**，
+任何非 JSON 打印都会导致 client 报 `Failed to parse JSONRPC message`（实测踩中）。
+修复：`AuditLogger(path, echo=False)` 加开关，MCP server 用 `echo=False` 静默落盘，
+可见审计由 `audit_call` 装饰器显式写 stderr。
+
+### 1.5 dogfooding 闭环证据
+
+`test_mcp_dogfooding.py`（6 用例）：
+- `list_tools` 动态发现（三工具在列、高危写工具不暴露）
+- `query_order` / `query_inventory` / `daily_report` 三工具被 **kb 域自己的 MCPClient** 调通
+- viewer 无权限 → 403（fail-closed）
+- `mcp_*` 审计事件落盘（`AuditLogger.filter("mcp_query_order")` 递增）
+
+> 面试叙事就绪："MCP 双侧都做过——W6 生产级 server（RBAC/审计/重试/幂等）、W21 client
+> 消费第三方工具，Day5 合并进平台，接入方式全家桶（SDK/OpenAPI/webhook/MCP）"。
+
+## 二、IM webhook 最小版（C6/B6）
+
+- `ops/notify/webhook.py`：`send_approval_webhook()` POST 群机器人摘要卡片（企微/钉钉
+  msgtype=text 兼容），**只发审批 id 前缀 + 工具名 + 变更字段名**（金额/日期/原因值不进群）。
+- 3s 超时 + 1 次重试后放弃；`SCM_WEBHOOK_URL` 空 = 关闭（默认）；`notify_approval_requested_async`
+  线程 fire-and-forget——通知尽力而为，审批状态机不受影响。
+- 挂钩点：`ApprovalService.create()` 审计 `approval_requested` 之后（与审计同源触发）。
+- 测试 7 用例：卡片脱敏 / URL 空关闭 / 2xx 一次成功 / 5xx 重试后放弃 / 网络异常重试 /
+  失败不影响审批 create。
+
+## 三、读写分离 ADR-010（C7/B8 PoC 口径）
+
+- `shared/db.py`：`DbRouter(write_dsn, read_dsn)`——读操作且有有效副本（`read_dsn != write_dsn`）
+  → 走 RO；写/无副本/副本=主 → 走主（**零行为差异**）。
+- `settings.platform_ro_dsn`（`SCM_DB_RO_DSN`，默认空）；`main.py` lifespan 仅在有副本时创建
+  `read_session_factory`（本机无副本 → 不建，行为与 D1 完全一致）。
+- `docs/adr/ADR-010_读写分离.md`：L1 单主 → L2 读写分离（本步）→ L3 拆库三级演进 + 触发阈值
+  + 一致性边界（报表允许最终一致，在线写恒走主）+ 回退方案。
+- 测试 6 用例：读走 RO / 写走主 / 无副本回退 / 同 DSN 无副本 / 语义别名 / 多库构造。
+
+## 四、部署与质量
+
+- compose 加 `mcp-server` 服务（复用 `scm-backend:latest` 镜像，HTTP transport，
+  `MCP_PORT=8765` 容器内 / 宿主 18765；healthcheck 用 TCP 端口探测——MCP HTTP 端点是
+  流式协议，urllib GET 会 406 误判）。
+- 全量回归 **600 passed**（含新增 19 用例）；ruff 0 error；mypy 0 error。
+
+---
+
 # W28 Day3 报告 · BI 图层（阶段五 · 口径统一与二期功能 第 3 天）
 
 > 阶段五 SCM Copilot 第 2 周 Day3 ｜ 2026-08-21 ｜ 依据《W28学习执行手册》Day3
