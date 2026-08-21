@@ -7,6 +7,8 @@
   · 规则优先层——PO 单号 / 报表 / 物流跟踪命中；"物流运输损耗"（RAG 制度问）不被误杀
 - semantic_cache：字符重叠闸门 / put+lookup 命中(source=cache) / 双闸门防误命中 / 版本失效
 """
+import time
+
 import numpy as np
 
 # ==================== FakeEmbedder（确定性向量，替代真实 bge） ====================
@@ -16,6 +18,17 @@ import numpy as np
 _CAT_KEYWORDS = {"rag": "采购", "tool": "订单", "chat": "你好", "data": "延迟发货"}
 _CAT_IDX = {"rag": 0, "tool": 1, "chat": 2, "data": 3}
 _DIM = 8
+
+
+class _NoRedis:
+    """Redis 关闭桩：单测走纯内存路径。
+
+    ★ 必须：默认 REDIS_URL 指向共享 scm-redis（localhost:16381）。不注入此桩时，
+    FakeEmbedder 的 8 维测试向量会写进生产共享语义缓存——容器内 512 维真实
+    embedding 查询点积即 "shapes (512,) and (8,) not aligned"（曾真实发生过）。
+    """
+
+    available = False
 
 
 class FakeEmbedder:
@@ -209,7 +222,7 @@ def test_char_overlap_logic():
 
 def test_cache_hit_marks_source_and_stats():
     from app.shared.rag.semantic_cache import SemanticCache
-    c = SemanticCache(embedder=FakeEmbedder())
+    c = SemanticCache(embedder=FakeEmbedder(), redis_client=_NoRedis())
     c.put("采购申请有效期是多久", "60 个自然日", citations=[{"doc_id": "X"}])
     hit = c.lookup("采购申请的有效期有多长")
     assert hit is not None and hit["source"] == "cache"
@@ -222,7 +235,7 @@ def test_cache_hit_marks_source_and_stats():
 def test_cache_double_gate_blocks_wrong_topic():
     """embedding 相似（同关键词对齐）但字符不重叠 → 不命中（防跨主题误命中）。"""
     from app.shared.rag.semantic_cache import SemanticCache
-    c = SemanticCache(embedder=FakeEmbedder())
+    c = SemanticCache(embedder=FakeEmbedder(), redis_client=_NoRedis())
     c.put("采购申请有效期是多久", "60 天", citations=[])
     # FakeEmbedder 让"今天天气怎么样"也对齐 rag 向量（sim 高），但字符 0 重叠 → 不命中
     assert c.lookup("今天天气怎么样") is None
@@ -230,7 +243,7 @@ def test_cache_double_gate_blocks_wrong_topic():
 
 def test_cache_miss_then_hit():
     from app.shared.rag.semantic_cache import SemanticCache
-    c = SemanticCache(embedder=FakeEmbedder())
+    c = SemanticCache(embedder=FakeEmbedder(), redis_client=_NoRedis())
     assert c.lookup("采购审批要几级") is None        # 未缓存 → miss
     c.put("采购审批要几级", "三级", citations=[])
     assert c.lookup("采购审批要几级") is not None    # 已缓存 → hit（sim=1 + overlap=1）
@@ -238,7 +251,7 @@ def test_cache_miss_then_hit():
 
 def test_cache_invalidate_version():
     from app.shared.rag.semantic_cache import SemanticCache
-    c = SemanticCache(embedder=FakeEmbedder(), version="kb-v1")
+    c = SemanticCache(embedder=FakeEmbedder(), redis_client=_NoRedis(), version="kb-v1")
     c.put("采购申请有效期", "60", citations=[])
     assert len(c._store) == 1
     n = c.invalidate(new_version="kb-v2")
@@ -247,6 +260,32 @@ def test_cache_invalidate_version():
 
 def test_cache_empty_query_never_hits():
     from app.shared.rag.semantic_cache import SemanticCache
-    c = SemanticCache(embedder=FakeEmbedder())
+    c = SemanticCache(embedder=FakeEmbedder(), redis_client=_NoRedis())
     c.put("采购申请", "60", citations=[])
     assert c.lookup("") is None
+
+
+def test_cache_skips_dim_mismatched_entries():
+    """★ 回归（shapes (512,) vs (8,) 事故）：维度不符的污染条目只跳过，不炸整池。
+
+    场景：别的写入方（旧测试/换 embedder 后残留）在共享缓存里留下维度不符
+    的条目 → lookup 的 np.dot 抛 ValueError 被外层 fail-open 吞掉 → 整池
+    Redis 条目全部降级 miss。修复后：坏条目跳过，好条目照常命中。
+    """
+    from app.shared.rag.semantic_cache import SemanticCache
+    c = SemanticCache(embedder=FakeEmbedder(), redis_client=_NoRedis())
+    c.put("采购申请有效期是多久", "60 个自然日", citations=[])
+    # 模拟污染条目：维度与查询向量不符（FakeEmbedder 是 8 维 → 注入 512 维）
+    c._store[f"{c.version}:dirty"] = {
+        "vec": [0.5] * 512, "answer": "脏数据", "citations": [],
+        "version": c.version, "query": "无关的污染条目",
+        "stored_at": time.monotonic(),
+    }
+    # 损坏条目：长度匹配但内容非数值（覆盖 dtype 转换异常分支）
+    c._store[f"{c.version}:corrupt"] = {
+        "vec": ["a"] * 8, "answer": "坏", "citations": [],
+        "version": c.version, "query": "坏条目", "stored_at": time.monotonic(),
+    }
+    hit = c.lookup("采购申请的有效期有多长")
+    assert hit is not None and hit["answer"] == "60 个自然日"  # 好条目照常命中
+    assert c._stats["error"] == 0  # 无异常降级（fail-open 未被触发）

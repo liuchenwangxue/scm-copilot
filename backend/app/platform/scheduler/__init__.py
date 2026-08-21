@@ -152,6 +152,21 @@ async def _run_job(job_name: str) -> Any:
                 error=str(e),
             )
             return {"job": job_name, "status": "failed", "error": str(e)}
+        # ★ 修复（监控失真）：部分 job（kb_increment_sync/vector_cleanup/audit_archive/
+        #   cache_warmup）的 run() 内部捕获异常后返回 {"status": "failed"} dict 而非
+        #   re-raise——_run_job 原来只认异常，job_runs 误记 success、Prometheus
+        #   success 计数照加、失败告警永不触发。补 dict 返回值的 failed 识别。
+        if isinstance(result, dict) and result.get("status") == "failed":
+            await _record(
+                job_id=job_name,
+                run_id=run_id,
+                trigger="cron",
+                status="failed",
+                started_at=started,
+                finished_at=datetime.now(),
+                error=str(result.get("error", "")),
+            )
+            return result
         await _record(
             job_id=job_name,
             run_id=run_id,

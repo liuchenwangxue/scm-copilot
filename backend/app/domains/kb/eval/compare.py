@@ -33,6 +33,8 @@ def sample_qa(qa_set: list[dict], n: int = 30) -> list[dict]:
 
     同类型内取前若干条（保持原顺序），四舍五入差量用剩余样本补齐。
     """
+    if not qa_set:
+        return []  # ★ 修复：空评测集直接返回（原实现 total=0 时除零崩溃）
     n = max(1, n)
     type_order = ["single", "cross", "conflict"]
     groups: dict[str, list[dict]] = {}

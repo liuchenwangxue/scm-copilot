@@ -51,15 +51,18 @@ def build_rag_context(hits: list[dict], max_docs: int = MAX_DOCS,
     for h in hits:
         doc_id = h["doc_id"]
         if doc_id not in doc_count:
+            # ★ 修复（max_docs 突破）：新文档准入检查必须在新文档任何块入选前——
+            #   原终止条件在 append 之后且要求"当前篇配额已满"，新文档的第一块
+            #   恒满足（doc_count=0 < chunks_per_doc），文档数可超 max_docs（RRF
+            #   融合后同文档块不相邻时必现）
+            if len(order) >= max_docs:
+                break
             doc_count[doc_id] = 0
             order.append(doc_id)
         if doc_count[doc_id] >= chunks_per_doc:
             continue                       # 该文档块数已满
         out_blocks.append(h)
         doc_count[doc_id] += 1
-        # 停止条件：已收集够 max_docs 篇，且当前篇配额已满
-        if len(order) >= max_docs and doc_count[doc_id] >= chunks_per_doc:
-            break
 
     parts = []
     for h in out_blocks:

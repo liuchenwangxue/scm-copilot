@@ -71,6 +71,10 @@ def _numeric_tokens(text: str) -> list[tuple[float, float]]:
 # 日期时间格式（如 '2026-08-18 10:00:00' / '2026-08-18'）——字符串里的数字不溯源，
 # 否则"编造 2026 单"会撞上日期里的 2026，校验形同虚设。
 _DATE_RE = re.compile(r"^\d{4}[-/]\d{1,2}[-/]\d{1,2}")
+# ★ 修复：文本侧的全局日期模式（洞察句内"订单集中在 2026-08-18"中的 2026/18
+#   也是日期数字，不应强制溯源——与结果集侧 _DATE_RE 豁免口径对齐，否则含日期
+#   的合法洞察被误杀）
+_TEXT_DATE_RE = re.compile(r"\d{4}[-/]\d{1,2}[-/]\d{1,2}")
 
 
 def _result_numeric_values(columns: list[str], rows: list[list[Any]]) -> list[float]:
@@ -109,6 +113,8 @@ def verify_insight_digits(text: str, numeric_values: list[float]) -> bool:
     """
     if not (text or "").strip():
         return False
+    # ★ 修复：先剥离日期子串再提取数字（日期里的年/日数字不参与溯源校验）
+    text = _TEXT_DATE_RE.sub(" ", text)
     for val, unit in _numeric_tokens(text):
         target = val * unit
         if unit == 1.0 and abs(val) <= _SMALL_DIGIT:

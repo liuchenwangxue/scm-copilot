@@ -80,8 +80,13 @@ async def run() -> dict:
     rc = get_redis_client()
 
     # ---- 幂等键（第一道保险；数据库 unique 约束是第二道）----
+    # ★ 修复：RedisClient.set_nx 在 Redis 不可用时同样返回 False——原实现把
+    #   "键已存在"与"Redis 挂了"重载成同一语义，Redis 宕机期间日报被静默
+    #   skipped 且误报 already-generated。不可用时直接放行执行，
+    #   由 daily_briefs 表 (brief_date unique) 兜底幂等。
     idem_key = f"brief:{brief_date}"
-    if not rc.set_nx(idem_key, "1", ex=_IDEM_TTL_SECONDS):
+    redis_ok = rc.available
+    if redis_ok and not rc.set_nx(idem_key, "1", ex=_IDEM_TTL_SECONDS):
         return {
             "job": "daily_brief",
             "status": "skipped",
@@ -95,7 +100,8 @@ async def run() -> dict:
     except Exception:
         # 失败删除幂等键（允许次日/手动重试），不残留永久跳过标记
         logger.exception("daily_brief failed for %s, releasing idem key", brief_date)
-        rc.delete(idem_key)
+        if redis_ok:
+            rc.delete(idem_key)
         raise
 
 

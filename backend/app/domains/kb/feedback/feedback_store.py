@@ -45,7 +45,14 @@ class FeedbackStore:
     def submit(self, *, user_id: str, question: str, action: str,
                original_answer: str = "", corrected_answer: str = "",
                correct_doc_ids: list | None = None, qa_id: str = "") -> dict:
-        """提交一条反馈。action: like|dislike|correction。"""
+        """提交一条反馈。action: like|dislike|correction。
+
+        ★ 修复（API 契约对齐）：API 层 KbFeedbackIn.action 枚举为 "correct"，
+        存储层历史上用 "correction"——两套枚举从未对齐导致纠错反馈 API 100% 返回 400。
+        此处统一归一化："correct"（API 契约值）→ 内部存储 "correction"（历史数据兼容）。
+        """
+        if action == "correct":
+            action = "correction"
         if action not in ("like", "dislike", "correction"):
             raise ValueError(f"action 必须为 like/dislike/correction，收到: {action}")
         if action == "correction" and not corrected_answer.strip():
@@ -122,7 +129,9 @@ class FeedbackStore:
         """
         base = json.loads(self.qa_eval_file.read_text(encoding="utf-8"))
         base = [{**q, "source": q.get("source", "base")} for q in base]
-        existing_ids = {q["id"] for q in base}
+        # ★ 修复：按 question 文本去重（原实现拿 question 与 id 集合比较恒 False，
+        #   已回流过的问题会重复进 v2 评测集，破坏基线可比性）
+        existing_ids = {q["question"] for q in base}
 
         approved = [r for r in self.list_all()
                     if r["status"] == "approved" and r["action"] == "correction"]

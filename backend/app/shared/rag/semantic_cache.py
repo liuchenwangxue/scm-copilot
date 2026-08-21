@@ -162,7 +162,16 @@ class SemanticCache:
             #   Redis 条目无 stored_at 字段 → `or now` 折算为 0 永不过期
             if now - (entry.get("stored_at") or now) > _MEM_TTL_SECONDS:
                 continue
-            sim = float(np.dot(qv, np.asarray(entry.get("vec"))))
+            # ★ 维度防护：查询向量与条目向量维度不符（跨 embedder/换模型后残留的
+            #   污染条目）→ 跳过该条。不加此闸时 np.dot 抛 ValueError 会被 lookup
+            #   的 fail-open 吞掉——一条脏数据让整池 Redis 条目全部降级 miss。
+            vec = entry.get("vec")
+            if not isinstance(vec, list) or len(vec) != qv.shape[0]:
+                continue
+            try:
+                sim = float(np.dot(qv, np.asarray(vec, dtype=np.float32)))
+            except (ValueError, TypeError):
+                continue  # 条目内容损坏（非数值）同样只跳过，不炸整池
             if sim > best_sim:
                 best_sim, best_key = sim, key
         if best_key is not None and best_sim >= self.threshold:

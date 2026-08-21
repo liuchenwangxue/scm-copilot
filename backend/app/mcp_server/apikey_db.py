@@ -49,6 +49,9 @@ def _connect():
 # 30s 过期（与 JWT access 15min 相比更紧，权限变更近实时生效）
 _CACHE: dict[str, tuple[float, dict | None]] = {}
 _CACHE_TTL = 30.0
+# 缓存条目上限（含无效 key 条目）：超限先淘汰过期项，仍超限整体清空重建——
+# 防止随机 key 持续写入导致进程内字典无限增长（短 TTL 下重建成本可忽略）
+_CACHE_MAX = 1024
 
 
 def resolve_api_key(key: str) -> dict | None:
@@ -62,6 +65,13 @@ def resolve_api_key(key: str) -> dict | None:
     cached = _CACHE.get(key)
     if cached and now - cached[0] < _CACHE_TTL:
         return cached[1]
+
+    if len(_CACHE) >= _CACHE_MAX:
+        expired = [k for k, (ts, _) in _CACHE.items() if now - ts >= _CACHE_TTL]
+        for k in expired:
+            _CACHE.pop(k, None)
+        if len(_CACHE) >= _CACHE_MAX:
+            _CACHE.clear()
 
     user = _query_user_by_key(key)
     _CACHE[key] = (now, user)
@@ -113,5 +123,6 @@ def check_tool_permission(user: dict | None, tool_name: str) -> tuple[bool, str]
     if user is None:
         return False, "未认证（API Key 无效/已吊销/owner 禁用）"
     if required not in user["permissions"]:
-        return False, f"缺少权限码 '{required}'（调用者: {user.get('username', '?')}）"
+        # 调用者信息由 main.require_permission 统一拼接（原两处各拼一次导致消息重复）
+        return False, f"缺少权限码 '{required}'"
     return True, ""

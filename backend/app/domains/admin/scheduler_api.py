@@ -62,7 +62,13 @@ async def list_scheduler_jobs(
     async with factory() as session:
         rows = list(
             (
-                await session.scalars(select(SchedulerJobRun).order_by(SchedulerJobRun.id.desc()))
+                await session.scalars(
+                    select(SchedulerJobRun)
+                    .order_by(SchedulerJobRun.id.desc())
+                    # ★ 修复：job_runs 表随调度持续追加，全表加载内存/查询成本无界
+                    #   增长——SQL 层加全局上限（6 任务 × 每 job 取 5 条，500 条绰绰有余）
+                    .limit(500)
+                )
             ).all()
         )
     for row in rows:
@@ -135,7 +141,9 @@ async def trigger_scheduler_job(
             actor=current.username,
             target=f"/api/v1/admin/scheduler/jobs/{name}/trigger",
             detail={"job": name},
-            trace_id=getattr(request.state, "request_id", None),
+            # ★ 修复：request_id 在 scope（RequestIdMiddleware 写 scope["request_id"]），
+            #   request.state 上从未写入——原实现 trace_id 恒为 None，排障链路断裂
+            trace_id=request.scope.get("request_id"),
         )
         await session.commit()
 

@@ -82,7 +82,9 @@ def _split_oversize(text: str, section: str, doc_id: str, idx: dict, out: list) 
     buf = ""
     for part in parts:
         while len(part) > MAX_CHUNK_CHARS:
-            m = _SPLIT_RE.search(part, MAX_CHUNK_CHARS // 2)
+            # ★ 修复：句子边界搜索限定 [400, 800] 窗口（原实现无 endpos，400 字符后
+            #   若远距离无句读，cut 可达 ~1500——块超上限近 2 倍，embedding 尾部截断）
+            m = _SPLIT_RE.search(part, MAX_CHUNK_CHARS // 2, MAX_CHUNK_CHARS)
             cut = m.start() + 1 if m else MAX_CHUNK_CHARS
             _emit(part[:cut], section, doc_id, idx, out)
             part = part[cut:].lstrip()
@@ -363,7 +365,10 @@ async def _sync(
         "deleted": len(changes["deleted"]),
         "indexed": indexed,
         "deleted_docs": deleted,
-        "docs_total": len(rows) + len(changes["new"]) - len(changes["deleted"]),
+        # ★ 修复（统计口径）：原 len(rows)+new-deleted 把 deleted 状态的历史行计入
+        #   active 总数，且"删除后回归"的文档（行已在 rows、又进 new）被双计。
+        #   改为按行状态如实统计 active 文档数。
+        "docs_total": sum(1 for r in rows if r.status == "active"),
     }
 
 

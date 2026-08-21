@@ -150,12 +150,17 @@ class EvalRunner:
         def _pct(arr, p):
             return round(arr[min(int(n * p) - 1, n - 1)], 2) if arr else 0.0
 
+        # ★ 修复（统计口径）：total 应按"每条 QA 的检索+生成总耗时"分布取分位——
+        #   原实现对两个独立排序数组按位 zip，第 i 慢检索与第 i 慢生成来自不同
+        #   QA 条目，total_p95 系统性失真
+        t_ms = sorted(r["retrieve_ms"] + r["gen_ms"] for r in per_item)
+
         timing = {
             "retrieve_p50_ms": _pct(r_ms, 0.5),
             "retrieve_p95_ms": _pct(r_ms, 0.95),
             "gen_p50_ms": _pct(g_ms, 0.5),
             "gen_p95_ms": _pct(g_ms, 0.95),
-            "total_p95_ms": round(_pct([a + b for a, b in zip(r_ms, g_ms, strict=False)], 0.95), 2),
+            "total_p95_ms": round(_pct(t_ms, 0.95), 2),
         }
 
         return {

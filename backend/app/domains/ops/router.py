@@ -16,6 +16,7 @@ POST /api/ops/approval 决策 → Command(resume) 恢复继续跑。
 import asyncio
 import json
 import uuid
+from contextlib import aclosing
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -137,26 +138,30 @@ async def chat(
             #   一次图执行只在退出时写 1 次 checkpoint（默认 async 每 super-step 写 1 次），
             #   40 并发压测的 MySQL 写压力显著下降；interrupt（HITL 审批）在挂起时强制写
             #   checkpoint（源码 _suppress_interrupt 已确认），恢复语义不变。
-            async for event in biz_graph.astream(
+            # ★ aclosing：客户端断开时 StreamingResponse 会向本生成器抛 GeneratorExit
+            #   （except Exception 捕不住）——显式关闭 astream 迭代器，避免其滞留
+            #   等 GC（大量断连时 LangGraph 流资源累积）。
+            async with aclosing(biz_graph.astream(
                     {"message": message, "session_id": session_id},
-                    runtime_cfg, stream_mode="updates", durability="exit"):
-                for node, data in event.items():
-                    if node == "__interrupt__":
-                        for inter in data:
-                            val = inter.value
-                            if val.get("approval_request"):
-                                obs_logger.log_event(_log, "approval_requested",
-                                                     request_id=request_id,
-                                                     session_id=session_id,
-                                                     approval_id=val.get("approval_id"))
+                    runtime_cfg, stream_mode="updates", durability="exit")) as stream:
+                async for event in stream:
+                    for node, data in event.items():
+                        if node == "__interrupt__":
+                            for inter in data:
+                                val = inter.value
+                                if val.get("approval_request"):
+                                    obs_logger.log_event(_log, "approval_requested",
+                                                         request_id=request_id,
+                                                         session_id=session_id,
+                                                         approval_id=val.get("approval_id"))
                                 yield _ss({"type": "approval_request",
                                            "approval_id": val.get("approval_id"),
                                            "form": val.get("form"),
                                            "session_id": session_id})
-                        yield _ss({"type": "done"})
-                        return
-                    yield _ss({"type": "progress", "node": node,
-                               "data": {"result": _progress_text(node, data)}})
+                            yield _ss({"type": "done"})
+                            return
+                        yield _ss({"type": "progress", "node": node,
+                                   "data": {"result": _progress_text(node, data)}})
 
             # 非审批路径：从 checkpoint 取回复，打字机发送
             state = await biz_graph.aget_state(runtime_cfg)
@@ -249,7 +254,10 @@ async def approval_action(
     reason = body.reason
     runtime_cfg = {"configurable": {"thread_id": session_id}}
 
-    audit.log("approval_action", user=current.username, role=current.tenant_id,
+    # ★ 修复（审计语义）：User 模型无 role 属性（角色在 JWT claims），原实现把
+    #   tenant_id 塞进 role 字段——按 role 统计审批行为会得出错误结论。改为
+    #   如实记录 tenant_id。
+    audit.log("approval_action", user=current.username, tenant_id=current.tenant_id,
               approval_id=approval_id, decision=decision, reason=reason[:100])
     try:
         # 审批动作由 graph 内 approval_gate 统一处理（approve/reject 落库 + HITL resume），
@@ -298,9 +306,11 @@ async def report_async(
     from_date = body.from_
     to_date = body.to
 
-    audit.log("report_requested", user=current.username,
-              report_type=report_type, from_date=from_date, to_date=to_date, mode="async")
     r = get_queue().enqueue_report(report_type, from_date, to_date)
+    # ★ 审计在 enqueue 后写：mode 记录实际执行模式（原实现在降级路径也记 async）
+    audit.log("report_requested", user=current.username,
+              report_type=report_type, from_date=from_date, to_date=to_date,
+              mode="async" if r["async"] else "sync")
 
     if r["async"]:
         obs_logger.log_event(_log, "report_enqueued", level="info",
@@ -357,4 +367,9 @@ async def report_status(
     if r.get("status") == "failed":
         return ReportStatusOut(ok=False, ready=False, task_id=task_id,
                                status="failed", error=r.get("error", ""))
+    if r.get("status") == "not_found":
+        # 任务不存在（TTL 过期/伪造 id）：ok=False 让前端停止轮询并提示，
+        # 而非误报"请求成功但未就绪"
+        return ReportStatusOut(ok=False, ready=False, task_id=task_id,
+                               status="not_found", error=r.get("reason", ""))
     return ReportStatusOut(ok=True, ready=False, task_id=task_id, status=r.get("status", "unknown"))

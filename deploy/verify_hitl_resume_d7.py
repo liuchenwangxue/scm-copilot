@@ -47,9 +47,13 @@ def main() -> int:
     # ---- 1. 触发高危操作审批 ----
     print("\n=== 1. 触发高危操作（改金额） ===")
     events: list[dict] = []
-    # 目标金额用 9600（PO-0002 前序验证已被改成 9500，若再改 9500 无 diff）
+    # ★ 目标金额动态生成（修复不可重跑缺陷：固定 9600 在上次运行后 == 当前值，
+    #   diff 为空导致"表单含 diff"恒失败）。基于时间戳取 [1000, 99999]，
+    #   两次运行间隔 < 99000s 时值必不相同，diff 恒非空。
+    import time as _time
+    target_amount = 1000 + int(_time.time()) % 99000
     with c.stream("POST", "/api/v1/ops/chat",
-                  json={"message": "把订单 PO-0002 改金额为 9600 元",
+                  json={"message": f"把订单 PO-0002 改金额为 {target_amount} 元",
                         "session_id": session_id}) as r:
         for line in r.iter_lines():
             if line.startswith("data: "):
@@ -114,5 +118,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.path.insert(0, "backend")
+    # 基于脚本位置定位 backend（原相对路径 "backend" 依赖 CWD，换目录运行即 ModuleNotFoundError）
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
     raise SystemExit(main())

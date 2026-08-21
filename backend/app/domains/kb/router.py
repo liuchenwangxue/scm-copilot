@@ -15,6 +15,7 @@ SSE 事件契约与 stage3 一致（progress / message / citations / done / erro
 import asyncio
 import contextlib
 import json
+import re
 import uuid
 from typing import Annotated
 
@@ -46,6 +47,9 @@ _semantic_router = None
 _semantic_cache = None
 
 sanitizer = InputSanitizer()
+
+# ★ 会话标识格式（X-Session-Id 响应头安全）：uuid/字母数字/短横线/下划线，≤64 字符
+_SESSION_ID_RE = re.compile(r"[A-Za-z0-9_-]{1,64}")
 feedback_store = FeedbackStore()
 
 
@@ -174,6 +178,11 @@ async def chat(
     """SSE 流式问答（progress → message → citations → done）。需要权限 kb:chat。"""
     message = body.message.strip()
     session_id = body.session_id or str(uuid.uuid4())
+    # ★ 修复（响应头安全）：session_id 是用户可控输入，直接写入 X-Session-Id 响应头
+    #   存在 CRLF 注入风险（含换行的值会让 h11 抛 LocalProtocolError → 请求 500）。
+    #   格式非法时服务端重新生成（不影响正常调用方——SDK/前端传的都是 uuid）。
+    if not _SESSION_ID_RE.fullmatch(session_id):
+        session_id = str(uuid.uuid4())
     if not message:
         return JSONResponse({"ok": False, "error": "message required"}, status_code=400)
     if len(message) > 2000:
@@ -320,8 +329,11 @@ async def chat(
                     return
 
             # ② 混合检索（BM25 + 向量 + RRF + 重排）
+            # ★ 修复（事件循环阻塞）：retrieve 含 embedding 推理 + Qdrant HTTP（同步，
+            #   可达数百毫秒），直接在 async 生成器里调用会挂起整个事件循环——
+            #   下沉线程池（retrieve 内部只读共享状态，线程安全）
             retriever = get_retriever()
-            hits = retriever.retrieve(message, top_k=5)
+            hits = await asyncio.to_thread(retriever.retrieve, message, top_k=5)
             docs = list(dict.fromkeys(h["doc_id"] for h in hits))
             yield _ss({"type": "progress", "node": "retrieve",
                        "data": {"result": f"混合检索命中 {len(hits)} 个候选（涉及 {len(docs)} 篇文档）"}})
