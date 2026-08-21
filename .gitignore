@@ -25,6 +25,9 @@ venv/
 # 运行时产物
 reports/*.log
 reports/*.jsonl
+# ★ model_pool 每次初始化 real provider 都重写（"当前用哪个模型"的进程间状态，
+#   跑一次测试/评测就变——非证据文件，只本地保留；评测证据 JSON 仍入库）
+reports/llm_model_state.json
 data/*.db
 data/*.log
 *.sqlite3

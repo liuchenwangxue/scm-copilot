@@ -27,7 +27,7 @@ COMPOSE := docker compose -f deploy/docker-compose.yml
 # alembic.ini 在 backend/ 下，须在此目录运行（env.py 经 pythonpath 兜底）
 BACKEND := backend
 
-.PHONY: up up-mysql down build migrate seed init-biz-db migrate-biz seed-biz reseed-biz check-biz test test-auth test-sql-validator test-executor test-nl2sql-e2e test-repair test-session-ctx test-scheduler test-kb-sync test-day3-tasks test-openapi test-apikeys test-hooks test-sdk-unit test-sdk-integration kb-sync-smoke gen-eval eval-nl2sql eval-repair eval-multiturn gen-multiturn eval-day6 test-integration tls monitor check lint-fix format loadtest drill smoke frontend test-frontend help
+.PHONY: up up-mysql down build migrate seed init-biz-db migrate-biz seed-biz reseed-biz check-biz test test-auth test-sql-validator test-executor test-nl2sql-e2e test-repair test-session-ctx test-scheduler test-kb-sync test-day3-tasks test-openapi test-apikeys test-hooks test-sdk-unit test-sdk-integration kb-sync-smoke gen-eval eval-nl2sql eval-repair eval-multiturn gen-multiturn eval-day6 test-integration tls monitor check lint-fix format loadtest drill smoke frontend test-frontend verify-semcache verify-route verify-session verify-durability verify-merge-count verify-eval verify-hitl help
 
 ## 默认：显示帮助
 help:
@@ -66,6 +66,9 @@ help:
 	@echo "  make loadtest  40 并发 × 200 压测（nginx :18000）"
 	@echo "  make drill     压测中段杀 backend-a1 演练（5xx=0）"
 	@echo "  make smoke     W26 Day4 六域 14 项端到端冒烟（需全栈已起 + seed）"
+	@echo "  make verify-*  deploy 验收脚本统一入口（容器口径自动 cp+exec，详见 scripts/README.md）"
+	@echo "                  verify-semcache / verify-route / verify-session /"
+	@echo "                  verify-durability / verify-merge-count / verify-eval / verify-hitl"
 
 ## 只起 MySQL+Redis（本地迁移/seed/单测用）
 up-mysql:
@@ -286,3 +289,42 @@ frontend:
 ## ★ W28 Day2：前端自测（build + 数据函数 + SSE 事件循环 mock，无需后端在线）
 test-frontend:
 	$(PY) -X utf8 frontend/_selftest.py
+
+# ==================== deploy/verify 统一入口（容器口径自动 cp + exec） ====================
+# 背景：verify_*_container / durability 系脚本依赖容器内 site-packages 的 app 模块
+# 与 model-cache 卷（真实 bge），宿主机直跑必报 ModuleNotFoundError——之前每次手动
+# docker cp + docker exec，现封装为 make 目标。脚本清单与运行口径见 scripts/README.md。
+
+## 容器内验证统一封装（参数：脚本文件名）
+define run-in-container
+	docker cp deploy/$(1) scm-backend-a1:/tmp/$(1)
+	docker exec scm-backend-a1 sh -c "cd /app && python -X utf8 /tmp/$(1)"
+endef
+
+## ★ W28-D1 C1：语义缓存命中（真实 bge 512 维 + Redis 共享）
+verify-semcache:
+	$(call run-in-container,verify_semcache_container.py)
+
+## ★ W28-D1 C1：语义路由分类（真实 bge；chat/tool 走规则，rag 走向量）
+verify-route:
+	$(call run-in-container,verify_route_container.py)
+
+## ★ W27 D2 A3/A4：双实例会话 Redis 化（a1 写 a2 读，跨实例指代消解）
+verify-session:
+	$(call run-in-container,verify_session_redis.py)
+
+## ★ W27 D7：durability=exit 行为验证（低危直通 reply 读取 + 高危 interrupt/resume）
+verify-durability:
+	$(call run-in-container,verify_durability_exit.py)
+
+## ★ W27 D7：durability=exit 合并写量化（checkpoint 写入行数 async vs exit）
+verify-merge-count:
+	$(call run-in-container,verify_merge_write_count.py)
+
+## ★ W28-D1 C1：容器内 RAG 156 条评测（真实 bge embedding + reranker，约 20 分钟）
+verify-eval:
+	$(call run-in-container,verify_eval_container.py)
+
+## ★ W28 D7：HITL resume 幂等（宿主机走 nginx HTTPS；需 SCM_API_KEY=<admin key>）
+verify-hitl:
+	$(PY) -X utf8 deploy/verify_hitl_resume_d7.py
