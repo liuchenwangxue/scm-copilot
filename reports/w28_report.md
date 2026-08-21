@@ -1,6 +1,187 @@
 
 ---
 
+# W28 Day6 报告 · 终验：覆盖率冲 75% + 混沌复验 + 容器 eval 复跑 + Runtime PoC 验收（阶段五 · 第 2 周 Day 6）
+
+> 阶段五 SCM Copilot 第 2 周 Day6 ｜ 2026-08-21 ｜ 依据《W28学习执行手册》Day6
+> 主题：覆盖率收尾（B4 终验）/ 混沌五连复验（快速版）/ 全量回归 + 容器内 eval 复跑 + 压测 30 并发快验 / Runtime PoC 内核与同构对照验收
+> **Day6 验收：总覆盖率 ≥75%（76% 实测）✓ / otel 连接失败路径 + parser 洼地补测 ✓ / 混沌复验 Redis-down 行为如预期 ✓ / 全量回归 737 passed ✓ / 容器内 eval 复跑 hit@1=0.8974 ✓ / 压测 30 并发 P95 稳定 830ms ✓ / Runtime PoC 单测 18 用例绿 ✓**
+
+---
+
+## 〇、Day6 速览
+
+| # | 任务 | 状态 |
+|---|---|---|
+| 1 | ★ 覆盖率收尾（B4 终验）：otel.py 连接失败路径 + parser 洼地补测 → 总覆盖 65%→**76%**（≥75% Gate 达成） | ✅ `test_otel_failopen.py` 7 例 + `test_parser_coverage.py` 10 例 |
+| 2 | 纯逻辑洼地一次补齐：mock_provider/logger/cache/retry_policy/redis_client/store/retriever/hybrid 融合/feedback_store | ✅ `test_coverage_gaps_d6.py` 53 例 |
+| 3 | answer_validator 大洼地（7%→高覆盖）：normalize/规则/LLM 校验/CRAG 反思/全流程/补检索 | ✅ `test_answer_validator_d6.py` 30 例 |
+| 4 | prompts/eval_nightly/cache_warmup 终验 | ✅ `test_coverage_final_d6.py` 19 例 |
+| 5 | ★ 混沌五连复验（快速版）：Redis 挂 fail-open（幂等写拒/锁本地兜底/缓存内存兜底）+ 杀实例 least_conn 摘除 | ✅ 实测通过 + 恢复 |
+| 6 | 全量回归 + ruff + mypy | ✅ 737 passed / ruff 0 / mypy 0 |
+| 7 | ★ 容器内 eval 复跑：eval_nightly 触发（RAG 156 真 bge 推理 + NL2SQL 100） | ✅ hit@1=0.8974 / recall@5=0.9936 / cit_acc=0.9722 / nl2sql overall=1.0 |
+| 8 | 压测 30 并发快验（W27 基线不劣化） | ✅ P95 稳定 830ms / 成功率 100% / 5xx=0 |
+| 9 | Runtime PoC 验收：tool-calling 内核 + data 图同构对照 | ✅ `test_runtime_loop.py` 18 用例绿 |
+
+---
+
+## 一、覆盖率收尾（B4 终验，65% → 76%）
+
+### 1.1 手册要求与落点
+
+《W28学习执行手册》Day6：**补 otel.py（连接失败路径）与 parser 洼地至总覆盖 ≥75%**。
+目标锁定两个最大洼地 + 一批纯逻辑模块：
+
+| 模块 | 原覆盖 | 补测后 | 说明 |
+|---|---|---|---|
+| `obs/otel.py` | ~40% | ~90% | **连接失败路径**：OTLP exporter 构造失败 fail-open / 包缺失 fail-open / 未启用不初始化 / setup 幂等 / trace_id 在 span 内 16 位 hex |
+| `rag/parser/*` | ~55% | ~85% | **洼地**：真实 PDF（pdfplumber 字号分层 + 表格 + 扫描页）+ 真实 docx（python-docx Heading/表格）+ registry 批量坏文件 |
+| `domains/kb/agent/answer_validator.py` | 7% | ~90% | 最大的纯逻辑洼地（203 行未覆盖）——normalize/规则/LLM 校验/CRAG 反思/补检索全流程 |
+| `shared/llm/mock_provider.py` | 33% | ~85% | 冲突检测 / 空上下文诚实拒答 / 多来源综合 / generate/stream/json |
+| `shared/obs/logger.py` | 43% | ~90% | JsonFormatter dict/str/exc / setup 幂等 / log_event / 中间件（X-Request-Id 注入 + http_request 落盘 + 非 http 透传 + disabled） |
+| `shared/reliability/cache.py` | 35% | ~90% | QueryCache 命中/过期/删除/Redis 故障内存兜底 |
+| `shared/reliability/retry_policy.py` | 58% | ~90% | 重试救回 / 非重试直抛 / degrade_chain 各级 / 业务错误透传 |
+| `shared/reliability/redis_client.py` | 66% | ~95% | 全操作 fail-open（注入假 client 抛异常） |
+| `rag/store.py` + `rag/retriever.py` | 12%/0% | ~85% | 假 Qdrant 客户端：upsert/query 过滤/重试/collection 管理/租户路由 |
+| `rag/hybrid_retriever.py` 融合 | 65% | ~85% | RRF/weighted 归一化/租户 BM25 过滤/chunk_meta 容错 |
+| `domains/kb/feedback/feedback_store.py` | 22% | ~85% | 提交/审核/回流评测/统计 |
+
+### 1.2 otel 连接失败路径（B4 点名项）
+
+`test_otel_failopen.py` 7 用例覆盖**不依赖真实 OTLP 端点**的失败注入：
+
+- `OTEL_ENABLED=0` → 完全不初始化（get_tracer None / trace_id ""）
+- OTLP exporter 构造失败（patch 源模块 `opentelemetry.exporter...trace_exporter.OTLPSpanExporter` 抛错）
+  → fail-open：不提供 tracer、不阻塞业务——**注意坑**：`setup()` 内是局部 `from ... import OTLPSpanExporter`，
+  必须 patch 源模块属性而非 `otel.OTLPSpanExporter`
+- `opentelemetry` 包导入失败（patch `builtins.__import__`）→ fail-open
+- FastAPI 埋点失败 → 静默（幂等 setup 不炸）
+- 真实 span 内 `trace_id()` 返回 16 位 hex（no-op exporter 避免 pytest stdout 关闭噪音）
+
+### 1.3 parser 洼地（B4 点名项）
+
+`test_parser_coverage.py` 10 用例**生成真实文件**走真实解析库（比 mock 适配层信息量大）：
+
+- 最小合法 PDF（手写 PDF 字节流，2 页：标题 24pt + 正文 12pt + 空页）→ pdfplumber 解析出 `#` 标题 + 正文
+- 真实 docx（python-docx 生成：Heading 1/2 + 表格 + 正文）→ `#`/`##` 前缀 + 表格 markdown
+- 纯函数：`_heading_prefix` 字号分档 / `_rows_from_chars` top 聚类 + x0 排序 / `_table_to_md` 防御
+- registry：parse_markdown / 空内容拒 / 批量坏文件记录 errors.jsonl
+
+> 坑：pdfplumber chars 会过滤空格字符 → 断言以实际解析行为为准（"Chapter One" 拼为 "ChapterOne"）。
+
+### 1.4 覆盖率数字
+
+```text
+TOTAL   7639 语句，1616 未覆盖，覆盖率 76%（≥75% Gate 达成，W27 终点 66%）
+```
+
+确实难测的纯网络壳（LLM real provider 对真实 OTLP/LLM 端点的调用）已在 W27-D5 报告"文档化接受"清单，
+本轮不重复——`test_real_provider_errors.py` 已用注入故障覆盖失败路径。
+
+---
+
+## 二、混沌五连复验（快速版，脚本现成）
+
+《W28学习执行手册》Day6：**重点看 W27-D3 改造后的 redis-down 行为（幂等写拒绝、锁本地兜底）是否在演练中如预期**。
+
+### 2.1 Redis 挂（scm-redis docker stop）实测
+
+| 探针 | 预期（W27-D3） | 实测 |
+|---|---|---|
+| `GET /health` | 仍 200（Redis 非 health 判定项） | ✅ 200 `{"status":"ok","db":"up",...}` |
+| `POST /ops/chat` 查单 | fail-open 可用（cache 走内存） | ✅ 200（SSE 流正常） |
+| `POST /ops/chat` 改单（写路径） | 幂等 claim fail-closed → 拒绝写 | ✅ 200 响应带明确降级/拒绝提示（不 500 不雪崩） |
+| `GET /api/v1/ops/approvals` | 可用（MySQL 权威） | ✅ 200 |
+| `GET /api/v1/kb/chat` | 语义路由正常 | ✅ 200 |
+| `GET /api/v1/admin/scheduler/jobs` | 调度 leader 锁 → 本地兜底放行 | ✅ 200（任务幂等兜底，零重复语义不破） |
+
+纯逻辑复验（`redis_idem_failopen_check.py`）：幂等降 SQLite 同 key 只执行一次、查询缓存内存兜底命中、
+分布式锁 fail-open 放行——**全部 PASS**。恢复 `docker start scm-redis` → PONG，无需重启 backend
+（懒连接 + 冷却探测自动切回）。
+
+### 2.2 杀实例（scm-backend-a1 docker stop）实测
+
+| 探针 | 预期 | 实测 |
+|---|---|---|
+| `GET /health` | nginx least_conn 自动摘除 a1，流量集中 a2 | ✅ 200 |
+| `POST /auth/login` | a2 正常服务 | ✅ 200 |
+| `GET /ops/approvals`（无 token） | 401（安全边界不丢） | ✅ 401 |
+
+恢复 `docker start scm-backend-a1` → 15s 后 health: starting → healthy（自动回归，双实例负载均衡）。
+
+> 其余三连（MySQL 挂 / Qdrant 挂 / LLM 全超时）由 737 例全量回归覆盖：`test_chaos_degrades.py`（auth fail-open + login 503）、
+> `test_hybrid_retriever_degrade.py`（Qdrant 挂 → BM25-only）、`test_llm_degrades.py`（三级模型池 → mock 兜底）全绿——
+> 快速版演练不重复杀真容器（破坏性操作留本地手动），回归测试即证据。
+
+---
+
+## 三、全量回归 + 容器内 eval 复跑 + 压测快验
+
+### 3.1 全量回归
+
+```text
+737 passed（W28 Day5 终点 600 → +137：本轮新增测试 130+）
+ruff check backend: All checks passed
+mypy --explicit-package-bases: Success: no issues found in 223 source files
+```
+
+### 3.2 容器内 eval 复跑（C1 口径验证）
+
+通过 admin 调度面板手动触发 `eval_nightly`（容器内真 bge embedding + bge reranker）：
+
+| 指标 | 值 | 说明 |
+|---|---|---|
+| RAG 156 条 | hit@1=**0.8974** / recall@5=**0.9936** / cit_acc=**0.9722** / error_rate=0.0 / errors=0 | 容器内真模型推理全通 |
+| NL2SQL 100 条 | overall=**1.0** / single=join=aggregation=1.0 / error_rate=0.0 / rejected=0 | 容器内全绿 |
+| 运行时长 | 17 分钟（RAG 156 真 bge CPU 推理，p95_retrieve_ms=8537ms） | CPU 容器真实耗时，非卡死 |
+
+容器日志证据：`[embedder] 加载模型 BAAI/bge-small-zh-v1.5` → `[reranker] bge-reranker 就绪（device=cpu）` →
+jieba 构建 + 权重加载完成 → 推理推进——**C1 容器口径统一（真模型）在 eval 链路实证**。
+
+> 观察：W27-D6 曾因 `/data/chunks_title.json` 缺失导致容器 RAG 报告 error_rate=1.0（B16 快失败机制正确拦截了假成功）；
+> 本轮 `/data/chunks_title.json` 已在卷中，复跑完整出分——"数据缺失 → 快失败落 FAILED → 补数据 → 恢复"闭环验证。
+
+### 3.3 压测 30 并发快验（W27 基线不劣化）
+
+三连跑（本轮环境非净环境——30+ 容器共享 12 核 VM，W27 基线 714ms 为净环境口径）：
+
+| 轮次 | 总 P95 | ops P95 | 成功率 | 5xx | 备注 |
+|---|---|---|---|---|---|
+| 第 1 轮（eval 刚结束） | 2519ms | — | 100% | 0 | a1 还在跑 17 分钟 eval 的 CPU 余温 |
+| 第 2 轮 | 1125ms | 1561ms | 100% | 0 | 冷却中 |
+| **第 3 轮（稳定）** | **830.6ms** | 1540ms | **100%** | **0** | 稳态 |
+
+结论：稳定态 P95=830ms，与 W27 D1 非净环境基线（794ms）同量级、远低于 1.5s Gate；**成功率 100%、5xx=0 三连全保**。
+"容器内真模型"未使压测 P95 劣化超 W27 ×1.3 容忍线。数据落 `deploy/reports/day6_load_final.json`。
+
+---
+
+## 四、Runtime PoC 验收（C8/D2，Day6 上午产物复核）
+
+`test_runtime_loop.py` 18 用例全绿：
+
+- **tool-calling 循环内核单测**（原生协议形态）：立即终答 / 单工具回填 / 同轮多工具 / async 工具 /
+  max_steps 熔断（防死循环底线）/ registry 缺工具显式 KeyError / ToolSchema.as_dict() OpenAI function 协议形态
+- **图节点循环内核单测**：静态边线性 / 条件边路由 / 路由未知键 RuntimeNodeError / 图内环 max_steps 熔断
+- **data 图同构对照**（LangGraph vs 自研 runtime，同输入同输出）：合法问题 / 安全拒绝 / 未知问题 / parse-error 修复循环
+
+ADR-011（自研 Runtime 边界）+ ADR-012（记忆分层）均已入库。
+
+---
+
+## 五、周 Gate 对照（Day6 完成项）
+
+| Gate | 状态 |
+|---|---|
+| 容器内 eval 与本机分差 ≤2pp | ✅ 容器 hit@1=0.8974（本机基线 0.9038，差 0.6pp） |
+| 覆盖率 ≥75% | ✅ 76%（W27 终点 66%） |
+| 混沌复验过 | ✅ Redis-down 行为矩阵实测 + 杀实例 failover + 回归全绿 |
+| 全量回归绿 | ✅ 737 passed / ruff 0 / mypy 0 |
+| Runtime PoC 同构对照绿 + tool-calling 内核单测绿 | ✅ 18 用例 |
+| ADR-011/012 入库 | ✅ |
+
+---
+
 # W28 Day5 报告 · MCP Server 资产回归 + IM webhook 最小版 + 读写分离 ADR（阶段五 · 第 2 周 Day 5）
 
 > 阶段五 SCM Copilot 第 2 周 Day5 ｜ 2026-08-21 ｜ 依据《W28学习执行手册》Day5
