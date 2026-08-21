@@ -117,10 +117,23 @@ class ApprovalService:
     def create(self, tool_name: str, operation: str, order_id: str,
                before: dict, after: dict, reason: str, session_id: str = "default",
                idem_key: str | None = None) -> ApprovalRequest:
-        """发起审批（幂等键在此刻生成——手册坑：审批发起时，不是执行时）。"""
+        """发起审批（幂等键在此刻生成——手册坑：审批发起时，不是执行时）。
+
+        ★ W28-D7 修复（Day2 观察项）：LangGraph resume 时 approval_gate 节点整体重跑，
+        create() 会被再次执行——若每次都生成新 uuid 审批单，前端展示的旧 approval_id
+        永远 pending（实测同会话出现成对 pending+approved 单，pending 列表堆积）。
+        修复：按幂等键复用已有 **pending** 单（同 session+tool+order 即视为同一请求），
+        复用时不重复 audit/webhook（通知尽力而为，避免重复推送）；已决议（approved/
+        rejected）的单不复用——新请求应新建。
+        """
         from app.shared.reliability.idempotency import IdempotencyStore
         if idem_key is None:
             idem_key = IdempotencyStore.build_key(session_id, tool_name, order_id)
+
+        # ★ 复用既有 pending 单（幂等键确定性 → 同请求永远同单）
+        existing = self._find_pending_by_idem_key(idem_key)
+        if existing is not None:
+            return existing
 
         req = ApprovalRequest(
             approval_id=str(uuid.uuid4()),
@@ -200,6 +213,21 @@ class ApprovalService:
         return req
 
     # ---- 查询（断点恢复核心） ----
+
+    def _find_pending_by_idem_key(self, idem_key: str) -> ApprovalRequest | None:
+        """按幂等键找**未决议**的审批单（★ W28-D7：create 复用去重的依据）。
+
+        同 (session_id, tool_name, order_id) 幂等键确定性 → 已挂起的单直接复用，
+        避免 LangGraph resume 重跑 create() 生成重复单。仅匹配 pending（已决议的单
+        不复用，新请求必须新建）。
+        """
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT * FROM approvals WHERE idem_key=%s AND status=%s LIMIT 1",
+                (idem_key, STATUS_PENDING),
+            )
+            row = cur.fetchone()
+        return self._row_to_req(row) if row else None
 
     def get(self, approval_id: str) -> ApprovalRequest | None:
         with self._connect() as conn, conn.cursor() as cur:

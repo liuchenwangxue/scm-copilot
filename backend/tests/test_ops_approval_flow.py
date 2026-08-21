@@ -100,16 +100,32 @@ def test_hitl_resume_from_mysql(svc):
 
 
 def test_idem_key_deterministic_single_request(svc):
-    """幂等键确定性：同 (session, tool, order) → 相同 idem_key；重复 create 不建重复单。"""
+    """幂等键确定性：同 (session, tool, order) → 相同 idem_key；重复 create 复用同一单。
+
+    ★ W28-D7 升级语义：LangGraph resume 重跑 approval_gate 会再次调用 create()——
+    修复后同幂等键的 pending 单直接复用（approval_id 一致），不再生成重复单。
+    """
     r1 = _create(svc)
     r2 = _create(svc)
     assert r1.idem_key == r2.idem_key
-    # 同幂等键：ApprovalService.create 不做唯一约束校验，但幂等键相同 → 业务层可去重
-    # （W23 报告：幂等键在审批发起时生成，执行时用同一键防重复执行）
-    assert svc.list_all()  # 结构可用
-    # 清理 r2（同一幂等键的重复单，避免影响状态机测试计数）
-    try:
-        with svc._connect() as conn, conn.cursor() as cur:
-            cur.execute("DELETE FROM approvals WHERE approval_no=%s", (r2.approval_id,))
-    except Exception:  # pragma: no cover
-        pass
+    # ★ W28-D7：重复 create 复用既有 pending 单（同 approval_id，不新增行）
+    assert r1.approval_id == r2.approval_id
+    # 单在库中仅一条
+    with svc._connect() as conn, conn.cursor() as cur:
+        cur.execute("SELECT COUNT(*) AS c FROM approvals WHERE idem_key=%s", (r1.idem_key,))
+        assert cur.fetchone()["c"] == 1
+
+
+def test_create_reuses_only_pending_not_resolved(svc):
+    """★ W28-D7 复用边界：pending 复用；已 approve 后再次 create → 新建（不复用已决议单）。"""
+    # 第一次发起 → pending
+    r1 = _create(svc)
+    assert r1.status == STATUS_PENDING
+    # 决议前重复 create → 复用同单
+    r1b = _create(svc)
+    assert r1b.approval_id == r1.approval_id
+    # 批准后再次 create（模拟新请求）→ 新建单（幂等键相同但已决议不复用）
+    svc.approve(r1.approval_id)
+    r2 = _create(svc)
+    assert r2.approval_id != r1.approval_id
+    assert r2.status == STATUS_PENDING
