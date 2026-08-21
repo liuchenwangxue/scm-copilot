@@ -229,7 +229,14 @@ async def test_run_graph_max_steps_raises():
         await run_graph("a", {"a": loop_node}, {"a": "a"}, {}, {}, max_steps=5)
 
 
-# ================= data 图同构对照（integration：MySQL + mock） =================
+# ================= data 图同构对照（确定性 execute，无需真实 DB） =================
+#
+# ★ W28-D6 CI 修复：同构对照不应依赖真实 DB 的冷启动时序——LangGraph 先跑时
+#   execute 首连可能 3s 超时 → 触发 repair#2；自研后跑时连接已热 → 1 次成功，
+#   导致 repair_attempts 不一致（CI flaky，本机不复现）。
+#   修复：把 execute_sql patch 成**可编程确定性 fake**（成功/首次失败脚本），
+#   两引擎在完全相同的 execute 行为下对比——真正验证"图引擎调度/状态合并同构"，
+#   SQL 执行本身由 test_executor/test_nl2sql_e2e 覆盖。
 
 from app.domains.data.executor import dispose_engine  # noqa: E402
 from app.domains.data.graph import data_graph  # noqa: E402
@@ -237,27 +244,60 @@ from app.domains.data.prompts import DATA_BASE_DATE  # noqa: E402
 from app.domains.data.runtime_graph import run_data_runtime  # noqa: E402
 
 
+class _ScriptedExecute:
+    """确定性 execute fake：按脚本返回成功或首次失败（模拟冷启动）。
+
+    关键：每次 `reset()` 后两引擎各自经历**相同**的调用序列——
+    若先跑 LangGraph 吃了"首次失败"，后跑自研 reset 后同样吃一次，
+    repair 路径在两引擎上确定性对齐（消除真实 DB 时序差异）。
+    """
+
+    def __init__(self):
+        self.calls: list[str] = []
+        self.fail_first = False  # 首次调用抛 ExecutionError（模拟冷连接超时）
+
+    def reset(self, fail_first: bool = False) -> None:
+        self.calls.clear()
+        self.fail_first = fail_first
+
+    async def __call__(self, sql: str, audit=None, **kw) -> dict:
+        self.calls.append(sql)
+        if self.fail_first and len(self.calls) == 1:
+            from app.domains.data.executor import ExecutionError
+
+            raise ExecutionError("query timeout after 3.0s")
+        return {
+            "sql": sql,
+            "columns": ["cnt"],
+            "rows": [[200]],
+            "truncated": False,
+            "elapsed_ms": 1.0,
+            "error": None,
+        }
+
+
+async def _run_both(state: dict, fake: _ScriptedExecute) -> tuple[dict, dict]:
+    """同一 state 在两引擎各跑一遍，**各自 reset** 保证确定性对齐。"""
+    from typing import Any
+
+    st: dict[str, Any] = dict(state)  # DataState 兼容输入（TypedDict total=False）
+    fake.reset()
+    lg = await data_graph.ainvoke(st)  # type: ignore[call-overload]  # 测试态宽松输入
+    fake.reset()
+    rt = await run_data_runtime(dict(st))
+    return lg, rt
+
+
 @pytest.mark.asyncio
-async def test_data_graph_isomorphic_legal_question():
+async def test_data_graph_isomorphic_legal_question(monkeypatch):
     """同构对照：合法问题——两引擎同输入同输出（核心验收）。"""
-    import numpy as np
-
-    # 避免 schema_linker 加载真实模型（同 test_nl2sql_e2e 纪律）
-    from app.domains.data import schema_linker
-
-    class _Fake:
-        def embed_texts(self, texts):
-            return np.zeros((len(texts), 8), dtype=np.float32)
-
-        def embed_query(self, query):
-            return np.zeros(8, dtype=np.float32)
-
-    schema_linker.linker._embedder = _Fake()
-    schema_linker.linker._vectors = None
+    fake = _ScriptedExecute()
+    # execute_node 内调用的是 graph 模块级绑定的 execute_sql（from ... import）——
+    # patch graph.execute_sql 即对两引擎都生效（runtime_graph 复用同一节点函数）
+    monkeypatch.setattr("app.domains.data.graph.execute_sql", fake)
 
     state = {"question": "华东区域有多少订单？", "today": DATA_BASE_DATE.isoformat()}
-    lg = await data_graph.ainvoke(dict(state))
-    rt = await run_data_runtime(dict(state))
+    lg, rt = await _run_both(state, fake)
 
     # 两引擎关键字段一致（sql/result/reply/repair_attempts）
     assert lg["sql"] == rt["sql"]
@@ -269,43 +309,72 @@ async def test_data_graph_isomorphic_legal_question():
 
 
 @pytest.mark.asyncio
-async def test_data_graph_isomorphic_reject_path():
+async def test_data_graph_isomorphic_reject_path(monkeypatch):
     """同构对照：安全类拒绝路径（写 SQL 直送 → 两引擎都拒答）。"""
+    fake = _ScriptedExecute()
+    monkeypatch.setattr("app.domains.data.graph.execute_sql", fake)
+
     state = {
         "question": "删掉所有订单",
         "today": "2026-08-18",
         "initial_sql": "DELETE FROM orders WHERE 1=1",
     }
-    lg = await data_graph.ainvoke(dict(state))
-    rt = await run_data_runtime(dict(state))
+    lg, rt = await _run_both(state, fake)
     assert lg["rejected_reason"] == rt.get("rejected_reason")
     assert "无法执行" in lg["reply"] and lg["reply"] == rt.get("reply", "")
 
 
 @pytest.mark.asyncio
-async def test_data_graph_isomorphic_unknown_question():
+async def test_data_graph_isomorphic_unknown_question(monkeypatch):
     """同构对照：评测集外问题（mock 默认安全 SQL → 两引擎一致）。"""
+    fake = _ScriptedExecute()
+    monkeypatch.setattr("app.domains.data.graph.execute_sql", fake)
+
     state = {"question": "随便问一个奇怪的问题？", "today": DATA_BASE_DATE.isoformat()}
-    lg = await data_graph.ainvoke(dict(state))
-    rt = await run_data_runtime(dict(state))
+    lg, rt = await _run_both(state, fake)
     assert lg["sql"] == rt["sql"]
     assert lg["result"]["columns"] == rt["result"]["columns"]
     assert lg["reply"] == rt["reply"]
 
 
 @pytest.mark.asyncio
-async def test_data_graph_isomorphic_repair_path():
+async def test_data_graph_isomorphic_repair_path(monkeypatch):
     """同构对照：可修复闸拒路径（parse-error 语法坏 SQL → 修复循环）。"""
+    fake = _ScriptedExecute()
+    monkeypatch.setattr("app.domains.data.graph.execute_sql", fake)
+
     state = {
         "question": "华东区域有多少订单？",
         "today": DATA_BASE_DATE.isoformat(),
         "initial_sql": "SELECT * FORM orders",
     }  # FORM 拼错 → parse-error
-    lg = await data_graph.ainvoke(dict(state))
-    rt = await run_data_runtime(dict(state))
+    lg, rt = await _run_both(state, fake)
     # 修复循环在两引擎都触发（repair_attempts 相同 / repair_log 对齐）
     assert lg["repair_attempts"] == rt.get("repair_attempts", 0)
     assert lg["repair_log"] == rt.get("repair_log", [])
+
+
+@pytest.mark.asyncio
+async def test_data_graph_isomorphic_execute_fail_path(monkeypatch):
+    """同构对照：execute 首次失败（冷连接超时）→ repair → 再次 execute 成功。
+
+    ★ CI flaky 根因场景：LangGraph 先跑吃冷启动失败，自研后跑连接已热——
+    本测试用 fail_first fake 让**两引擎各自**经历首次失败，确定性对齐。
+    """
+    fake = _ScriptedExecute()
+    monkeypatch.setattr("app.domains.data.graph.execute_sql", fake)
+
+    state = {"question": "华东区域有多少订单？", "today": DATA_BASE_DATE.isoformat()}
+    fake.reset(fail_first=True)
+    lg = await data_graph.ainvoke(dict(state))
+    fake.reset(fail_first=True)
+    rt = await run_data_runtime(dict(state))
+
+    # 两引擎都走了"execute 失败 → repair → 成功"，次数与日志对齐
+    assert lg["repair_attempts"] == rt.get("repair_attempts", 0) == 1
+    assert lg["repair_log"] == rt.get("repair_log", [])
+    assert lg["error"] is None and rt.get("error") is None  # 最终成功
+    assert lg["reply"] == rt["reply"]
 
 
 @pytest.mark.asyncio
